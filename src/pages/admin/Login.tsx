@@ -53,7 +53,7 @@ export function Login() {
           </span>
           <h1 className="mt-4 text-3xl font-black text-ink-900">Acesso administrativo</h1>
           <p className="mt-2 text-sm leading-6 text-ink-500">
-            Entre com Supabase Auth. Sem `.env`, use o modo local de demonstração.
+            Entre para gerenciar empresas, vagas, candidatos e permissões.
           </p>
         </div>
 
@@ -68,7 +68,7 @@ export function Login() {
         </form>
 
         <div className="mt-5 rounded-lg bg-surface-50 p-3 text-xs leading-5 text-ink-500">
-          <strong className="text-ink-900">Contas demo:</strong> admin@reddepeople.com.br, empresa@cliente.com.br,
+          <strong className="text-ink-900">Contas de demonstração:</strong> admin@reddepeople.com.br, empresa@cliente.com.br,
           recrutador@cliente.com.br. A senha pode ser qualquer texto no modo local.
         </div>
       </Card>

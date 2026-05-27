@@ -372,7 +372,7 @@ export function ReddeUsers() {
             <Input
               label="Senha"
               type="password"
-              placeholder="Opcional; a Edge Function pode gerar"
+              placeholder="Opcional; pode ser definida depois"
               value={createForm.password}
               onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
             />

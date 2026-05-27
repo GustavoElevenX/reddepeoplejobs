@@ -19,7 +19,7 @@ export function CandidateTable({ applications, showCompany = false, onStatusChan
   async function handleDownload(application: Application) {
     const url = await createResumeSignedUrl(application.resume_file_path);
     if (url === '#') {
-      window.alert('Em modo local, o download real depende do bucket privado resumes no Supabase.');
+      window.alert('O download real de currículos fica disponível no ambiente publicado.');
       return;
     }
     window.open(url, '_blank', 'noopener,noreferrer');
