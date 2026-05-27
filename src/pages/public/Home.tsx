@@ -1,7 +1,7 @@
 import { ArrowRight, Mail } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CompanyLogoGrid } from '../../components/public/CompanyLogoGrid';
+import { CompanyHiringGrid } from '../../components/public/CompanyHiringGrid';
 import { EmptyState } from '../../components/public/EmptyState';
 import { HeroSearch } from '../../components/public/HeroSearch';
 import { JobCard } from '../../components/public/JobCard';
@@ -35,15 +35,15 @@ export function Home() {
 
   return (
     <>
-      <HeroSearch />
+      <HeroSearch companies={companies} openJobsCount={jobs.length} loading={loading} />
 
       <section className="bg-surface-50 py-12">
         <div className="container-page">
           <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <h2 className="text-3xl font-black text-ink-900">Empresas parceiras estão contratando agora</h2>
+              <h2 className="text-3xl font-black text-ink-900">Empresas contratando agora</h2>
               <p className="mt-2 max-w-2xl text-ink-500">
-                Conheça empresas que estruturam seus processos seletivos com a Redde People.
+                Perfis públicos com logo, vagas abertas e processo seletivo organizado pela Redde People.
               </p>
             </div>
             <Link to="/empresas" className="inline-flex items-center gap-2 text-sm font-bold text-redde-600">
@@ -51,7 +51,7 @@ export function Home() {
               <ArrowRight size={16} />
             </Link>
           </div>
-          {loading ? <LoadingState label="Carregando empresas..." /> : <CompanyLogoGrid companies={companies} />}
+          {loading ? <LoadingState label="Carregando empresas..." /> : <CompanyHiringGrid companies={companies} jobs={jobs} />}
         </div>
       </section>
 

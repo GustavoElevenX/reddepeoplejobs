@@ -126,6 +126,17 @@ A Edge Function opcional `supabase/functions/create-company-user/index.ts` está
 
 No Supabase, o arquivo fica no bucket privado `resumes`, e o path fica salvo em `applications.resume_file_path`.
 
+## Logos de clientes
+
+As logos ficam em `public/imagens/clientes`.
+
+Para uma logo aparecer no portal, a empresa também precisa existir no painel ou no Supabase. Existem duas formas:
+
+- Preencher `logo_url` com um caminho público, por exemplo `/imagens/clientes/aba-kids.png`.
+- Deixar `logo_url` vazio e salvar a imagem com o mesmo slug da empresa, por exemplo `aba-kids.png`.
+
+Colocar uma imagem nova na pasta não cria a empresa automaticamente.
+
 ## Testar permissões de cliente
 
 1. Faça login como usuário `company_admin` ou `company_recruiter`.

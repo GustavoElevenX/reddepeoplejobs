@@ -106,7 +106,7 @@ serve(async (req) => {
     {
       userId: created.user.id,
       email: payload.email,
-      temporaryPasswordReturnedOnlyIfProvided: payload.password ? undefined : password,
+      temporaryPassword: payload.password ? undefined : password,
     },
     { headers: corsHeaders },
   );

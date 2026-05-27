@@ -16,6 +16,22 @@ import type {
   SiteContent,
 } from '../types';
 
+export type UserPermissionInput = {
+  can_edit_company_page: boolean;
+  can_manage_jobs: boolean;
+  can_view_applications: boolean;
+  can_download_resumes: boolean;
+};
+
+export type CreateAdminUserInput = {
+  fullName: string;
+  email: string;
+  password?: string;
+  role: 'redde_admin' | 'company_admin' | 'company_recruiter';
+  companyId?: string;
+  permissions: UserPermissionInput;
+};
+
 type JobRow = Omit<Job, 'company'> & {
   companies?: Job['company'] | null;
 };
@@ -472,6 +488,132 @@ export async function listCompanyAccess() {
   }
 
   return getLocalStore().access;
+}
+
+export async function createAdminUser(values: CreateAdminUserInput) {
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase.functions.invoke('create-company-user', {
+      body: {
+        fullName: values.fullName,
+        email: values.email,
+        password: values.password || undefined,
+        role: values.role,
+        companyId: values.companyId || undefined,
+        permissions: values.permissions,
+      },
+    });
+
+    if (error) throw error;
+    return data as { userId: string; email: string; temporaryPassword?: string };
+  }
+
+  const store = getLocalStore();
+  const timestamp = new Date().toISOString();
+  const existing = store.profiles.find((profile) => profile.email.toLowerCase() === values.email.toLowerCase());
+
+  if (existing) {
+    throw new Error('Já existe um usuário com este e-mail.');
+  }
+
+  const profile: Profile = {
+    id: makeId(),
+    full_name: values.fullName,
+    email: values.email,
+    role: values.role,
+    is_active: true,
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+
+  store.profiles.unshift(profile);
+
+  if (values.companyId && values.role !== 'redde_admin') {
+    store.access.unshift({
+      id: makeId(),
+      user_id: profile.id,
+      company_id: values.companyId,
+      ...values.permissions,
+      created_at: timestamp,
+    });
+  }
+
+  setLocalStore(store);
+
+  return {
+    userId: profile.id,
+    email: profile.email,
+    temporaryPassword: values.password || 'demo',
+  };
+}
+
+export async function assignCompanyAccess(
+  userId: string,
+  companyId: string,
+  permissions: UserPermissionInput,
+) {
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase
+      .from('company_user_access')
+      .upsert(
+        {
+          user_id: userId,
+          company_id: companyId,
+          ...permissions,
+        },
+        { onConflict: 'user_id,company_id' },
+      )
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data as CompanyUserAccess;
+  }
+
+  const store = getLocalStore();
+  const timestamp = new Date().toISOString();
+  const existingIndex = store.access.findIndex((item) => item.user_id === userId && item.company_id === companyId);
+  const nextAccess: CompanyUserAccess = {
+    id: existingIndex >= 0 ? store.access[existingIndex].id : makeId(),
+    user_id: userId,
+    company_id: companyId,
+    ...permissions,
+    created_at: existingIndex >= 0 ? store.access[existingIndex].created_at : timestamp,
+  };
+
+  if (existingIndex >= 0) store.access[existingIndex] = nextAccess;
+  else store.access.unshift(nextAccess);
+
+  setLocalStore(store);
+  return nextAccess;
+}
+
+export async function updateCompanyAccess(
+  accessId: string,
+  permissions: UserPermissionInput,
+) {
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase
+      .from('company_user_access')
+      .update(permissions)
+      .eq('id', accessId)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data as CompanyUserAccess;
+  }
+
+  const store = getLocalStore();
+  const index = store.access.findIndex((item) => item.id === accessId);
+
+  if (index < 0) throw new Error('Acesso não encontrado.');
+
+  store.access[index] = {
+    ...store.access[index],
+    ...permissions,
+  };
+  setLocalStore(store);
+  return store.access[index];
 }
 
 export async function getSiteContent(key: string) {

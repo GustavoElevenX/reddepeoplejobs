@@ -84,6 +84,20 @@ export function ReddeCompanies() {
         />
       </Card>
 
+      <Card className="grid gap-3 p-4 text-sm leading-6 text-ink-500 md:grid-cols-[auto_1fr] md:items-start">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-redde-50 text-redde-600">
+          <Plus size={18} />
+        </span>
+        <div>
+          <p className="font-bold text-ink-900">Como adicionar logos de clientes</p>
+          <p>
+            A logo precisa estar ligada a uma empresa cadastrada. Use o campo <strong>Logo URL</strong> com um caminho como{' '}
+            <code>/imagens/clientes/nome-da-empresa.png</code>, ou deixe vazio se o arquivo tiver exatamente o mesmo slug da empresa.
+            Só colocar uma imagem na pasta não cria a empresa automaticamente.
+          </p>
+        </div>
+      </Card>
+
       {loading ? (
         <LoadingState label="Carregando empresas..." />
       ) : filtered.length ? (
