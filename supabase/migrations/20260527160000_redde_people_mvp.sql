@@ -633,7 +633,7 @@ select id, 'Assistente de Atendimento Infantil', 'assistente-de-atendimento-infa
   'Atender famílias; registrar solicitações; acompanhar prazos; apoiar relatórios operacionais.',
   'Ensino médio completo; boa comunicação; experiência com atendimento ou educação será diferencial.',
   'Vale-transporte; vale-alimentação; plano de desenvolvimento interno.',
-  'R$ 1.600 a R$ 1.900', 'São Luís', 'MA', 'presencial', 'clt', 'Júnior', 'open', true
+  'R$ 1.600 a R$ 1.900', 'São Luís', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Júnior', 'open'::public.job_status, true
 from c where slug = 'aba-kids'
 union all
 select id, 'Assistente Administrativo', 'assistente-administrativo',
@@ -642,7 +642,7 @@ select id, 'Assistente Administrativo', 'assistente-administrativo',
   'Organizar documentos; apoiar contas a pagar; acompanhar indicadores; preparar relatórios.',
   'Experiência administrativa; Excel intermediário; perfil organizado e analítico.',
   'Vale-alimentação; assistência médica; bonificação por desempenho.',
-  'R$ 2.200 a R$ 2.700', 'São Luís', 'MA', 'hibrido', 'clt', 'Pleno', 'open', true
+  'R$ 2.200 a R$ 2.700', 'São Luís', 'MA', 'hibrido'::public.job_modality, 'clt'::public.job_contract_type, 'Pleno', 'open'::public.job_status, true
 from c where slug = 'aquarela'
 union all
 select id, 'Atendente de Loja', 'atendente-de-loja',
@@ -651,7 +651,7 @@ select id, 'Atendente de Loja', 'atendente-de-loja',
   'Atender clientes; organizar pedidos; apoiar exposição de produtos; manter o padrão de atendimento.',
   'Boa comunicação, organização, disponibilidade de horário e interesse pelo segmento de alimentos.',
   'Vale-transporte; alimentação no local; treinamento interno.',
-  'R$ 1.500 a R$ 1.900', 'São Luís', 'MA', 'presencial', 'clt', 'Operacional', 'open', true
+  'R$ 1.500 a R$ 1.900', 'São Luís', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, true
 from c where slug = 'karolicias'
 union all
 select id, 'Recepcionista', 'recepcionista',
@@ -660,7 +660,7 @@ select id, 'Recepcionista', 'recepcionista',
   'Recepcionar clientes; organizar agenda; confirmar horários; apoiar rotinas administrativas.',
   'Ensino médio completo; boa comunicação; experiência com recepção será diferencial.',
   'Vale-transporte; bonificação; treinamento interno.',
-  'R$ 1.600 a R$ 2.000', 'São Luís', 'MA', 'presencial', 'clt', 'Operacional', 'open', false
+  'R$ 1.600 a R$ 2.000', 'São Luís', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, false
 from c where slug = 'darma-center'
 on conflict (company_id, slug) do nothing;
 
