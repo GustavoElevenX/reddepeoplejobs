@@ -8,8 +8,7 @@ export function Footer() {
           <div className="flex h-12 w-40 items-center overflow-hidden rounded-lg bg-ink-900 px-2">
             <img src="/imagens/logo/redde-people-logo.png" alt="Redde People" className="h-10 w-full object-contain" />
           </div>
-          <p className="mt-3 text-sm font-black uppercase tracking-[0.14em] text-redde-600">Jobs</p>
-          <p className="mt-2 max-w-md text-sm leading-6 text-ink-500">
+          <p className="mt-3 max-w-md text-sm leading-6 text-ink-500">
             Portal de oportunidades em empresas parceiras que valorizam processos seletivos claros,
             criteriosos e profissionais.
           </p>

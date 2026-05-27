@@ -91,8 +91,8 @@ export function Home() {
                 'A Redde People estrutura processos de contratação para reduzir improviso, rotatividade e decisões baseadas apenas em currículo.'}
             </p>
           </div>
-          <a href={cta?.button_url ?? 'mailto:contato@reddepeople.com.br'}>
-            <Button size="lg" className="bg-white text-ink-900 hover:bg-redde-50">
+          <a href={cta?.button_url ?? 'mailto:contato@reddepeople.com.br'} className="inline-flex">
+            <Button size="lg" variant="secondary" className="border-white bg-white text-ink-900 hover:bg-redde-50">
               <Mail size={18} />
               {cta?.button_label ?? 'Falar com a Redde People'}
             </Button>

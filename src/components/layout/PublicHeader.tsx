@@ -20,9 +20,6 @@ export function PublicHeader() {
           <span className="flex h-11 w-36 items-center overflow-hidden rounded-lg bg-ink-900 px-2">
             <img src="/imagens/logo/redde-people-logo.png" alt="Redde People" className="h-9 w-full object-contain" />
           </span>
-          <span className="hidden rounded-full bg-redde-50 px-2.5 py-1 text-xs font-black uppercase tracking-[0.14em] text-redde-700 sm:inline-flex">
-            Jobs
-          </span>
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
