@@ -1,0 +1,130 @@
+import { ArrowDown, Building2, CalendarDays, MapPin } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { ApplicationForm } from '../../components/public/ApplicationForm';
+import { EmptyState } from '../../components/public/EmptyState';
+import { LoadingState } from '../../components/public/LoadingState';
+import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { contractTypeLabels, formatDate, formatLocation, modalityLabels } from '../../lib/formatters';
+import { getJobByCompanyAndSlug } from '../../lib/data';
+import type { Job } from '../../types';
+
+export function JobDetail() {
+  const { companySlug, jobSlug } = useParams();
+  const [job, setJob] = useState<Job | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      if (!companySlug || !jobSlug) return;
+      setLoading(true);
+      setJob(await getJobByCompanyAndSlug(companySlug, jobSlug));
+      setLoading(false);
+    }
+
+    void load();
+  }, [companySlug, jobSlug]);
+
+  if (loading) {
+    return (
+      <main className="bg-surface-50 py-10">
+        <div className="container-page">
+          <LoadingState label="Carregando vaga..." />
+        </div>
+      </main>
+    );
+  }
+
+  if (!job) {
+    return (
+      <main className="bg-surface-50 py-10">
+        <div className="container-page">
+          <EmptyState title="Vaga não encontrada ou encerrada." />
+        </div>
+      </main>
+    );
+  }
+
+  const detailBlocks = [
+    { title: 'Descrição da vaga', text: job.description },
+    { title: 'Responsabilidades', text: job.responsibilities },
+    { title: 'Requisitos', text: job.requirements },
+    { title: 'Benefícios', text: job.benefits },
+  ];
+
+  return (
+    <main className="bg-surface-50 py-10">
+      <div className="container-page grid gap-6 lg:grid-cols-[1fr_0.42fr]">
+        <div className="grid gap-5">
+          <Card className="p-6">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-surface-200 bg-surface-50">
+                {job.company?.logo_url ? (
+                  <img src={job.company.logo_url} alt={job.company.name} className="max-h-11 max-w-full object-contain" />
+                ) : (
+                  <Building2 className="text-redde-500" size={28} />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-redde-600">{job.company?.name ?? 'Empresa parceira'}</p>
+                <h1 className="mt-2 text-4xl font-black leading-tight text-ink-900">{job.title}</h1>
+                <p className="mt-3 flex items-center gap-2 text-ink-500">
+                  <MapPin size={17} />
+                  {formatLocation(job.city, job.state)}
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Badge>{modalityLabels[job.modality]}</Badge>
+              <Badge>{contractTypeLabels[job.contract_type]}</Badge>
+              {job.salary_range ? <Badge variant="info">{job.salary_range}</Badge> : null}
+              {job.application_deadline ? <Badge variant="warning">Prazo: {formatDate(job.application_deadline)}</Badge> : null}
+            </div>
+            <a href="#candidatura" className="mt-6 inline-flex">
+              <Button size="lg">
+                Candidatar-se
+                <ArrowDown size={18} />
+              </Button>
+            </a>
+          </Card>
+
+          {detailBlocks.map((block) =>
+            block.text ? (
+              <Card key={block.title} className="p-6">
+                <h2 className="text-2xl font-black text-ink-900">{block.title}</h2>
+                <p className="mt-3 whitespace-pre-line leading-7 text-ink-500">{block.text}</p>
+              </Card>
+            ) : null,
+          )}
+        </div>
+
+        <div className="grid h-fit gap-5 lg:sticky lg:top-24">
+          <Card className="p-5">
+            <h2 className="text-xl font-black text-ink-900">Resumo</h2>
+            <div className="mt-4 grid gap-3 text-sm text-ink-500">
+              <p>
+                <strong className="text-ink-900">Empresa:</strong> {job.company?.name}
+              </p>
+              <p>
+                <strong className="text-ink-900">Modalidade:</strong> {modalityLabels[job.modality]}
+              </p>
+              <p>
+                <strong className="text-ink-900">Contrato:</strong> {contractTypeLabels[job.contract_type]}
+              </p>
+              <p className="flex items-center gap-2">
+                <CalendarDays size={15} />
+                Publicada em {formatDate(job.created_at)}
+              </p>
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      <section id="candidatura" className="container-page mt-6">
+        <ApplicationForm job={job} />
+      </section>
+    </main>
+  );
+}

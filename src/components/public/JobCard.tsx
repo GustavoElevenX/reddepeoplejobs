@@ -1,0 +1,48 @@
+import { ArrowRight, CalendarDays, MapPin } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { contractTypeLabels, formatLocation, formatRelativeDate, modalityLabels } from '../../lib/formatters';
+import type { Job } from '../../types';
+import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+
+type JobCardProps = {
+  job: Job;
+};
+
+export function JobCard({ job }: JobCardProps) {
+  const companySlug = job.company?.slug ?? 'empresa';
+
+  return (
+    <Card className="flex h-full flex-col p-5 transition hover:-translate-y-1 hover:shadow-soft">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-redde-600">{job.company?.name ?? 'Empresa parceira'}</p>
+          <h3 className="mt-1 text-lg font-black text-ink-900">{job.title}</h3>
+        </div>
+        <Badge variant="success">Aberta</Badge>
+      </div>
+      <p className="mt-3 line-clamp-2 text-sm leading-6 text-ink-500">{job.short_description ?? job.description}</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Badge>{modalityLabels[job.modality]}</Badge>
+        <Badge>{contractTypeLabels[job.contract_type]}</Badge>
+      </div>
+      <div className="mt-4 grid gap-2 text-sm text-ink-500">
+        <span className="flex items-center gap-2">
+          <MapPin size={15} />
+          {formatLocation(job.city, job.state)}
+        </span>
+        <span className="flex items-center gap-2">
+          <CalendarDays size={15} />
+          Publicada {formatRelativeDate(job.created_at)}
+        </span>
+      </div>
+      <Link to={`/empresa/${companySlug}/vagas/${job.slug}`} className="mt-5">
+        <Button variant="secondary" className="w-full">
+          Ver vaga
+          <ArrowRight size={16} />
+        </Button>
+      </Link>
+    </Card>
+  );
+}
