@@ -156,7 +156,7 @@ export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' 
         <Input label="Nome" {...register('name')} error={errors.name?.message} />
         <Input
           label="Endereço da página"
-          helperText="Esse texto será usado no link público. Exemplo: casa-de-sucos-mix"
+          helperText="Esse texto será usado no link público. Exemplo: empresa-parceira"
           {...register('slug')}
           error={errors.slug?.message}
         />
