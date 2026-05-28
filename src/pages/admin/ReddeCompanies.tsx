@@ -99,19 +99,6 @@ export function ReddeCompanies() {
         />
       </Card>
 
-      <Card className="grid gap-3 p-4 text-sm leading-6 text-ink-500 md:grid-cols-[auto_1fr] md:items-start">
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-redde-50 text-redde-600">
-          <Plus size={18} />
-        </span>
-        <div>
-          <p className="font-bold text-ink-900">Como adicionar imagens da empresa</p>
-          <p>
-            Ao criar ou editar uma empresa, envie a logo e o banner pelo formulário. O endereço público da imagem será salvo
-            automaticamente na página da empresa.
-          </p>
-        </div>
-      </Card>
-
       {loading ? (
         <LoadingState label="Carregando empresas..." />
       ) : filtered.length ? (
