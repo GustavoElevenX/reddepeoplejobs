@@ -65,21 +65,26 @@ export function PublicHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 justify-self-end md:flex">
-          <a href="/#para-empresas">
-            <Button
-              variant="secondary"
-              className={
-                isPurple
-                  ? 'border-white bg-white text-[#8300ea] hover:bg-white/90'
-                  : undefined
-              }
-            >
-              Sou empresa
-            </Button>
+        <div className="hidden items-center gap-3 justify-self-end md:flex">
+          <a
+            href="/#para-empresas"
+            className={`focus-ring inline-flex h-11 min-w-28 items-center justify-center rounded-lg border px-5 text-sm font-bold transition ${
+              isPurple
+                ? 'border-white bg-white text-[#8300ea] hover:bg-white/90'
+                : 'border-surface-200 bg-white text-ink-900 hover:border-redde-100 hover:bg-redde-50'
+            }`}
+          >
+            Sou empresa
           </a>
-          <Link to="/admin/login">
-            <Button className={isPurple ? 'bg-white text-[#8300ea] hover:bg-white/90' : undefined}>Entrar</Button>
+          <Link
+            to="/admin/login"
+            className={`focus-ring inline-flex h-11 min-w-24 items-center justify-center rounded-lg border px-5 text-sm font-bold transition ${
+              isPurple
+                ? 'border-white bg-white text-[#8300ea] hover:bg-white/90'
+                : 'border-transparent bg-redde-500 text-white hover:bg-redde-600'
+            }`}
+          >
+            Entrar
           </Link>
         </div>
 
