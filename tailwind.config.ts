@@ -8,6 +8,7 @@ export default {
         redde: {
           50: '#F7EAFE',
           100: '#EDD3FF',
+          200: '#D4A8FF',
           500: '#8300EA',
           600: '#7200CC',
           700: '#5F00AB',
@@ -30,6 +31,15 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-33.3333%)' },
+        },
+      },
+      animation: {
+        marquee: 'marquee 24s linear infinite',
       },
     },
   },

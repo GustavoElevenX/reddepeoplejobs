@@ -712,3 +712,18 @@ export async function getDashboardStats(companyId?: string): Promise<DashboardSt
     applicationsLast7Days: applications.filter((application) => application.created_at >= formatISO(sevenDaysAgo)).length,
   };
 }
+
+export async function deleteUser(userId: string) {
+  if (hasSupabaseConfig && supabase) {
+    const { error } = await supabase.functions.invoke('delete-user', {
+      body: { userId },
+    });
+    if (error) throw error;
+    return;
+  }
+
+  const store = getLocalStore();
+  store.profiles = store.profiles.filter((profile) => profile.id !== userId);
+  store.access = store.access.filter((item) => item.user_id !== userId);
+  setLocalStore(store);
+}

@@ -1,10 +1,10 @@
 import { BriefcaseBusiness, Building2, MapPin, Search } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import type { CompanySummary } from '../../types';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { CompanyLogoGrid } from './CompanyLogoGrid';
+import { LogoCarousel } from './LogoCarousel';
 
 type HeroSearchProps = {
   companies: CompanySummary[];
@@ -82,24 +82,14 @@ export function HeroSearch({ companies, openJobsCount, loading = false }: HeroSe
             Oportunidades presenciais, híbridas e remotas
           </span>
         </div>
-
-        <div className="mt-9 rounded-2xl border border-white/25 bg-white/10 p-4 shadow-card backdrop-blur">
-          <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="text-xl font-black text-white">Empresas líderes contratando agora</h2>
-              <p className="mt-1 text-sm text-white/80">Clique em uma logo para ver o perfil público e as vagas abertas.</p>
-            </div>
-            <Link to="/empresas" className="text-sm font-bold text-white hover:text-white/80">
-              Ver empresas
-            </Link>
-          </div>
-          {loading ? (
-            <div className="rounded-lg bg-white p-5 text-sm font-semibold text-ink-500">Carregando empresas...</div>
-          ) : (
-            <CompanyLogoGrid companies={companies.slice(0, 10)} />
-          )}
-        </div>
       </div>
+
+      {/* Esteira de logos — largura total */}
+      {!loading && companies.length > 0 && (
+        <div className="pb-10">
+          <LogoCarousel companies={companies} />
+        </div>
+      )}
     </section>
   );
 }

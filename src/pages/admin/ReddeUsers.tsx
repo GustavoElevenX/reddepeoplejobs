@@ -1,4 +1,4 @@
-import { Building2, Save, ShieldCheck, UserPlus } from 'lucide-react';
+import { Building2, Save, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
@@ -11,6 +11,7 @@ import { Select } from '../../components/ui/Select';
 import {
   assignCompanyAccess,
   createAdminUser,
+  deleteUser,
   listCompanies,
   listCompanyAccess,
   listProfiles,
@@ -76,6 +77,7 @@ export function ReddeUsers() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -214,6 +216,23 @@ export function ReddeUsers() {
     }
   }
 
+  async function handleDeleteUser(profileId: string) {
+    setError('');
+    setFeedback('');
+    setSubmitting(true);
+    try {
+      await deleteUser(profileId);
+      setFeedback('Usuário removido com sucesso.');
+      setDeleteConfirmId(null);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Não foi possível remover o usuário.');
+      setDeleteConfirmId(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   const companyUsers = profiles.filter((profile) => ['company_admin', 'company_recruiter'].includes(profile.role));
 
   return (
@@ -304,7 +323,38 @@ export function ReddeUsers() {
                     </div>
                     <p className="mt-1 text-sm text-ink-500">{profile.email}</p>
                   </div>
-                  <Badge variant="info">{roleLabels[profile.role]}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="info">{roleLabels[profile.role]}</Badge>
+                    {deleteConfirmId === profile.id ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-ink-500">Confirmar remoção?</span>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                          onClick={() => void handleDeleteUser(profile.id)}
+                          disabled={submitting}
+                        >
+                          Sim, remover
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => setDeleteConfirmId(null)} disabled={submitting}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="border-red-200 text-red-600 hover:bg-red-50"
+                        onClick={() => setDeleteConfirmId(profile.id)}
+                        disabled={submitting}
+                        title="Remover usuário"
+                      >
+                        <Trash2 size={15} />
+                        Remover
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {links.length ? (

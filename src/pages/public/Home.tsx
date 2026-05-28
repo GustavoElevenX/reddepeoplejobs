@@ -1,7 +1,6 @@
 import { ArrowRight, Mail } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CompanyHiringGrid } from '../../components/public/CompanyHiringGrid';
 import { EmptyState } from '../../components/public/EmptyState';
 import { HeroSearch } from '../../components/public/HeroSearch';
 import { JobCard } from '../../components/public/JobCard';
@@ -20,7 +19,7 @@ export function Home() {
     async function load() {
       setLoading(true);
       const [companyData, jobData, ctaData] = await Promise.all([
-        listCompanies({ publishedOnly: true, featuredOnly: true }),
+        listCompanies({ publishedOnly: true }),
         listJobs({ openOnly: true, limit: 6 }),
         getSiteContent('home_company_cta'),
       ]);
@@ -36,24 +35,6 @@ export function Home() {
   return (
     <>
       <HeroSearch companies={companies} openJobsCount={jobs.length} loading={loading} />
-
-      <section className="bg-surface-50 py-12">
-        <div className="container-page">
-          <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <h2 className="text-3xl font-black text-ink-900">Empresas contratando agora</h2>
-              <p className="mt-2 max-w-2xl text-ink-500">
-                Perfis públicos com logo, vagas abertas e processo seletivo organizado pelo People Jobs.
-              </p>
-            </div>
-            <Link to="/empresas" className="inline-flex items-center gap-2 text-sm font-bold text-redde-600">
-              Ver mais empresas
-              <ArrowRight size={16} />
-            </Link>
-          </div>
-          {loading ? <LoadingState label="Carregando empresas..." /> : <CompanyHiringGrid companies={companies} jobs={jobs} />}
-        </div>
-      </section>
 
       <section className="bg-white py-12">
         <div className="container-page">
@@ -82,10 +63,10 @@ export function Home() {
         </div>
       </section>
 
-      <section id="para-empresas" className="bg-ink-900 py-12 text-white">
+      <section id="para-empresas" className="bg-[#8300ea] py-12 text-white">
         <div className="container-page grid gap-7 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <span className="text-sm font-black uppercase tracking-[0.14em] text-redde-200">Para empresas</span>
+            <span className="text-sm font-black uppercase tracking-[0.14em] text-white/60">Para empresas</span>
             <h2 className="mt-3 text-3xl font-black">{cta?.title ?? 'Publique vagas com mais organização'}</h2>
             <p className="mt-3 max-w-3xl leading-7 text-white/75">
               {cta?.subtitle ??
@@ -105,7 +86,7 @@ export function Home() {
               </Button>
             </a>
             <Link to="/admin/login" className="inline-flex">
-              <Button size="lg" className="border-white/20 bg-white/10 hover:bg-white/15">
+              <Button size="lg" variant="secondary" className="border-white bg-white text-[#8300ea] hover:bg-redde-50">
                 Acessar painel
               </Button>
             </Link>

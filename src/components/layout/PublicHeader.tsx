@@ -15,7 +15,8 @@ export function PublicHeader() {
   const [scrolled, setScrolled] = useState(false);
   const { pathname } = useLocation();
   const isHome = pathname === '/';
-  const isPurple = isHome && scrolled && !open;
+  // Roxo quando está no topo da home (sem scroll), branco quando deu scroll ou em outra página
+  const isPurple = isHome && !scrolled && !open;
   const logoSrc = isPurple ? '/imagens/logo/redde-people-jobs-white.png' : '/imagens/logo/redde-people-jobs-color.png';
 
   useEffect(() => {
@@ -36,11 +37,10 @@ export function PublicHeader() {
           : 'border-b border-surface-200 bg-white/95 shadow-sm backdrop-blur'
       }`}
     >
-      <div className="container-page flex h-16 items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-3" aria-label="People Jobs">
-          <span className="flex h-12 w-40 items-center overflow-hidden">
-            <img src={logoSrc} alt="People Jobs" className="h-full w-full object-contain" />
-          </span>
+      {/* Grid de 3 colunas simétricas: logo | nav centralizado | botões */}
+      <div className="container-page grid h-16 items-center gap-4" style={{gridTemplateColumns: '1fr auto 1fr'}}>
+        <Link to="/" className="flex items-center gap-3 justify-self-start" aria-label="People Jobs">
+          <img src={logoSrc} alt="People Jobs" className="h-10 w-auto object-contain" />
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
@@ -65,7 +65,7 @@ export function PublicHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-2 justify-self-end md:flex">
           <a href="/#para-empresas">
             <Button
               variant="secondary"
@@ -84,7 +84,7 @@ export function PublicHeader() {
         </div>
 
         <button
-          className={`focus-ring inline-flex h-10 w-10 items-center justify-center rounded-lg border md:hidden ${
+          className={`focus-ring col-start-3 inline-flex h-10 w-10 items-center justify-center justify-self-end rounded-lg border md:hidden ${
             isPurple ? 'border-white/30 text-white' : 'border-surface-200 text-ink-900'
           }`}
           onClick={() => setOpen((value) => !value)}
