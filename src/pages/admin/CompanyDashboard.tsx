@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { getCompanyAccessForCurrentUser } from '../../lib/auth';
 import { getCompanyById, getDashboardStats, listApplications, listJobs, updateApplicationStatus } from '../../lib/data';
+import { jobStatusLabels } from '../../lib/formatters';
 import type { Application, Company, CompanyUserAccess, DashboardStats, Job } from '../../types';
 
 export function CompanyDashboard() {
@@ -100,7 +101,7 @@ export function CompanyDashboard() {
               jobs.map((job) => (
                 <Link key={job.id} to="/admin/empresa/vagas" className="rounded-lg border border-surface-200 p-3 hover:bg-surface-50">
                   <p className="font-bold text-ink-900">{job.title}</p>
-                  <p className="text-sm text-ink-500">{job.status}</p>
+                  <p className="text-sm text-ink-500">{jobStatusLabels[job.status]}</p>
                 </Link>
               ))
             ) : (

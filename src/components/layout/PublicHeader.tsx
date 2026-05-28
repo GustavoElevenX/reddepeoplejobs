@@ -1,6 +1,6 @@
 import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Button } from '../ui/Button';
 
 const links = [
@@ -12,13 +12,34 @@ const links = [
 
 export function PublicHeader() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const { pathname } = useLocation();
+  const isHome = pathname === '/';
+  const isPurple = isHome && scrolled && !open;
+  const logoSrc = isPurple ? '/imagens/logo/redde-people-jobs-white.png' : '/imagens/logo/redde-people-jobs-color.png';
+
+  useEffect(() => {
+    function updateHeaderState() {
+      setScrolled(window.scrollY > 16);
+    }
+
+    updateHeaderState();
+    window.addEventListener('scroll', updateHeaderState, { passive: true });
+    return () => window.removeEventListener('scroll', updateHeaderState);
+  }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-surface-200 bg-white/95 backdrop-blur">
+    <header
+      className={`fixed inset-x-0 top-0 z-40 transition duration-300 ${
+        isPurple
+          ? 'border-b border-[#8300ea] bg-[#8300ea] shadow-sm'
+          : 'border-b border-surface-200 bg-white/95 shadow-sm backdrop-blur'
+      }`}
+    >
       <div className="container-page flex h-16 items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-3" aria-label="Redde People Jobs">
-          <span className="flex h-11 w-36 items-center overflow-hidden rounded-lg bg-ink-900 px-2">
-            <img src="/imagens/logo/redde-people-logo.png" alt="Redde People" className="h-9 w-full object-contain" />
+        <Link to="/" className="flex items-center gap-3" aria-label="People Jobs">
+          <span className="flex h-12 w-40 items-center overflow-hidden">
+            <img src={logoSrc} alt="People Jobs" className="h-full w-full object-contain" />
           </span>
         </Link>
 
@@ -29,7 +50,13 @@ export function PublicHeader() {
               to={link.to}
               className={({ isActive }) =>
                 `text-sm font-semibold transition hover:text-redde-600 ${
-                  isActive ? 'text-redde-600' : 'text-ink-700'
+                  isActive
+                    ? isPurple
+                      ? 'text-white'
+                      : 'text-redde-600'
+                    : isPurple
+                      ? 'text-white/85 hover:text-white'
+                      : 'text-ink-700'
                 }`
               }
             >
@@ -39,16 +66,27 @@ export function PublicHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Link to="/#para-empresas">
-            <Button variant="secondary">Sou empresa</Button>
-          </Link>
+          <a href="/#para-empresas">
+            <Button
+              variant="secondary"
+              className={
+                isPurple
+                  ? 'border-white bg-white text-[#8300ea] hover:bg-white/90'
+                  : undefined
+              }
+            >
+              Sou empresa
+            </Button>
+          </a>
           <Link to="/admin/login">
-            <Button>Entrar</Button>
+            <Button className={isPurple ? 'bg-white text-[#8300ea] hover:bg-white/90' : undefined}>Entrar</Button>
           </Link>
         </div>
 
         <button
-          className="focus-ring inline-flex h-10 w-10 items-center justify-center rounded-lg border border-surface-200 md:hidden"
+          className={`focus-ring inline-flex h-10 w-10 items-center justify-center rounded-lg border md:hidden ${
+            isPurple ? 'border-white/30 text-white' : 'border-surface-200 text-ink-900'
+          }`}
           onClick={() => setOpen((value) => !value)}
           aria-label="Abrir menu"
         >

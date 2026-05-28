@@ -37,7 +37,7 @@ export function Companies() {
           <span className="text-sm font-black uppercase tracking-[0.14em] text-redde-600">Empresas</span>
           <h1 className="mt-2 text-4xl font-black text-ink-900">Empresas parceiras</h1>
           <p className="mt-3 max-w-2xl text-ink-500">
-            Busque por nome, cidade ou segmento e conheça empresas com processos seletivos estruturados pela Redde People.
+            Busque por nome, cidade ou segmento e conheça empresas com processos seletivos estruturados pelo People Jobs.
           </p>
         </div>
 

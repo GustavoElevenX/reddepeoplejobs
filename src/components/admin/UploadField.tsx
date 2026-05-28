@@ -7,9 +7,10 @@ type UploadFieldProps = {
   accept?: string;
   onFileChange: (file: File | null) => void;
   error?: string;
+  hint?: string;
 };
 
-export function UploadField({ label, accept, onFileChange, error }: UploadFieldProps) {
+export function UploadField({ label, accept, onFileChange, error, hint = 'PDF, DOC ou DOCX até 10MB' }: UploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState('');
 
@@ -33,7 +34,7 @@ export function UploadField({ label, accept, onFileChange, error }: UploadFieldP
             <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-redde-500 shadow-sm">
               <UploadCloud size={20} />
             </span>
-            <span>{fileName || 'PDF, DOC ou DOCX até 10MB'}</span>
+            <span>{fileName || hint}</span>
           </div>
           <Button variant="secondary" size="sm" onClick={() => inputRef.current?.click()}>
             Selecionar arquivo

@@ -5,8 +5,12 @@ export function Footer() {
     <footer className="border-t border-surface-200 bg-white">
       <div className="container-page grid gap-6 py-10 md:grid-cols-[1.4fr_1fr_1fr]">
         <div>
-          <div className="flex h-12 w-40 items-center overflow-hidden rounded-lg bg-ink-900 px-2">
-            <img src="/imagens/logo/redde-people-logo.png" alt="Redde People" className="h-10 w-full object-contain" />
+          <div className="flex h-12 w-40 items-center overflow-hidden">
+            <img
+              src="/imagens/logo/redde-people-jobs-color.png"
+              alt="People Jobs"
+              className="h-full w-full object-contain"
+            />
           </div>
           <p className="mt-3 max-w-md text-sm leading-6 text-ink-500">
             Portal de oportunidades em empresas parceiras que valorizam processos seletivos claros,
@@ -21,9 +25,9 @@ export function Footer() {
           </div>
         </div>
         <div>
-          <p className="mb-3 text-sm font-bold text-ink-900">Redde People</p>
+          <p className="mb-3 text-sm font-bold text-ink-900">People Jobs</p>
           <div className="grid gap-2 text-sm text-ink-500">
-            <a href="mailto:contato@reddepeople.com.br">contato@reddepeople.com.br</a>
+            <a href="mailto:contato@peoplejobs.com.br">contato@peoplejobs.com.br</a>
             <Link to="/admin/login">Acesso administrativo</Link>
           </div>
         </div>

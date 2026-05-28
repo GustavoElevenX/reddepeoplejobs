@@ -1,4 +1,4 @@
-create extension if not exists pgcrypto;
+﻿create extension if not exists pgcrypto;
 
 create type public.app_role as enum (
   'redde_super_admin',
@@ -277,7 +277,7 @@ create policy "Users can read their own profile"
 on public.profiles for select
 using (id = auth.uid());
 
-create policy "Redde admins can manage all profiles"
+create policy "People Jobs admins can manage all profiles"
 on public.profiles for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
@@ -286,7 +286,7 @@ create policy "Public can read published companies"
 on public.companies for select
 using (page_status = 'published');
 
-create policy "Redde admins can manage all companies"
+create policy "People Jobs admins can manage all companies"
 on public.companies for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
@@ -322,7 +322,7 @@ with check (
   )
 );
 
-create policy "Redde admins can manage company access"
+create policy "People Jobs admins can manage company access"
 on public.company_user_access for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
@@ -342,7 +342,7 @@ using (
   )
 );
 
-create policy "Redde admins can manage all jobs"
+create policy "People Jobs admins can manage all jobs"
 on public.jobs for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
@@ -385,11 +385,11 @@ with check (
   )
 );
 
-create policy "Redde admins can read all applications"
+create policy "People Jobs admins can read all applications"
 on public.applications for select
 using (public.is_redde_admin());
 
-create policy "Redde admins can update all applications"
+create policy "People Jobs admins can update all applications"
 on public.applications for update
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
@@ -421,7 +421,7 @@ using (
 )
 with check (public.has_company_access(company_id));
 
-create policy "Redde admins can manage application notes"
+create policy "People Jobs admins can manage application notes"
 on public.application_notes for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
@@ -452,16 +452,16 @@ create policy "Public can read active site contents"
 on public.site_contents for select
 using (is_active = true);
 
-create policy "Redde admins can manage site contents"
+create policy "People Jobs admins can manage site contents"
 on public.site_contents for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
-create policy "Redde admins can read audit logs"
+create policy "People Jobs admins can read audit logs"
 on public.audit_logs for select
 using (public.is_redde_admin());
 
-create policy "Redde admins can insert audit logs"
+create policy "People Jobs admins can insert audit logs"
 on public.audit_logs for insert
 with check (public.is_redde_admin());
 
@@ -475,10 +475,45 @@ create policy "Company assets are public"
 on storage.objects for select
 using (bucket_id = 'company-assets');
 
-create policy "Redde admins can manage company assets"
+create policy "People Jobs admins can manage company assets"
 on storage.objects for all
 using (bucket_id = 'company-assets' and public.is_redde_admin())
 with check (bucket_id = 'company-assets' and public.is_redde_admin());
+
+create policy "Company users can manage own company assets"
+on storage.objects for all
+using (
+  bucket_id = 'company-assets'
+  and exists (
+    select 1
+    from public.company_user_access cua
+    join public.companies c on c.id = cua.company_id
+    join public.profiles p on p.id = cua.user_id
+    where
+      p.id = auth.uid()
+      and p.is_active
+      and p.role in ('company_admin', 'company_recruiter')
+      and cua.can_edit_company_page = true
+      and c.id::text = (storage.foldername(name))[1]
+      and (storage.foldername(name))[2] in ('logo', 'banner')
+  )
+)
+with check (
+  bucket_id = 'company-assets'
+  and exists (
+    select 1
+    from public.company_user_access cua
+    join public.companies c on c.id = cua.company_id
+    join public.profiles p on p.id = cua.user_id
+    where
+      p.id = auth.uid()
+      and p.is_active
+      and p.role in ('company_admin', 'company_recruiter')
+      and cua.can_edit_company_page = true
+      and c.id::text = (storage.foldername(name))[1]
+      and (storage.foldername(name))[2] in ('logo', 'banner')
+  )
+);
 
 create policy "Public can upload resumes"
 on storage.objects for insert
@@ -518,13 +553,13 @@ insert into public.companies (
     'Aba Kids',
     'aba-kids',
     '/imagens/clientes/aba-kids.png',
-    'Educação e desenvolvimento infantil',
-    'São Luís',
+    'EducaÃ§Ã£o e desenvolvimento infantil',
+    'SÃ£o LuÃ­s',
     'MA',
     '51-200',
-    'Empresa parceira da Redde People com oportunidades em atendimento, apoio pedagógico e operação.',
-    'A Aba Kids atua com serviços voltados ao desenvolvimento infantil, combinando atendimento cuidadoso, rotina organizada e equipes preparadas.',
-    'Ambiente de crescimento, clareza de função e processo seletivo organizado com apoio da Redde People.',
+    'Empresa parceira do People Jobs com oportunidades em atendimento, apoio pedagÃ³gico e operaÃ§Ã£o.',
+    'A Aba Kids atua com serviÃ§os voltados ao desenvolvimento infantil, combinando atendimento cuidadoso, rotina organizada e equipes preparadas.',
+    'Ambiente de crescimento, clareza de funÃ§Ã£o e processo seletivo organizado com apoio do People Jobs.',
     'Cultura voltada para responsabilidade, cuidado, atendimento e desenvolvimento.',
     'published',
     true
@@ -533,14 +568,14 @@ insert into public.companies (
     'Aquarela',
     'aquarela',
     '/imagens/clientes/aquarela.png',
-    'Serviços educacionais',
-    'São Luís',
+    'ServiÃ§os educacionais',
+    'SÃ£o LuÃ­s',
     'MA',
     '11-50',
-    'Empresa parceira com vagas abertas para áreas administrativas, atendimento e operação.',
-    'A Aquarela é uma empresa parceira com rotinas estruturadas, foco em atendimento e desenvolvimento de pessoas.',
-    'Processo seletivo estruturado com apoio da Redde People.',
-    'Cultura focada em entrega, colaboração e melhoria contínua.',
+    'Empresa parceira com vagas abertas para Ã¡reas administrativas, atendimento e operaÃ§Ã£o.',
+    'A Aquarela Ã© uma empresa parceira com rotinas estruturadas, foco em atendimento e desenvolvimento de pessoas.',
+    'Processo seletivo estruturado com apoio do People Jobs.',
+    'Cultura focada em entrega, colaboraÃ§Ã£o e melhoria contÃ­nua.',
     'published',
     true
   ),
@@ -548,14 +583,14 @@ insert into public.companies (
     'Conceito',
     'conceito',
     '/imagens/clientes/conceito.png',
-    'Serviços',
-    'São Luís',
+    'ServiÃ§os',
+    'SÃ£o LuÃ­s',
     'MA',
     '201-500',
-    'Empresa parceira com oportunidades em atendimento, rotinas comerciais e gestão operacional.',
-    'A Conceito atua em serviços com foco em experiência do cliente, organização de processos e melhoria contínua.',
-    'Rotina clara, liderança próxima e oportunidades para perfis comerciais, administrativos e operacionais.',
-    'Ambiente colaborativo, orientado por qualidade, ética e melhoria contínua.',
+    'Empresa parceira com oportunidades em atendimento, rotinas comerciais e gestÃ£o operacional.',
+    'A Conceito atua em serviÃ§os com foco em experiÃªncia do cliente, organizaÃ§Ã£o de processos e melhoria contÃ­nua.',
+    'Rotina clara, lideranÃ§a prÃ³xima e oportunidades para perfis comerciais, administrativos e operacionais.',
+    'Ambiente colaborativo, orientado por qualidade, Ã©tica e melhoria contÃ­nua.',
     'published',
     true
   ),
@@ -563,29 +598,29 @@ insert into public.companies (
     'Darma Center',
     'darma-center',
     '/imagens/clientes/darma-center.png',
-    'Saúde e bem-estar',
-    'São Luís',
+    'SaÃºde e bem-estar',
+    'SÃ£o LuÃ­s',
     'MA',
     '101-200',
-    'Centro parceiro com oportunidades em atendimento, recepção, operação e suporte administrativo.',
-    'O Darma Center reúne serviços com foco em bem-estar, atendimento humanizado e organização da experiência do cliente.',
+    'Centro parceiro com oportunidades em atendimento, recepÃ§Ã£o, operaÃ§Ã£o e suporte administrativo.',
+    'O Darma Center reÃºne serviÃ§os com foco em bem-estar, atendimento humanizado e organizaÃ§Ã£o da experiÃªncia do cliente.',
     'Processos bem definidos, rotina acolhedora e oportunidades para perfis de atendimento e suporte.',
     'Cultura de cuidado, pontualidade, acolhimento e responsabilidade.',
     'published',
     true
   ),
   (
-    'Karolícias',
+    'KarolÃ­cias',
     'karolicias',
     '/imagens/clientes/karolicias.png',
     'Alimentos',
-    'São Luís',
+    'SÃ£o LuÃ­s',
     'MA',
     '51-200',
-    'Marca parceira com oportunidades em produção, atendimento, vendas e rotinas operacionais.',
-    'A Karolícias atua no segmento de alimentos com foco em qualidade, apresentação, atendimento e ritmo operacional.',
-    'Ambiente prático, rotina clara e oportunidades para quem gosta de atendimento e produção com capricho.',
-    'Cultura orientada por qualidade, cuidado, colaboração e melhoria diária.',
+    'Marca parceira com oportunidades em produÃ§Ã£o, atendimento, vendas e rotinas operacionais.',
+    'A KarolÃ­cias atua no segmento de alimentos com foco em qualidade, apresentaÃ§Ã£o, atendimento e ritmo operacional.',
+    'Ambiente prÃ¡tico, rotina clara e oportunidades para quem gosta de atendimento e produÃ§Ã£o com capricho.',
+    'Cultura orientada por qualidade, cuidado, colaboraÃ§Ã£o e melhoria diÃ¡ria.',
     'published',
     true
   ),
@@ -593,13 +628,13 @@ insert into public.companies (
     'Levive',
     'levive',
     '/imagens/clientes/levive.png',
-    'Saúde e estética',
-    'São Luís',
+    'SaÃºde e estÃ©tica',
+    'SÃ£o LuÃ­s',
     'MA',
     '201-500',
-    'Empresa parceira com oportunidades em atendimento, comercial e suporte à operação.',
-    'A Levive atua com foco em experiência do cliente, atendimento consultivo e serviços de saúde e estética.',
-    'Plano de crescimento por área, liderança próxima e rotinas de treinamento.',
+    'Empresa parceira com oportunidades em atendimento, comercial e suporte Ã  operaÃ§Ã£o.',
+    'A Levive atua com foco em experiÃªncia do cliente, atendimento consultivo e serviÃ§os de saÃºde e estÃ©tica.',
+    'Plano de crescimento por Ã¡rea, lideranÃ§a prÃ³xima e rotinas de treinamento.',
     'Ambiente disciplinado, acolhedor e orientado por qualidade.',
     'published',
     true
@@ -628,39 +663,39 @@ insert into public.jobs (
   is_featured
 )
 select id, 'Assistente de Atendimento Infantil', 'assistente-de-atendimento-infantil',
-  'Atendimento a famílias, organização de demandas e suporte à rotina da unidade.',
-  'Atuar no atendimento a famílias, registrar solicitações, organizar informações e apoiar a liderança em rotinas operacionais.',
-  'Atender famílias; registrar solicitações; acompanhar prazos; apoiar relatórios operacionais.',
-  'Ensino médio completo; boa comunicação; experiência com atendimento ou educação será diferencial.',
-  'Vale-transporte; vale-alimentação; plano de desenvolvimento interno.',
-  'R$ 1.600 a R$ 1.900', 'São Luís', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Júnior', 'open'::public.job_status, true
+  'Atendimento a famÃ­lias, organizaÃ§Ã£o de demandas e suporte Ã  rotina da unidade.',
+  'Atuar no atendimento a famÃ­lias, registrar solicitaÃ§Ãµes, organizar informaÃ§Ãµes e apoiar a lideranÃ§a em rotinas operacionais.',
+  'Atender famÃ­lias; registrar solicitaÃ§Ãµes; acompanhar prazos; apoiar relatÃ³rios operacionais.',
+  'Ensino mÃ©dio completo; boa comunicaÃ§Ã£o; experiÃªncia com atendimento ou educaÃ§Ã£o serÃ¡ diferencial.',
+  'Vale-transporte; vale-alimentaÃ§Ã£o; plano de desenvolvimento interno.',
+  'R$ 1.600 a R$ 1.900', 'SÃ£o LuÃ­s', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'JÃºnior', 'open'::public.job_status, true
 from c where slug = 'aba-kids'
 union all
 select id, 'Assistente Administrativo', 'assistente-administrativo',
-  'Controle de documentos, indicadores e suporte às rotinas financeiras.',
-  'Organizar documentos, acompanhar indicadores, apoiar processos financeiros e dar suporte à gestão.',
-  'Organizar documentos; apoiar contas a pagar; acompanhar indicadores; preparar relatórios.',
-  'Experiência administrativa; Excel intermediário; perfil organizado e analítico.',
-  'Vale-alimentação; assistência médica; bonificação por desempenho.',
-  'R$ 2.200 a R$ 2.700', 'São Luís', 'MA', 'hibrido'::public.job_modality, 'clt'::public.job_contract_type, 'Pleno', 'open'::public.job_status, true
+  'Controle de documentos, indicadores e suporte Ã s rotinas financeiras.',
+  'Organizar documentos, acompanhar indicadores, apoiar processos financeiros e dar suporte Ã  gestÃ£o.',
+  'Organizar documentos; apoiar contas a pagar; acompanhar indicadores; preparar relatÃ³rios.',
+  'ExperiÃªncia administrativa; Excel intermediÃ¡rio; perfil organizado e analÃ­tico.',
+  'Vale-alimentaÃ§Ã£o; assistÃªncia mÃ©dica; bonificaÃ§Ã£o por desempenho.',
+  'R$ 2.200 a R$ 2.700', 'SÃ£o LuÃ­s', 'MA', 'hibrido'::public.job_modality, 'clt'::public.job_contract_type, 'Pleno', 'open'::public.job_status, true
 from c where slug = 'aquarela'
 union all
 select id, 'Atendente de Loja', 'atendente-de-loja',
-  'Atendimento ao cliente, organização de pedidos e apoio à rotina comercial.',
-  'Atuar no atendimento aos clientes da Karolícias, apoiar pedidos, manter a organização do espaço e contribuir para uma experiência acolhedora.',
-  'Atender clientes; organizar pedidos; apoiar exposição de produtos; manter o padrão de atendimento.',
-  'Boa comunicação, organização, disponibilidade de horário e interesse pelo segmento de alimentos.',
-  'Vale-transporte; alimentação no local; treinamento interno.',
-  'R$ 1.500 a R$ 1.900', 'São Luís', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, true
+  'Atendimento ao cliente, organizaÃ§Ã£o de pedidos e apoio Ã  rotina comercial.',
+  'Atuar no atendimento aos clientes da KarolÃ­cias, apoiar pedidos, manter a organizaÃ§Ã£o do espaÃ§o e contribuir para uma experiÃªncia acolhedora.',
+  'Atender clientes; organizar pedidos; apoiar exposiÃ§Ã£o de produtos; manter o padrÃ£o de atendimento.',
+  'Boa comunicaÃ§Ã£o, organizaÃ§Ã£o, disponibilidade de horÃ¡rio e interesse pelo segmento de alimentos.',
+  'Vale-transporte; alimentaÃ§Ã£o no local; treinamento interno.',
+  'R$ 1.500 a R$ 1.900', 'SÃ£o LuÃ­s', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, true
 from c where slug = 'karolicias'
 union all
 select id, 'Recepcionista', 'recepcionista',
-  'Recepção de clientes, organização de agenda e suporte à rotina de atendimento.',
-  'Recepcionar clientes do Darma Center, organizar agenda, registrar informações e apoiar o fluxo de atendimento.',
-  'Recepcionar clientes; organizar agenda; confirmar horários; apoiar rotinas administrativas.',
-  'Ensino médio completo; boa comunicação; experiência com recepção será diferencial.',
-  'Vale-transporte; bonificação; treinamento interno.',
-  'R$ 1.600 a R$ 2.000', 'São Luís', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, false
+  'RecepÃ§Ã£o de clientes, organizaÃ§Ã£o de agenda e suporte Ã  rotina de atendimento.',
+  'Recepcionar clientes do Darma Center, organizar agenda, registrar informaÃ§Ãµes e apoiar o fluxo de atendimento.',
+  'Recepcionar clientes; organizar agenda; confirmar horÃ¡rios; apoiar rotinas administrativas.',
+  'Ensino mÃ©dio completo; boa comunicaÃ§Ã£o; experiÃªncia com recepÃ§Ã£o serÃ¡ diferencial.',
+  'Vale-transporte; bonificaÃ§Ã£o; treinamento interno.',
+  'R$ 1.600 a R$ 2.000', 'SÃ£o LuÃ­s', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, false
 from c where slug = 'darma-center'
 on conflict (company_id, slug) do nothing;
 
@@ -668,16 +703,16 @@ insert into public.site_contents (key, title, subtitle, body, button_label, butt
 values
   (
     'home_hero',
-    'Encontre oportunidades em empresas que contratam com mais critério.',
-    'A Redde People conecta candidatos a empresas parceiras com processos de seleção mais claros, organizados e profissionais.',
-    'Veja vagas abertas em empresas parceiras da Redde People e envie seu currículo de forma simples, rápida e segura.',
+    'Encontre oportunidades em empresas que contratam com mais critÃ©rio.',
+    'O People Jobs conecta candidatos a empresas parceiras com processos de seleÃ§Ã£o mais claros, organizados e profissionais.',
+    'Veja vagas abertas em empresas parceiras do People Jobs e envie seu currÃ­culo de forma simples, rÃ¡pida e segura.',
     'Buscar vagas',
     '/vagas'
   ),
   (
     'home_companies_section',
-    'Empresas parceiras estão contratando agora',
-    'Conheça empresas que estruturam seus processos seletivos com a Redde People.',
+    'Empresas parceiras estÃ£o contratando agora',
+    'ConheÃ§a empresas que estruturam seus processos seletivos com o People Jobs.',
     null,
     'Ver mais empresas',
     '/empresas'
@@ -685,22 +720,22 @@ values
   (
     'home_jobs_section',
     'Vagas abertas recentemente',
-    'Veja as últimas oportunidades publicadas por empresas parceiras.',
+    'Veja as Ãºltimas oportunidades publicadas por empresas parceiras.',
     null,
     'Ver todas as vagas',
     '/vagas'
   ),
   (
     'home_company_cta',
-    'Sua empresa quer contratar com mais critério?',
-    'A Redde People estrutura processos de contratação para reduzir improviso, rotatividade e decisões baseadas apenas em currículo.',
+    'Sua empresa quer contratar com mais critÃ©rio?',
+    'O People Jobs estrutura processos de contrataÃ§Ã£o para reduzir improviso, rotatividade e decisÃµes baseadas apenas em currÃ­culo.',
     null,
-    'Falar com a Redde People',
-    'mailto:contato@reddepeople.com.br'
+    'Falar com a People Jobs',
+    'mailto:contato@peoplejobs.com.br'
   ),
   (
     'footer_about',
-    'Redde People Jobs',
+    'People Jobs',
     'Portal de oportunidades em empresas parceiras.',
     null,
     null,

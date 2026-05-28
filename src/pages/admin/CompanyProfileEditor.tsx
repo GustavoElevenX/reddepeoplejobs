@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { CompanyForm, type CompanyFormValues } from '../../components/admin/CompanyForm';
+import { CompanyForm, type CompanyFormAssets, type CompanyFormValues } from '../../components/admin/CompanyForm';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
 import { Card } from '../../components/ui/Card';
 import { getCompanyAccessForCurrentUser } from '../../lib/auth';
-import { getCompanyById, upsertCompany } from '../../lib/data';
+import { getCompanyById, updateCompanyImages, upsertCompany } from '../../lib/data';
 import { toCompanyPayload } from '../../lib/formPayloads';
+import { uploadCompanyAsset } from '../../lib/storage';
 import type { Company, CompanyUserAccess } from '../../types';
 
 export function CompanyProfileEditor() {
@@ -25,9 +26,23 @@ export function CompanyProfileEditor() {
     void load();
   }, []);
 
-  async function handleSave(values: CompanyFormValues) {
+  async function handleSave(values: CompanyFormValues, assets: CompanyFormAssets) {
     if (!company || !access?.can_edit_company_page) return;
-    const saved = await upsertCompany(toCompanyPayload(values, company));
+    let saved = await upsertCompany(toCompanyPayload(values, company));
+    const imageUpdates: Partial<Pick<Company, 'logo_url' | 'cover_image_url'>> = {};
+
+    if (assets.logoFile) {
+      imageUpdates.logo_url = await uploadCompanyAsset(assets.logoFile, saved.id, 'logo');
+    }
+
+    if (assets.bannerFile) {
+      imageUpdates.cover_image_url = await uploadCompanyAsset(assets.bannerFile, saved.id, 'banner');
+    }
+
+    if (Object.keys(imageUpdates).length > 0) {
+      saved = await updateCompanyImages(saved.id, imageUpdates);
+    }
+
     setCompany(saved);
   }
 

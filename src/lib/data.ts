@@ -67,6 +67,26 @@ type ApplicationFilters = {
   status?: ApplicationStatus | 'all';
 };
 
+function normalizeBrandText(value: string | null) {
+  return value
+    ?.replaceAll('Redde People Jobs', 'People Jobs')
+    .replaceAll('Redde People', 'People Jobs')
+    .replaceAll('reddepeople.com.br', 'peoplejobs.com.br') ?? null;
+}
+
+function normalizeSiteContent(content: SiteContent | null): SiteContent | null {
+  if (!content) return null;
+
+  return {
+    ...content,
+    title: normalizeBrandText(content.title) ?? content.title,
+    subtitle: normalizeBrandText(content.subtitle),
+    body: normalizeBrandText(content.body),
+    button_label: normalizeBrandText(content.button_label),
+    button_url: normalizeBrandText(content.button_url),
+  };
+}
+
 function normalizeJob(row: JobRow): Job {
   const { companies, ...job } = row;
   return {
@@ -228,6 +248,37 @@ export async function upsertCompany(values: Partial<Company> & Pick<Company, 'na
   return nextCompany;
 }
 
+export async function updateCompanyImages(
+  companyId: string,
+  values: Partial<Pick<Company, 'logo_url' | 'cover_image_url'>>,
+) {
+  const timestamp = new Date().toISOString();
+
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase
+      .from('companies')
+      .update({ ...values, updated_at: timestamp })
+      .eq('id', companyId)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data as Company;
+  }
+
+  const store = getLocalStore();
+  const index = store.companies.findIndex((company) => company.id === companyId);
+  if (index < 0) throw new Error('Empresa não encontrada.');
+
+  store.companies[index] = {
+    ...store.companies[index],
+    ...values,
+    updated_at: timestamp,
+  };
+  setLocalStore(store);
+  return store.companies[index];
+}
+
 export async function listJobs(filters: JobFilters = {}) {
   if (hasSupabaseConfig && supabase) {
     let query = supabase
@@ -351,6 +402,19 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
 
   setLocalStore(store);
   return withCompany(nextJob, store.companies);
+}
+
+export async function deleteJob(jobId: string) {
+  if (hasSupabaseConfig && supabase) {
+    const { error } = await supabase.from('jobs').delete().eq('id', jobId);
+    if (error) throw error;
+    return;
+  }
+
+  const store = getLocalStore();
+  store.jobs = store.jobs.filter((job) => job.id !== jobId);
+  store.applications = store.applications.filter((application) => application.job_id !== jobId);
+  setLocalStore(store);
 }
 
 export async function listApplications(filters: ApplicationFilters = {}) {
@@ -542,7 +606,7 @@ export async function createAdminUser(values: CreateAdminUserInput) {
   return {
     userId: profile.id,
     email: profile.email,
-    temporaryPassword: values.password || 'demo',
+    temporaryPassword: values.password || undefined,
   };
 }
 
@@ -625,10 +689,10 @@ export async function getSiteContent(key: string) {
       .eq('is_active', true)
       .maybeSingle();
     if (error) throw error;
-    return data as SiteContent | null;
+    return normalizeSiteContent(data as SiteContent | null);
   }
 
-  return getLocalStore().siteContents.find((content) => content.key === key && content.is_active) ?? null;
+  return normalizeSiteContent(getLocalStore().siteContents.find((content) => content.key === key && content.is_active) ?? null);
 }
 
 export async function getDashboardStats(companyId?: string): Promise<DashboardStats> {

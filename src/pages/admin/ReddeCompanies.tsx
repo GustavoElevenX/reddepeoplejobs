@@ -1,7 +1,7 @@
 import { Edit, Eye, Plus, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CompanyForm, type CompanyFormValues } from '../../components/admin/CompanyForm';
+import { CompanyForm, type CompanyFormAssets, type CompanyFormValues } from '../../components/admin/CompanyForm';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
 import { Badge } from '../../components/ui/Badge';
@@ -10,9 +10,10 @@ import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
-import { listCompanies, upsertCompany } from '../../lib/data';
+import { listCompanies, updateCompanyImages, upsertCompany } from '../../lib/data';
 import { toCompanyPayload } from '../../lib/formPayloads';
-import { formatLocation } from '../../lib/formatters';
+import { companyPageStatusLabels, formatLocation } from '../../lib/formatters';
+import { uploadCompanyAsset } from '../../lib/storage';
 import type { Company, CompanyPageStatus } from '../../types';
 
 export function ReddeCompanies() {
@@ -39,8 +40,22 @@ export function ReddeCompanies() {
       .filter((company) => status === 'all' || company.page_status === status);
   }, [companies, search, status]);
 
-  async function handleSave(values: CompanyFormValues) {
-    await upsertCompany(toCompanyPayload(values, editing));
+  async function handleSave(values: CompanyFormValues, assets: CompanyFormAssets) {
+    const saved = await upsertCompany(toCompanyPayload(values, editing));
+    const imageUpdates: Partial<Pick<Company, 'logo_url' | 'cover_image_url'>> = {};
+
+    if (assets.logoFile) {
+      imageUpdates.logo_url = await uploadCompanyAsset(assets.logoFile, saved.id, 'logo');
+    }
+
+    if (assets.bannerFile) {
+      imageUpdates.cover_image_url = await uploadCompanyAsset(assets.bannerFile, saved.id, 'banner');
+    }
+
+    if (Object.keys(imageUpdates).length > 0) {
+      await updateCompanyImages(saved.id, imageUpdates);
+    }
+
     setModalOpen(false);
     setEditing(null);
     await load();
@@ -89,11 +104,10 @@ export function ReddeCompanies() {
           <Plus size={18} />
         </span>
         <div>
-          <p className="font-bold text-ink-900">Como adicionar logos de clientes</p>
+          <p className="font-bold text-ink-900">Como adicionar imagens da empresa</p>
           <p>
-            A logo precisa estar ligada a uma empresa cadastrada. Use o campo <strong>Logo URL</strong> com um caminho como{' '}
-            <code>/imagens/clientes/nome-da-empresa.png</code>, ou deixe vazio se o arquivo tiver exatamente o mesmo slug da empresa.
-            Só colocar uma imagem na pasta não cria a empresa automaticamente.
+            Ao criar ou editar uma empresa, envie a logo e o banner pelo formulário. O endereço público da imagem será salvo
+            automaticamente na página da empresa.
           </p>
         </div>
       </Card>
@@ -107,7 +121,7 @@ export function ReddeCompanies() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-lg font-black text-ink-900">{company.name}</h2>
-                  <Badge variant={company.page_status === 'published' ? 'success' : 'neutral'}>{company.page_status}</Badge>
+                  <Badge variant={company.page_status === 'published' ? 'success' : 'neutral'}>{companyPageStatusLabels[company.page_status]}</Badge>
                   {company.is_featured ? <Badge variant="info">Destaque</Badge> : null}
                 </div>
                 <p className="mt-1 text-sm text-ink-500">
@@ -118,10 +132,10 @@ export function ReddeCompanies() {
                 <Link to={`/empresa/${company.slug}`} target="_blank">
                   <Button variant="secondary" size="sm">
                     <Eye size={16} />
-                    Preview
+                    Ver página
                   </Button>
                 </Link>
-                <Link to={`/admin/redde/empresas/${company.id}`}>
+                <Link to={`/admin/geral/empresas/${company.id}`}>
                   <Button variant="secondary" size="sm">
                     <Search size={16} />
                     Gerenciar

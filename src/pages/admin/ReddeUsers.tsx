@@ -17,6 +17,7 @@ import {
   updateCompanyAccess,
   type UserPermissionInput,
 } from '../../lib/data';
+import { roleLabels } from '../../lib/formatters';
 import type { Company, CompanyUserAccess, Profile } from '../../types';
 
 const defaultPermissions: UserPermissionInput = {
@@ -303,7 +304,7 @@ export function ReddeUsers() {
                     </div>
                     <p className="mt-1 text-sm text-ink-500">{profile.email}</p>
                   </div>
-                  <Badge variant="info">{profile.role}</Badge>
+                  <Badge variant="info">{roleLabels[profile.role]}</Badge>
                 </div>
 
                 {links.length ? (
@@ -353,7 +354,7 @@ export function ReddeUsers() {
       <Modal
         open={createOpen}
         title="Criar usuário"
-        description="Crie uma conta interna Redde ou uma conta de cliente com empresa e permissões."
+        description="Crie uma conta interna People Jobs ou uma conta de cliente com empresa e permissões."
         onClose={() => setCreateOpen(false)}
       >
         <form onSubmit={handleCreateUser} className="grid gap-4">
@@ -386,8 +387,8 @@ export function ReddeUsers() {
                 }))
               }
               options={[
-                { label: 'Admin Redde', value: 'redde_admin' },
-                { label: 'Admin da empresa', value: 'company_admin' },
+                { label: 'Administrador geral', value: 'redde_admin' },
+                { label: 'Administrador da empresa', value: 'company_admin' },
                 { label: 'Recrutador da empresa', value: 'company_recruiter' },
               ]}
             />

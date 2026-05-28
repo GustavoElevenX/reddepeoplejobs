@@ -1,10 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Save } from 'lucide-react';
-import { useEffect } from 'react';
+import { Image, Save } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { slugify } from '../../lib/slugify';
+import { validateCompanyImage, type CompanyAssetType } from '../../lib/storage';
 import type { Company } from '../../types';
+import { UploadField } from './UploadField';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -12,7 +14,7 @@ import { Textarea } from '../ui/Textarea';
 
 const companySchema = z.object({
   name: z.string().min(2, 'Informe o nome da empresa.'),
-  slug: z.string().min(2, 'Informe o slug.'),
+  slug: z.string().min(2, 'Informe o endereço da página.'),
   logo_url: z.string().optional(),
   cover_image_url: z.string().optional(),
   segment: z.string().optional(),
@@ -31,14 +33,24 @@ const companySchema = z.object({
 });
 
 export type CompanyFormValues = z.infer<typeof companySchema>;
+export type CompanyFormAssets = {
+  logoFile: File | null;
+  bannerFile: File | null;
+};
 
 type CompanyFormProps = {
   company?: Company | null;
-  onSubmit: (values: CompanyFormValues) => Promise<void> | void;
+  onSubmit: (values: CompanyFormValues, assets: CompanyFormAssets) => Promise<void> | void;
   submitLabel?: string;
 };
 
 export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' }: CompanyFormProps) {
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState('');
+  const [bannerPreview, setBannerPreview] = useState('');
+  const [logoError, setLogoError] = useState('');
+  const [bannerError, setBannerError] = useState('');
   const {
     register,
     handleSubmit,
@@ -70,6 +82,8 @@ export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' 
 
   const name = watch('name');
   const slug = watch('slug');
+  const logoUrl = logoPreview || watch('logo_url');
+  const bannerUrl = bannerPreview || watch('cover_image_url');
 
   useEffect(() => {
     if (!company && name && !slug) {
@@ -77,13 +91,75 @@ export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' 
     }
   }, [company, name, setValue, slug]);
 
+  useEffect(() => {
+    return () => {
+      if (logoPreview) URL.revokeObjectURL(logoPreview);
+    };
+  }, [logoPreview]);
+
+  useEffect(() => {
+    return () => {
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+    };
+  }, [bannerPreview]);
+
+  function setAssetPreview(assetType: CompanyAssetType, previewUrl: string) {
+    if (assetType === 'logo') {
+      setLogoPreview(previewUrl);
+      return;
+    }
+
+    setBannerPreview(previewUrl);
+  }
+
+  function setAssetFile(assetType: CompanyAssetType, file: File | null) {
+    if (assetType === 'logo') {
+      setLogoFile(file);
+      return;
+    }
+
+    setBannerFile(file);
+  }
+
+  function handleAssetSelection(file: File | null, assetType: CompanyAssetType) {
+    const setError = assetType === 'logo' ? setLogoError : setBannerError;
+
+    setError('');
+    setAssetFile(assetType, null);
+
+    if (!file) {
+      setAssetPreview(assetType, '');
+      return;
+    }
+
+    const validationError = validateCompanyImage(file, assetType);
+    if (validationError) {
+      setAssetPreview(assetType, '');
+      setError(validationError);
+      return;
+    }
+
+    setAssetFile(assetType, file);
+    setAssetPreview(assetType, URL.createObjectURL(file));
+  }
+
+  function handleFormSubmit(values: CompanyFormValues) {
+    return onSubmit(values, { logoFile, bannerFile });
+  }
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="grid gap-4">
+      <input type="hidden" {...register('logo_url')} />
+      <input type="hidden" {...register('cover_image_url')} />
+
       <div className="grid gap-4 md:grid-cols-2">
         <Input label="Nome" {...register('name')} error={errors.name?.message} />
-        <Input label="Slug" {...register('slug')} error={errors.slug?.message} />
-        <Input label="Logo URL" {...register('logo_url')} />
-        <Input label="Banner URL" {...register('cover_image_url')} />
+        <Input
+          label="Endereço da página"
+          helperText="Esse texto será usado no link público. Exemplo: casa-de-sucos-mix"
+          {...register('slug')}
+          error={errors.slug?.message}
+        />
         <Input label="Segmento" {...register('segment')} />
         <Input label="Cidade" {...register('city')} />
         <Input label="Estado" {...register('state')} />
@@ -100,6 +176,46 @@ export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' 
             { label: 'Arquivada', value: 'archived' },
           ]}
         />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-3">
+          <UploadField
+            label="Logo da empresa"
+            accept="image/png,image/jpeg,image/webp"
+            hint="PNG, JPG, JPEG ou WEBP até 2MB"
+            onFileChange={(file) => handleAssetSelection(file, 'logo')}
+            error={logoError}
+          />
+          {logoUrl ? (
+            <div className="flex h-28 items-center justify-center rounded-lg border border-surface-200 bg-surface-50 p-4">
+              <img src={logoUrl} alt="Logo da empresa" className="max-h-20 max-w-full object-contain" />
+            </div>
+          ) : (
+            <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-surface-200 bg-surface-50 text-ink-400">
+              <Image size={28} />
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-3">
+          <UploadField
+            label="Banner da página da empresa"
+            accept="image/png,image/jpeg,image/webp"
+            hint="PNG, JPG, JPEG ou WEBP até 5MB"
+            onFileChange={(file) => handleAssetSelection(file, 'banner')}
+            error={bannerError}
+          />
+          {bannerUrl ? (
+            <div className="h-28 overflow-hidden rounded-lg border border-surface-200 bg-surface-50">
+              <img src={bannerUrl} alt="Banner da página da empresa" className="h-full w-full object-cover" />
+            </div>
+          ) : (
+            <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-surface-200 bg-surface-50 text-ink-400">
+              <Image size={28} />
+            </div>
+          )}
+        </div>
       </div>
 
       <Textarea label="Descrição curta" rows={3} {...register('short_description')} />

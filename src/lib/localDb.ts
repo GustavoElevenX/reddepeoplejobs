@@ -17,8 +17,8 @@ type StoreShape = {
   siteContents: SiteContent[];
 };
 
-const STORE_KEY = 'redde_people_jobs_mvp_store_v2';
-const SESSION_KEY = 'redde_people_jobs_current_profile_id';
+const STORE_KEY = 'people_jobs_mvp_store_v4';
+const SESSION_KEY = 'people_jobs_current_profile_id';
 
 const seed: StoreShape = {
   companies: mockCompanies,

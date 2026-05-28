@@ -126,7 +126,7 @@ export function ApplicationForm({ job }: { job: Job }) {
       <label className="flex items-start gap-3 rounded-lg bg-surface-50 p-3 text-sm text-ink-500">
         <input type="checkbox" className="mt-1 h-4 w-4 accent-redde-500" {...register('lgpdConsent')} />
         <span>
-          Aceito que meus dados sejam usados pela Redde People e pela empresa contratante para condução deste processo seletivo.
+          Aceito que meus dados sejam usados pelo People Jobs e pela empresa contratante para condução deste processo seletivo.
           {errors.lgpdConsent?.message ? (
             <span className="mt-1 block text-xs font-semibold text-redde-700">{errors.lgpdConsent.message}</span>
           ) : null}

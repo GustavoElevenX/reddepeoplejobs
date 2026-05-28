@@ -26,16 +26,16 @@ export function HeroSearch({ companies, openJobsCount, loading = false }: HeroSe
   }
 
   return (
-    <section className="border-b border-surface-200 bg-white">
-      <div className="container-page py-10 lg:py-12">
+    <section className="border-b border-[#8300ea] bg-[#8300ea]">
+      <div className="container-page pb-10 pt-28 lg:pb-12 lg:pt-32">
         <div className="mx-auto max-w-4xl text-center">
-          <span className="inline-flex rounded-full bg-redde-50 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-redde-700">
-            Portal de vagas Redde People
+          <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-white">
+            Portal de vagas People Jobs
           </span>
-          <h1 className="mt-5 text-4xl font-black leading-tight text-ink-900 sm:text-5xl lg:text-6xl">
-            Encontre sua próxima oportunidade em empresas parceiras da Redde People
+          <h1 className="mt-5 text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">
+            Encontre sua próxima oportunidade em empresas parceiras do People Jobs
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-ink-500">
+          <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-white/85">
             Busque vagas abertas, conheça empresas contratando agora e envie seu currículo sem criar login.
           </p>
         </div>
@@ -66,30 +66,30 @@ export function HeroSearch({ companies, openJobsCount, loading = false }: HeroSe
           </Button>
         </form>
 
-        <div className="mx-auto mt-5 flex max-w-4xl flex-wrap items-center justify-center gap-3 text-sm text-ink-500">
+        <div className="mx-auto mt-5 flex max-w-4xl flex-wrap items-center justify-center gap-3 text-sm text-white/85">
           <span className="inline-flex items-center gap-2">
-            <BriefcaseBusiness size={16} className="text-redde-600" />
+            <BriefcaseBusiness size={16} className="text-white" />
             {openJobsCount} vagas abertas
           </span>
-          <span className="hidden h-1 w-1 rounded-full bg-surface-200 sm:block" />
+          <span className="hidden h-1 w-1 rounded-full bg-white/35 sm:block" />
           <span className="inline-flex items-center gap-2">
-            <Building2 size={16} className="text-redde-600" />
+            <Building2 size={16} className="text-white" />
             {companies.length || 6}+ empresas parceiras
           </span>
-          <span className="hidden h-1 w-1 rounded-full bg-surface-200 sm:block" />
+          <span className="hidden h-1 w-1 rounded-full bg-white/35 sm:block" />
           <span className="inline-flex items-center gap-2">
-            <MapPin size={16} className="text-redde-600" />
+            <MapPin size={16} className="text-white" />
             Oportunidades presenciais, híbridas e remotas
           </span>
         </div>
 
-        <div className="mt-9 rounded-2xl border border-surface-200 bg-surface-50 p-4 shadow-card">
+        <div className="mt-9 rounded-2xl border border-white/25 bg-white/10 p-4 shadow-card backdrop-blur">
           <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
             <div>
-              <h2 className="text-xl font-black text-ink-900">Empresas líderes contratando agora</h2>
-              <p className="mt-1 text-sm text-ink-500">Clique em uma logo para ver o perfil público e as vagas abertas.</p>
+              <h2 className="text-xl font-black text-white">Empresas líderes contratando agora</h2>
+              <p className="mt-1 text-sm text-white/80">Clique em uma logo para ver o perfil público e as vagas abertas.</p>
             </div>
-            <Link to="/empresas" className="text-sm font-bold text-redde-600 hover:text-redde-700">
+            <Link to="/empresas" className="text-sm font-bold text-white hover:text-white/80">
               Ver empresas
             </Link>
           </div>

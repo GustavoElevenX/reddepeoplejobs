@@ -1,4 +1,4 @@
-import { getLocalStore, getCurrentLocalProfileId, setCurrentLocalProfileId } from './localDb';
+import { getLocalStore, setCurrentLocalProfileId } from './localDb';
 import { hasSupabaseConfig, supabase } from './supabase';
 import type { Profile } from '../types';
 
@@ -20,13 +20,7 @@ export async function signIn(email: string, password: string) {
     return profile as Profile;
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
-  const store = getLocalStore();
-  const profile =
-    store.profiles.find((item) => item.email.toLowerCase() === normalizedEmail) ?? store.profiles[0];
-
-  setCurrentLocalProfileId(profile.id);
-  return profile;
+  throw new Error('Supabase não configurado. Configure as variáveis de ambiente para usar o painel.');
 }
 
 export async function signOut() {
@@ -49,9 +43,7 @@ export async function getCurrentProfile() {
     return data as Profile;
   }
 
-  const profileId = getCurrentLocalProfileId();
-  if (!profileId) return null;
-  return getLocalStore().profiles.find((profile) => profile.id === profileId) ?? null;
+  return null;
 }
 
 export async function getCompanyAccessForCurrentUser() {
@@ -74,7 +66,7 @@ export async function getCompanyAccessForCurrentUser() {
 
 export function getAdminRedirectPath(profile: Profile) {
   if (profile.role === 'redde_super_admin' || profile.role === 'redde_admin') {
-    return '/admin/redde';
+    return '/admin/geral';
   }
 
   return '/admin/empresa';

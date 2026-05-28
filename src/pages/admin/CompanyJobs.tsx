@@ -1,4 +1,4 @@
-import { Edit, Plus } from 'lucide-react';
+import { Edit, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { JobForm, type JobFormValues } from '../../components/admin/JobForm';
 import { EmptyState } from '../../components/public/EmptyState';
@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
 import { getCompanyAccessForCurrentUser } from '../../lib/auth';
-import { getCompanyById, listJobs, upsertJob } from '../../lib/data';
+import { deleteJob, getCompanyById, listJobs, upsertJob } from '../../lib/data';
 import { toJobPayload } from '../../lib/formPayloads';
 import { jobStatusLabels } from '../../lib/formatters';
 import type { Company, CompanyUserAccess, Job } from '../../types';
@@ -70,6 +70,18 @@ export function CompanyJobs() {
     await load();
   }
 
+  async function handleDelete(job: Job) {
+    if (!access?.can_manage_jobs || job.company_id !== access.company_id) return;
+
+    const confirmed = window.confirm(
+      'Tem certeza que deseja excluir esta vaga? Essa ação também removerá as candidaturas vinculadas a ela.',
+    );
+    if (!confirmed) return;
+
+    await deleteJob(job.id);
+    await load();
+  }
+
   if (loading) return <LoadingState label="Carregando vagas..." />;
   if (!access || !company) return <EmptyState title="Nenhuma empresa vinculada ao seu usuário." />;
   if (!access.can_manage_jobs) return <EmptyState title="Seu usuário não tem permissão para gerenciar vagas." />;
@@ -123,6 +135,10 @@ export function CompanyJobs() {
                 </Button>
                 <Button variant="danger" size="sm" onClick={() => changeStatus(job, 'archived')}>
                   Arquivar
+                </Button>
+                <Button variant="danger" size="sm" onClick={() => handleDelete(job)}>
+                  <Trash2 size={16} />
+                  Excluir
                 </Button>
               </div>
             </Card>

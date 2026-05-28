@@ -1,4 +1,5 @@
-import { ArrowRight, CalendarDays, MapPin } from 'lucide-react';
+import { ArrowRight, Building2, CalendarDays, MapPin } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { contractTypeLabels, formatLocation, formatRelativeDate, modalityLabels } from '../../lib/formatters';
 import type { Job } from '../../types';
@@ -12,15 +13,31 @@ type JobCardProps = {
 
 export function JobCard({ job }: JobCardProps) {
   const companySlug = job.company?.slug ?? 'empresa';
+  const [logoFailed, setLogoFailed] = useState(false);
+  const logoUrl = job.company?.logo_url;
 
   return (
     <Card className="flex h-full flex-col p-5 transition hover:-translate-y-1 hover:shadow-soft">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-semibold text-redde-600">{job.company?.name ?? 'Empresa parceira'}</p>
           <h3 className="mt-1 text-lg font-black text-ink-900">{job.title}</h3>
         </div>
-        <Badge variant="success">Aberta</Badge>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-surface-200 bg-surface-50 p-2">
+            {logoUrl && !logoFailed ? (
+              <img
+                src={logoUrl}
+                alt={job.company?.name ?? 'Empresa parceira'}
+                className="max-h-8 max-w-full object-contain"
+                onError={() => setLogoFailed(true)}
+              />
+            ) : (
+              <Building2 className="text-redde-500" size={22} />
+            )}
+          </div>
+          <Badge variant="success">Aberta</Badge>
+        </div>
       </div>
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-ink-500">{job.short_description ?? job.description}</p>
       <div className="mt-4 flex flex-wrap gap-2">

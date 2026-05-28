@@ -1,6 +1,6 @@
-# Redde People
+# People Jobs
 
-Portal de oportunidades para conectar candidatos a empresas parceiras da Redde People.
+Portal de oportunidades para conectar candidatos a empresas parceiras, com páginas de empresas, vagas públicas, candidaturas sem login e painel administrativo.
 
 ## Visão Geral
 
@@ -12,7 +12,7 @@ O projeto reúne:
 - vagas abertas por empresa;
 - candidatura sem login;
 - envio de currículo;
-- painel administrativo Redde;
+- painel geral;
 - painel de empresa;
 - gestão de candidatos e permissões de acesso.
 
@@ -22,32 +22,25 @@ O projeto reúne:
 
 O candidato pode acessar o portal, buscar vagas, conhecer empresas parceiras e enviar uma candidatura com currículo sem criar conta.
 
-### Redde People
+### People Jobs
 
-A Redde People pode gerenciar empresas, vagas, candidatos, usuários e permissões.
+Administradores gerais podem gerenciar empresas, vagas, candidatos, usuários e permissões.
 
 ### Empresa Cliente
 
-A empresa cliente pode acessar apenas seus próprios dados, vagas e candidaturas, conforme as permissões concedidas pela Redde People.
+A empresa cliente pode acessar apenas seus próprios dados, vagas e candidaturas, conforme as permissões concedidas no painel People Jobs.
 
-## Logos de Clientes
+## Primeiro acesso
 
-As logos ficam na pasta pública de imagens do projeto.
+1. Configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+2. Rode as migrations no Supabase.
+3. Crie o primeiro administrador no Supabase Auth.
+4. Insira o perfil na tabela `profiles` com permissão de administrador geral.
+5. Publique a Edge Function `create-company-user`.
 
-Para uma logo aparecer no portal, a empresa também precisa estar cadastrada. Existem duas formas:
+## Imagens de Empresas
 
-- preencher o caminho da logo no cadastro da empresa;
-- deixar o caminho vazio e salvar a imagem com o mesmo slug da empresa.
-
-Colocar uma imagem nova na pasta não cria a empresa automaticamente.
-
-## Contas de Demonstração
-
-Quando o projeto estiver em modo de demonstração, use qualquer senha:
-
-- `admin@reddepeople.com.br`: painel Redde completo
-- `empresa@cliente.com.br`: painel de empresa com edição
-- `recrutador@cliente.com.br`: painel de empresa sem edição de página
+Logo e banner podem ser enviados pelo formulário de cadastro ou edição da empresa. Os arquivos são salvos no bucket público `company-assets` nos caminhos `{company_id}/logo/{uuid}.{extensao}` e `{company_id}/banner/{uuid}.{extensao}`. As URLs públicas ficam nos campos `logo_url` e `cover_image_url`.
 
 ## Checklist de Validação
 
@@ -55,6 +48,6 @@ Quando o projeto estiver em modo de demonstração, use qualquer senha:
 - A busca precisa estar em destaque.
 - As empresas devem aparecer com logos e acesso às vagas.
 - A candidatura deve funcionar sem login.
-- A Redde People deve conseguir gerenciar tudo.
+- Administradores gerais devem conseguir gerenciar tudo.
 - Usuários de empresa devem ver apenas dados da própria empresa.
 - Textos técnicos não devem aparecer para candidatos, empresas ou usuários administrativos.

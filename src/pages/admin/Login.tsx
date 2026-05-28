@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { getAdminRedirectPath, signIn } from '../../lib/auth';
+import { hasSupabaseConfig } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -26,8 +27,8 @@ export function Login() {
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'admin@reddepeople.com.br',
-      password: 'demo',
+      email: '',
+      password: '',
     },
   });
 
@@ -60,17 +61,17 @@ export function Login() {
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
           <Input label="E-mail" type="email" {...register('email')} error={errors.email?.message} />
           <Input label="Senha" type="password" {...register('password')} error={errors.password?.message} />
+          {!hasSupabaseConfig ? (
+            <div className="rounded-lg bg-redde-50 p-3 text-sm font-semibold text-redde-700">
+              Supabase não configurado. Configure as variáveis de ambiente para usar o painel.
+            </div>
+          ) : null}
           {error ? <div className="rounded-lg bg-redde-50 p-3 text-sm font-semibold text-redde-700">{error}</div> : null}
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting || !hasSupabaseConfig}>
             {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : null}
             Entrar
           </Button>
         </form>
-
-        <div className="mt-5 rounded-lg bg-surface-50 p-3 text-xs leading-5 text-ink-500">
-          <strong className="text-ink-900">Contas de demonstração:</strong> admin@reddepeople.com.br, empresa@cliente.com.br,
-          recrutador@cliente.com.br. A senha pode ser qualquer texto no modo local.
-        </div>
       </Card>
     </main>
   );

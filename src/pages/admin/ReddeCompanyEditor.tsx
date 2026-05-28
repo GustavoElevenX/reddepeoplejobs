@@ -1,14 +1,16 @@
 import { ArrowLeft, BriefcaseBusiness, Eye, UsersRound } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CompanyForm, type CompanyFormValues } from '../../components/admin/CompanyForm';
+import { CompanyForm, type CompanyFormAssets, type CompanyFormValues } from '../../components/admin/CompanyForm';
 import { CandidateTable } from '../../components/admin/CandidateTable';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { getCompanyById, listApplications, listJobs, updateApplicationStatus, upsertCompany } from '../../lib/data';
+import { getCompanyById, listApplications, listJobs, updateApplicationStatus, updateCompanyImages, upsertCompany } from '../../lib/data';
 import { toCompanyPayload } from '../../lib/formPayloads';
+import { companyPageStatusLabels, jobStatusLabels } from '../../lib/formatters';
+import { uploadCompanyAsset } from '../../lib/storage';
 import type { Application, Company, Job } from '../../types';
 
 export function ReddeCompanyEditor() {
@@ -38,9 +40,23 @@ export function ReddeCompanyEditor() {
     void load();
   }, [load]);
 
-  async function handleSave(values: CompanyFormValues) {
+  async function handleSave(values: CompanyFormValues, assets: CompanyFormAssets) {
     if (!company) return;
-    const saved = await upsertCompany(toCompanyPayload(values, company));
+    let saved = await upsertCompany(toCompanyPayload(values, company));
+    const imageUpdates: Partial<Pick<Company, 'logo_url' | 'cover_image_url'>> = {};
+
+    if (assets.logoFile) {
+      imageUpdates.logo_url = await uploadCompanyAsset(assets.logoFile, saved.id, 'logo');
+    }
+
+    if (assets.bannerFile) {
+      imageUpdates.cover_image_url = await uploadCompanyAsset(assets.bannerFile, saved.id, 'banner');
+    }
+
+    if (Object.keys(imageUpdates).length > 0) {
+      saved = await updateCompanyImages(saved.id, imageUpdates);
+    }
+
     setCompany(saved);
     await load();
   }
@@ -52,7 +68,7 @@ export function ReddeCompanyEditor() {
     <div className="grid gap-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <Link to="/admin/redde/empresas" className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-redde-600">
+          <Link to="/admin/geral/empresas" className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-redde-600">
             <ArrowLeft size={16} />
             Voltar para empresas
           </Link>
@@ -62,7 +78,7 @@ export function ReddeCompanyEditor() {
         <Link to={`/empresa/${company.slug}`} target="_blank">
           <Button variant="secondary">
             <Eye size={18} />
-            Preview público
+            Ver página pública
           </Button>
         </Link>
       </div>
@@ -80,7 +96,7 @@ export function ReddeCompanyEditor() {
         </Card>
         <Card className="p-5">
           <p className="text-sm font-semibold text-ink-500">Status</p>
-          <p className="mt-3 text-3xl font-black text-ink-900">{company.page_status}</p>
+          <p className="mt-3 text-3xl font-black text-ink-900">{companyPageStatusLabels[company.page_status]}</p>
         </Card>
       </div>
 
@@ -92,7 +108,7 @@ export function ReddeCompanyEditor() {
       <Card className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-black text-ink-900">Vagas da empresa</h2>
-          <Link to="/admin/redde/vagas">
+          <Link to="/admin/geral/vagas">
             <Button variant="secondary" size="sm">Gerenciar vagas</Button>
           </Link>
         </div>
@@ -101,7 +117,7 @@ export function ReddeCompanyEditor() {
             jobs.map((job) => (
               <div key={job.id} className="rounded-lg border border-surface-200 p-3">
                 <p className="font-bold text-ink-900">{job.title}</p>
-                <p className="text-sm text-ink-500">{job.status}</p>
+                <p className="text-sm text-ink-500">{jobStatusLabels[job.status]}</p>
               </div>
             ))
           ) : (

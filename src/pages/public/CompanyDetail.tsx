@@ -108,7 +108,7 @@ export function CompanyDetail() {
             </div>
             <div className="mt-4 flex items-start gap-3 rounded-lg bg-redde-50 p-4 text-sm leading-6 text-ink-700">
               <ShieldCheck className="mt-0.5 shrink-0 text-redde-600" size={18} />
-              Processo seletivo estruturado com apoio da Redde People.
+              Processo seletivo estruturado com apoio do People Jobs.
             </div>
           </div>
         </div>

@@ -17,14 +17,14 @@ export function Sidebar({ profile }: SidebarProps) {
   const redde = isReddeAdmin(profile);
   const links = redde
     ? [
-        { label: 'Dashboard', to: '/admin/redde', icon: LayoutDashboard },
-        { label: 'Empresas', to: '/admin/redde/empresas', icon: Building2 },
-        { label: 'Vagas', to: '/admin/redde/vagas', icon: BriefcaseBusiness },
-        { label: 'Candidaturas', to: '/admin/redde/candidaturas', icon: ListChecks },
-        { label: 'Usuários', to: '/admin/redde/usuarios', icon: Users },
+        { label: 'Painel', to: '/admin/geral', icon: LayoutDashboard },
+        { label: 'Empresas', to: '/admin/geral/empresas', icon: Building2 },
+        { label: 'Vagas', to: '/admin/geral/vagas', icon: BriefcaseBusiness },
+        { label: 'Candidaturas', to: '/admin/geral/candidaturas', icon: ListChecks },
+        { label: 'Usuários', to: '/admin/geral/usuarios', icon: Users },
       ]
     : [
-        { label: 'Dashboard', to: '/admin/empresa', icon: LayoutDashboard },
+        { label: 'Painel', to: '/admin/empresa', icon: LayoutDashboard },
         { label: 'Perfil público', to: '/admin/empresa/perfil', icon: Building2 },
         { label: 'Vagas', to: '/admin/empresa/vagas', icon: BriefcaseBusiness },
         { label: 'Candidaturas', to: '/admin/empresa/candidaturas', icon: ListChecks },
@@ -33,8 +33,12 @@ export function Sidebar({ profile }: SidebarProps) {
   return (
     <aside className="border-b border-surface-200 bg-ink-900 text-white lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r">
       <div className="flex items-center gap-3 px-4 py-5">
-        <span className="flex h-11 w-36 items-center overflow-hidden rounded-lg bg-white/5 px-2">
-          <img src="/imagens/logo/redde-people-logo.png" alt="Redde People" className="h-9 w-full object-contain" />
+        <span className="flex h-11 w-36 items-center overflow-hidden">
+          <img
+            src="/imagens/logo/redde-people-jobs-white.png"
+            alt="People Jobs"
+            className="h-full w-full object-contain"
+          />
         </span>
       </div>
       <p className="px-4 pb-3 text-xs font-semibold text-white/60">Painel administrativo</p>
@@ -45,7 +49,7 @@ export function Sidebar({ profile }: SidebarProps) {
             <NavLink
               key={link.to}
               to={link.to}
-              end={link.to === '/admin/redde' || link.to === '/admin/empresa'}
+              end={link.to === '/admin/geral' || link.to === '/admin/empresa'}
               className={({ isActive }) =>
                 `flex min-w-max items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
                   isActive ? 'bg-redde-500 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'

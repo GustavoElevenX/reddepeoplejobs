@@ -33,16 +33,16 @@ export function ReddeDashboard() {
     void load();
   }, []);
 
-  if (loading || !stats) return <LoadingState label="Carregando painel Redde..." />;
+  if (loading || !stats) return <LoadingState label="Carregando painel geral..." />;
 
   return (
     <div className="grid gap-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <h1 className="text-3xl font-black text-ink-900">Dashboard Redde People</h1>
+          <h1 className="text-3xl font-black text-ink-900">Painel People Jobs</h1>
           <p className="mt-2 text-ink-500">Visão global de empresas, vagas e candidaturas.</p>
         </div>
-        <Link to="/admin/redde/empresas">
+        <Link to="/admin/geral/empresas">
           <Button>
             <Building2 size={18} />
             Nova empresa
@@ -62,7 +62,7 @@ export function ReddeDashboard() {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-black text-ink-900">Últimas candidaturas</h2>
-            <Link to="/admin/redde/candidaturas" className="text-sm font-bold text-redde-600">
+            <Link to="/admin/geral/candidaturas" className="text-sm font-bold text-redde-600">
               Ver todas
             </Link>
           </div>
@@ -85,7 +85,7 @@ export function ReddeDashboard() {
           <div className="mt-4 grid gap-3">
             {jobs.length ? (
               jobs.map((job) => (
-                <Link key={job.id} to="/admin/redde/vagas" className="rounded-lg border border-surface-200 p-3 hover:bg-surface-50">
+                <Link key={job.id} to="/admin/geral/vagas" className="rounded-lg border border-surface-200 p-3 hover:bg-surface-50">
                   <p className="font-bold text-ink-900">{job.title}</p>
                   <p className="text-sm text-ink-500">{job.company?.name ?? 'Empresa'}</p>
                 </Link>

@@ -4,9 +4,10 @@ import { cn } from '../../lib/cn';
 type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
   error?: string;
+  helperText?: string;
 };
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(({ className, label, error, id, ...props }, ref) => {
+export const Input = forwardRef<HTMLInputElement, InputProps>(({ className, label, error, helperText, id, ...props }, ref) => {
   const inputId = id ?? props.name;
 
   return (
@@ -22,6 +23,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({ className, labe
         )}
         {...props}
       />
+      {helperText ? <span className="mt-1.5 block text-xs text-ink-500">{helperText}</span> : null}
       {error ? <span className="mt-1.5 block text-xs font-medium text-redde-700">{error}</span> : null}
     </label>
   );

@@ -43,7 +43,7 @@ export function Home() {
             <div>
               <h2 className="text-3xl font-black text-ink-900">Empresas contratando agora</h2>
               <p className="mt-2 max-w-2xl text-ink-500">
-                Perfis públicos com logo, vagas abertas e processo seletivo organizado pela Redde People.
+                Perfis públicos com logo, vagas abertas e processo seletivo organizado pelo People Jobs.
               </p>
             </div>
             <Link to="/empresas" className="inline-flex items-center gap-2 text-sm font-bold text-redde-600">
@@ -83,20 +83,33 @@ export function Home() {
       </section>
 
       <section id="para-empresas" className="bg-ink-900 py-12 text-white">
-        <div className="container-page grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
+        <div className="container-page grid gap-7 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <h2 className="text-3xl font-black">{cta?.title ?? 'Sua empresa quer contratar com mais critério?'}</h2>
+            <span className="text-sm font-black uppercase tracking-[0.14em] text-redde-200">Para empresas</span>
+            <h2 className="mt-3 text-3xl font-black">{cta?.title ?? 'Publique vagas com mais organização'}</h2>
             <p className="mt-3 max-w-3xl leading-7 text-white/75">
               {cta?.subtitle ??
-                'A Redde People estrutura processos de contratação para reduzir improviso, rotatividade e decisões baseadas apenas em currículo.'}
+                'Publique vagas, organize candidaturas e acompanhe candidatos em um só lugar. Com o People Jobs, sua empresa ganha uma página própria, vagas públicas e um painel para visualizar currículos recebidos.'}
             </p>
+            <div className="mt-5 grid gap-2 text-sm font-semibold text-white/80 sm:grid-cols-3">
+              <span>Página própria da empresa</span>
+              <span>Vagas públicas</span>
+              <span>Painel de candidaturas</span>
+            </div>
           </div>
-          <a href={cta?.button_url ?? 'mailto:contato@reddepeople.com.br'} className="inline-flex">
-            <Button size="lg" variant="secondary" className="border-white bg-white text-ink-900 hover:bg-redde-50">
-              <Mail size={18} />
-              {cta?.button_label ?? 'Falar com a Redde People'}
-            </Button>
-          </a>
+          <div className="flex flex-wrap gap-3">
+            <a href={cta?.button_url ?? 'mailto:contato@peoplejobs.com.br'} className="inline-flex">
+              <Button size="lg" variant="secondary" className="border-white bg-white text-ink-900 hover:bg-redde-50">
+                <Mail size={18} />
+                {cta?.button_label ?? 'Falar com a People Jobs'}
+              </Button>
+            </a>
+            <Link to="/admin/login" className="inline-flex">
+              <Button size="lg" className="border-white/20 bg-white/10 hover:bg-white/15">
+                Acessar painel
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
     </>

@@ -13,7 +13,7 @@ import { Textarea } from '../ui/Textarea';
 const jobSchema = z.object({
   company_id: z.string().min(1, 'Selecione uma empresa.'),
   title: z.string().min(3, 'Informe o título da vaga.'),
-  slug: z.string().min(2, 'Informe o slug.'),
+  slug: z.string().min(2, 'Informe o endereço da vaga.'),
   short_description: z.string().optional(),
   description: z.string().min(10, 'Informe a descrição completa.'),
   responsibilities: z.string().optional(),
@@ -93,7 +93,12 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
           ]}
         />
         <Input label="Título" {...register('title')} error={errors.title?.message} />
-        <Input label="Slug" {...register('slug')} error={errors.slug?.message} />
+        <Input
+          label="Endereço da vaga"
+          helperText="Esse texto será usado no link da vaga. Exemplo: auxiliar-administrativo"
+          {...register('slug')}
+          error={errors.slug?.message}
+        />
         <Input label="Cidade" {...register('city')} />
         <Input label="Estado" {...register('state')} />
         <Select

@@ -1,4 +1,4 @@
-import { Edit, Plus } from 'lucide-react';
+import { Edit, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { JobForm, type JobFormValues } from '../../components/admin/JobForm';
 import { EmptyState } from '../../components/public/EmptyState';
@@ -9,7 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
-import { listCompanies, listJobs, upsertJob } from '../../lib/data';
+import { deleteJob, listCompanies, listJobs, upsertJob } from '../../lib/data';
 import { toJobPayload } from '../../lib/formPayloads';
 import { contractTypeLabels, formatLocation, jobStatusLabels, modalityLabels } from '../../lib/formatters';
 import type { Company, Job, JobStatus } from '../../types';
@@ -72,6 +72,16 @@ export function ReddeJobs() {
       created_at: job.created_at,
       status: 'archived',
     });
+    await load();
+  }
+
+  async function handleDelete(job: Job) {
+    const confirmed = window.confirm(
+      'Tem certeza que deseja excluir esta vaga? Essa ação também removerá as candidaturas vinculadas a ela.',
+    );
+    if (!confirmed) return;
+
+    await deleteJob(job.id);
     await load();
   }
 
@@ -147,6 +157,10 @@ export function ReddeJobs() {
                 </Button>
                 <Button variant="danger" size="sm" onClick={() => handleArchive(job)}>
                   Arquivar
+                </Button>
+                <Button variant="danger" size="sm" onClick={() => handleDelete(job)}>
+                  <Trash2 size={16} />
+                  Excluir
                 </Button>
               </div>
             </Card>
