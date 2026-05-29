@@ -50,13 +50,11 @@ export function PublicHeader() {
               to={link.to}
               className={({ isActive }) =>
                 `text-sm font-semibold transition hover:text-redde-600 ${
-                  isActive
-                    ? isPurple
-                      ? 'text-white'
-                      : 'text-redde-600'
-                    : isPurple
-                      ? 'text-white/85 hover:text-white'
-                      : 'text-ink-700'
+                  isPurple
+                    ? 'text-white hover:text-white'
+                    : isActive
+                      ? 'text-redde-600'
+                      : 'text-redde-600 hover:text-redde-700'
                 }`
               }
             >
