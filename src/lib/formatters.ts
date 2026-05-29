@@ -61,3 +61,11 @@ export function formatLocation(city?: string | null, state?: string | null) {
   if (city && state) return `${city}, ${state}`;
   return city ?? state ?? 'Localidade não informada';
 }
+
+export function formatSalaryRange(value?: string | null) {
+  const salary = value?.trim();
+  if (!salary) return null;
+  if (/^R\$\s*/i.test(salary)) return salary.replace(/^R\$\s*/i, 'R$ ');
+  if (/^RS\s+/i.test(salary)) return salary.replace(/^RS\s+/i, 'R$ ');
+  return `R$ ${salary}`;
+}

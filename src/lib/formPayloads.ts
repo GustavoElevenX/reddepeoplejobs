@@ -1,6 +1,7 @@
 import type { CompanyFormValues } from '../components/admin/CompanyForm';
 import type { JobFormValues } from '../components/admin/JobForm';
 import type { Company, Job } from '../types';
+import { formatSalaryRange } from './formatters';
 
 function emptyToNull(value?: string) {
   return value?.trim() ? value.trim() : null;
@@ -45,7 +46,7 @@ export function toJobPayload(values: JobFormValues, existing?: Job | null): Part
     responsibilities: emptyToNull(values.responsibilities),
     requirements: emptyToNull(values.requirements),
     benefits: emptyToNull(values.benefits),
-    salary_range: emptyToNull(values.salary_range),
+    salary_range: formatSalaryRange(values.salary_range),
     education_level: emptyToNull(values.education_level),
     work_schedule: emptyToNull(values.work_schedule),
     about_company: emptyToNull(values.about_company),

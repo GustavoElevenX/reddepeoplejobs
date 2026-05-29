@@ -130,7 +130,7 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
         />
         <Input label="Nível" {...register('seniority')} />
         <Input label="Escolaridade" {...register('education_level')} />
-        <Input label="Faixa salarial base" {...register('salary_range')} />
+        <Input label="Faixa salarial base" placeholder="R$ 4.000,00 por mês" {...register('salary_range')} />
         <Input label="Jornada de trabalho" {...register('work_schedule')} />
         <Input label="Prazo de candidatura" type="date" {...register('application_deadline')} />
         <Select

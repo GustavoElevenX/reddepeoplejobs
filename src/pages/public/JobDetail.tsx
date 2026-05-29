@@ -7,7 +7,7 @@ import { LoadingState } from '../../components/public/LoadingState';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { contractTypeLabels, formatDate, formatLocation, modalityLabels } from '../../lib/formatters';
+import { contractTypeLabels, formatDate, formatLocation, formatSalaryRange, modalityLabels } from '../../lib/formatters';
 import { getJobByCompanyAndSlug } from '../../lib/data';
 import type { Job } from '../../types';
 
@@ -84,7 +84,7 @@ export function JobDetail() {
     { label: 'Tipo de contrato', value: contractTypeLabels[job.contract_type] },
     { label: 'Modelo de trabalho', value: modalityLabels[job.modality] },
     { label: 'Jornada de trabalho', value: job.work_schedule },
-    { label: 'Faixa salarial base', value: job.salary_range },
+    { label: 'Faixa salarial base', value: formatSalaryRange(job.salary_range) },
     { label: 'Publicada em', value: formatDate(job.created_at) },
     { label: 'Prazo de candidatura', value: job.application_deadline ? formatDate(job.application_deadline) : null },
   ].filter((item) => item.value);
@@ -114,7 +114,7 @@ export function JobDetail() {
             <div className="mt-6 flex flex-wrap gap-2">
               <Badge>{modalityLabels[job.modality]}</Badge>
               <Badge>{contractTypeLabels[job.contract_type]}</Badge>
-              {job.salary_range ? <Badge variant="info">{job.salary_range}</Badge> : null}
+              {formatSalaryRange(job.salary_range) ? <Badge variant="info">{formatSalaryRange(job.salary_range)}</Badge> : null}
               {job.application_deadline ? <Badge variant="warning">Prazo: {formatDate(job.application_deadline)}</Badge> : null}
             </div>
             <a href="#candidatura" className="mt-6 inline-flex">

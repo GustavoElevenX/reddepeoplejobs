@@ -1,7 +1,7 @@
 import { ArrowRight, Building2, CalendarDays, MapPin } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { contractTypeLabels, formatLocation, formatRelativeDate, modalityLabels } from '../../lib/formatters';
+import { contractTypeLabels, formatLocation, formatRelativeDate, formatSalaryRange, modalityLabels } from '../../lib/formatters';
 import type { Job } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -44,7 +44,7 @@ export function JobCard({ job }: JobCardProps) {
         <Badge>{modalityLabels[job.modality]}</Badge>
         <Badge>{contractTypeLabels[job.contract_type]}</Badge>
         {job.seniority ? <Badge>{job.seniority}</Badge> : null}
-        {job.salary_range ? <Badge variant="info">{job.salary_range}</Badge> : null}
+        {formatSalaryRange(job.salary_range) ? <Badge variant="info">{formatSalaryRange(job.salary_range)}</Badge> : null}
       </div>
       <div className="mt-4 grid gap-2 text-sm text-ink-500">
         <span className="flex items-center gap-2">
