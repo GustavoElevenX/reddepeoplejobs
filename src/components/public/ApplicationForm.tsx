@@ -18,9 +18,8 @@ const applicationSchema = z.object({
   phone: z.string().min(10, 'Informe um WhatsApp válido.'),
   city: z.string().min(2, 'Informe sua cidade.'),
   linkedinUrl: z.string().url('Informe uma URL válida.').optional().or(z.literal('')),
-  portfolioUrl: z.string().url('Informe uma URL válida.').optional().or(z.literal('')),
-  salaryExpectation: z.string().optional(),
-  availability: z.string().optional(),
+  salaryExpectation: z.string().min(2, 'Informe sua pretensão salarial.'),
+  availability: z.string().min(2, 'Informe sua disponibilidade de início.'),
   message: z.string().optional(),
   lgpdConsent: z.boolean().refine((value) => value, 'Você precisa aceitar os termos da LGPD.'),
 });
@@ -45,7 +44,6 @@ export function ApplicationForm({ job }: { job: Job }) {
       phone: '',
       city: '',
       linkedinUrl: '',
-      portfolioUrl: '',
       salaryExpectation: '',
       availability: '',
       message: '',
@@ -79,7 +77,7 @@ export function ApplicationForm({ job }: { job: Job }) {
         candidate_phone: values.phone,
         candidate_city: values.city,
         linkedin_url: values.linkedinUrl || null,
-        portfolio_url: values.portfolioUrl || null,
+        portfolio_url: null,
         salary_expectation: values.salaryExpectation || null,
         availability: values.availability || null,
         message: values.message || null,
@@ -107,9 +105,8 @@ export function ApplicationForm({ job }: { job: Job }) {
         <Input label="WhatsApp" {...register('phone')} error={errors.phone?.message} />
         <Input label="Cidade" {...register('city')} error={errors.city?.message} />
         <Input label="LinkedIn" {...register('linkedinUrl')} error={errors.linkedinUrl?.message} />
-        <Input label="Portfólio" {...register('portfolioUrl')} error={errors.portfolioUrl?.message} />
-        <Input label="Pretensão salarial" {...register('salaryExpectation')} />
-        <Input label="Disponibilidade de início" {...register('availability')} />
+        <Input label="Pretensão salarial" {...register('salaryExpectation')} error={errors.salaryExpectation?.message} />
+        <Input label="Disponibilidade de início" {...register('availability')} error={errors.availability?.message} />
       </div>
 
       <Textarea label="Mensagem para a empresa" {...register('message')} rows={4} />
