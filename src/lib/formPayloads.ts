@@ -50,6 +50,7 @@ export function toJobPayload(values: JobFormValues, existing?: Job | null): Part
     education_level: emptyToNull(values.education_level),
     work_schedule: emptyToNull(values.work_schedule),
     about_company: emptyToNull(values.about_company),
+    neighborhood: emptyToNull(values.neighborhood),
     city: emptyToNull(values.city),
     state: emptyToNull(values.state) ?? 'MA',
     modality: values.modality,

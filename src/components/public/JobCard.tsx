@@ -49,7 +49,7 @@ export function JobCard({ job }: JobCardProps) {
       <div className="mt-4 grid gap-2 text-sm text-ink-500">
         <span className="flex items-center gap-2">
           <MapPin size={15} />
-          {formatLocation(job.city, job.state)}
+          {formatLocation(job.city, job.state, job.neighborhood)}
         </span>
         <span className="flex items-center gap-2">
           <CalendarDays size={15} />

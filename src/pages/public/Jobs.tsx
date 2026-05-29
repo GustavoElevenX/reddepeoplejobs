@@ -30,7 +30,12 @@ export function Jobs() {
   const filtered = useMemo(() => {
     return jobs
       .filter((job) => !search || `${job.title} ${job.company?.name}`.toLowerCase().includes(search.toLowerCase()))
-      .filter((job) => !city || job.city?.toLowerCase().includes(city.toLowerCase()))
+      .filter(
+        (job) =>
+          !city ||
+          job.city?.toLowerCase().includes(city.toLowerCase()) ||
+          job.neighborhood?.toLowerCase().includes(city.toLowerCase()),
+      )
       .filter((job) => modality === 'all' || job.modality === modality)
       .filter((job) => contractType === 'all' || job.contract_type === contractType);
   }, [jobs, search, city, modality, contractType]);
@@ -54,8 +59,8 @@ export function Jobs() {
             onChange={(event) => setSearch(event.target.value)}
           />
           <Input
-            aria-label="Cidade"
-            placeholder="Cidade"
+            aria-label="Cidade ou bairro"
+            placeholder="Cidade ou bairro"
             value={city}
             onChange={(event) => setCity(event.target.value)}
           />

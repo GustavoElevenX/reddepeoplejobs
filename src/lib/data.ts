@@ -136,7 +136,12 @@ function filterJobs(jobs: Job[], filters: JobFilters = {}) {
     .filter((job) => !filters.openOnly || job.status === 'open')
     .filter((job) => !filters.companyId || job.company_id === filters.companyId)
     .filter((job) => !filters.status || filters.status === 'all' || job.status === filters.status)
-    .filter((job) => !filters.city || job.city?.toLowerCase().includes(filters.city.toLowerCase()))
+    .filter(
+      (job) =>
+        !filters.city ||
+        job.city?.toLowerCase().includes(filters.city.toLowerCase()) ||
+        job.neighborhood?.toLowerCase().includes(filters.city.toLowerCase()),
+    )
     .filter((job) => !filters.modality || filters.modality === 'all' || job.modality === filters.modality)
     .filter(
       (job) => !filters.contractType || filters.contractType === 'all' || job.contract_type === filters.contractType,
@@ -161,7 +166,7 @@ export async function listCompanies(filters: CompanyFilters = {}) {
     if (filters.featuredOnly) query = query.eq('is_featured', true);
     if (filters.status && filters.status !== 'all') query = query.eq('page_status', filters.status);
     if (filters.search) query = query.ilike('name', `%${filters.search}%`);
-    if (filters.city) query = query.ilike('city', `%${filters.city}%`);
+    if (filters.city) query = query.or(`city.ilike.%${filters.city}%,neighborhood.ilike.%${filters.city}%`);
     if (filters.segment) query = query.ilike('segment', `%${filters.segment}%`);
 
     const { data, error } = await query;
@@ -390,6 +395,7 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
     education_level: values.education_level ?? null,
     work_schedule: values.work_schedule ?? null,
     about_company: values.about_company ?? null,
+    neighborhood: values.neighborhood ?? null,
     city: values.city ?? null,
     state: values.state ?? 'MA',
     modality: values.modality ?? 'presencial',

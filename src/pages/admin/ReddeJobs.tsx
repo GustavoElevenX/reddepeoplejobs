@@ -124,7 +124,7 @@ export function ReddeJobs() {
                   {job.is_featured ? <Badge variant="info">Destaque</Badge> : null}
                 </div>
                 <p className="mt-1 text-sm text-ink-500">
-                  {job.company?.name ?? 'Empresa'} · {formatLocation(job.city, job.state)} · {modalityLabels[job.modality]} ·{' '}
+                  {job.company?.name ?? 'Empresa'} · {formatLocation(job.city, job.state, job.neighborhood)} · {modalityLabels[job.modality]} ·{' '}
                   {contractTypeLabels[job.contract_type]}
                 </p>
               </div>

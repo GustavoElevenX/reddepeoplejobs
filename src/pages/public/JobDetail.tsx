@@ -78,7 +78,7 @@ export function JobDetail() {
 
   const summaryItems = [
     { label: 'Empresa', value: job.company?.name },
-    { label: 'Localização', value: job.city || job.state ? formatLocation(job.city, job.state) : null },
+    { label: 'Localização', value: job.neighborhood || job.city || job.state ? formatLocation(job.city, job.state, job.neighborhood) : null },
     { label: 'Nível', value: job.seniority },
     { label: 'Escolaridade', value: job.education_level },
     { label: 'Tipo de contrato', value: contractTypeLabels[job.contract_type] },
@@ -107,7 +107,7 @@ export function JobDetail() {
                 <h1 className="mt-2 text-4xl font-black leading-tight text-ink-900">{job.title}</h1>
                 <p className="mt-3 flex items-center gap-2 text-ink-500">
                   <MapPin size={17} />
-                  {formatLocation(job.city, job.state)}
+                  {formatLocation(job.city, job.state, job.neighborhood)}
                 </p>
               </div>
             </div>

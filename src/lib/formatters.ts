@@ -57,9 +57,10 @@ export function formatRelativeDate(value?: string | null) {
   return `há ${formatDistanceToNowStrict(parseISO(value), { locale: ptBR })}`;
 }
 
-export function formatLocation(city?: string | null, state?: string | null) {
-  if (city && state) return `${city}, ${state}`;
-  return city ?? state ?? 'Localidade não informada';
+export function formatLocation(city?: string | null, state?: string | null, neighborhood?: string | null) {
+  const cityState = city && state ? `${city}, ${state}` : city ?? state;
+  if (neighborhood && cityState) return `${neighborhood}, ${cityState}`;
+  return neighborhood ?? cityState ?? 'Localidade não informada';
 }
 
 export function formatSalaryRange(value?: string | null) {

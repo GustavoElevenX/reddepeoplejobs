@@ -22,6 +22,7 @@ const jobSchema = z.object({
   education_level: z.string().optional(),
   work_schedule: z.string().optional(),
   about_company: z.string().optional(),
+  neighborhood: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   modality: z.enum(['presencial', 'hibrido', 'remoto']),
@@ -64,6 +65,7 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
       education_level: job?.education_level ?? '',
       work_schedule: job?.work_schedule ?? '',
       about_company: job?.about_company ?? job?.company?.about_text ?? '',
+      neighborhood: job?.neighborhood ?? '',
       city: job?.city ?? '',
       state: job?.state ?? 'MA',
       modality: job?.modality ?? 'presencial',
@@ -105,6 +107,7 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
           {...register('slug')}
           error={errors.slug?.message}
         />
+        <Input label="Bairro" {...register('neighborhood')} />
         <Input label="Cidade" {...register('city')} />
         <Input label="Estado" {...register('state')} />
         <Select

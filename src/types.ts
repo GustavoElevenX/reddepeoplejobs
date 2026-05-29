@@ -53,6 +53,7 @@ export type Job = {
   education_level: string | null;
   work_schedule: string | null;
   about_company: string | null;
+  neighborhood: string | null;
   city: string | null;
   state: string | null;
   modality: JobModality;
