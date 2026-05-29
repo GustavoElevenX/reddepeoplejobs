@@ -489,10 +489,19 @@ export async function createApplication(
     | 'lgpd_consent'
   >,
 ) {
+  const timestamp = new Date().toISOString();
+
   if (hasSupabaseConfig && supabase) {
-    const { data, error } = await supabase.from('applications').insert(values).select('*').single();
+    const { error } = await supabase.from('applications').insert(values);
     if (error) throw error;
-    return data as Application;
+    return {
+      id: '',
+      ...values,
+      status: 'novo',
+      source: 'portal_publico',
+      created_at: timestamp,
+      updated_at: timestamp,
+    } as Application;
   }
 
   const store = getLocalStore();
@@ -501,7 +510,6 @@ export async function createApplication(
     throw new Error('Esta vaga não está aberta para candidatura.');
   }
 
-  const timestamp = new Date().toISOString();
   const application: Application = {
     id: makeId(),
     ...values,
