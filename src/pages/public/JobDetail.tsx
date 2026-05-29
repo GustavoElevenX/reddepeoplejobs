@@ -33,6 +33,10 @@ function TextBlock({ text }: { text: string }) {
   return <p className="mt-3 whitespace-pre-line leading-7 text-ink-500">{text}</p>;
 }
 
+function PlainTextBlock({ text }: { text: string }) {
+  return <p className="mt-3 whitespace-pre-line leading-7 text-ink-500">{text}</p>;
+}
+
 export function JobDetail() {
   const { companySlug, jobSlug } = useParams();
   const [job, setJob] = useState<Job | null>(null);
@@ -136,7 +140,7 @@ export function JobDetail() {
             block.text ? (
               <Card key={block.title} className="p-6">
                 <h2 className="text-2xl font-black text-ink-900">{block.title}</h2>
-                <TextBlock text={block.text} />
+                {block.title === 'Sobre a vaga' ? <PlainTextBlock text={block.text} /> : <TextBlock text={block.text} />}
               </Card>
             ) : null,
           )}
