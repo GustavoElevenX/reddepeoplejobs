@@ -16,8 +16,10 @@ const jobSchema = z.object({
   slug: z.string().min(2, 'Informe o endereço da vaga.'),
   short_description: z.string().optional(),
   description: z.string().optional(),
+  about_job: z.string().optional(),
   responsibilities: z.string().optional(),
   requirements: z.string().optional(),
+  desirable_requirements: z.string().optional(),
   benefits: z.string().optional(),
   education_level: z.string().optional(),
   work_schedule: z.string().optional(),
@@ -59,8 +61,10 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
       slug: job?.slug ?? '',
       short_description: job?.short_description ?? '',
       description: job?.description ?? '',
+      about_job: job?.about_job ?? '',
       responsibilities: job?.responsibilities ?? '',
       requirements: job?.requirements ?? '',
+      desirable_requirements: job?.desirable_requirements ?? '',
       benefits: job?.benefits ?? '',
       education_level: job?.education_level ?? '',
       work_schedule: job?.work_schedule ?? '',
@@ -150,9 +154,11 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
       </div>
 
       <Textarea label="Descrição curta" rows={3} {...register('short_description')} />
+      <Textarea label="Sobre a vaga" {...register('about_job')} />
       <Textarea label="Benefícios" {...register('benefits')} />
       <Textarea label="Responsabilidades Da Posição" {...register('responsibilities')} />
-      <Textarea label="Requisitos Obrigatórios Para a Posição" {...register('requirements')} />
+      <Textarea label="Requisitos obrigatórios" {...register('requirements')} />
+      <Textarea label="Requisitos desejáveis" {...register('desirable_requirements')} />
       <Textarea label="Sobre a Empresa" {...register('about_company')} />
 
       <label className="flex items-center gap-3 rounded-lg bg-surface-50 p-3 text-sm font-semibold text-ink-700">

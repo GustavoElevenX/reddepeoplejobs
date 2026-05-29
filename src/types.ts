@@ -45,8 +45,10 @@ export type Job = {
   slug: string;
   short_description: string | null;
   description: string;
+  about_job: string | null;
   responsibilities: string | null;
   requirements: string | null;
+  desirable_requirements: string | null;
   benefits: string | null;
   salary_range: string | null;
   seniority: string | null;

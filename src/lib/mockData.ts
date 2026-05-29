@@ -148,8 +148,11 @@ export const mockJobs: Job[] = [
     short_description: 'Atendimento a famílias, organização de demandas e suporte à rotina da unidade.',
     description:
       'Atuar no atendimento a famílias, registrar solicitações, organizar informações e apoiar a liderança em rotinas operacionais.',
+    about_job:
+      'Vaga para atuar no suporte à rotina de atendimento infantil, com foco em organização, acolhimento e comunicação com famílias.',
     responsibilities: 'Atender famílias; registrar solicitações; acompanhar prazos; apoiar relatórios operacionais.',
     requirements: 'Ensino médio completo; boa comunicação; experiência com atendimento ou educação será diferencial.',
+    desirable_requirements: 'Experiência com rotina escolar; facilidade com sistemas de atendimento; perfil organizado.',
     benefits: 'Vale-transporte; vale-alimentação; plano de desenvolvimento interno.',
     salary_range: 'R$ 1.600 a R$ 1.900',
     neighborhood: 'Renascença',
@@ -177,8 +180,11 @@ export const mockJobs: Job[] = [
     short_description: 'Controle de documentos, indicadores e suporte às rotinas financeiras.',
     description:
       'Responsável por organizar documentos, acompanhar indicadores, apoiar processos financeiros e dar suporte à gestão.',
+    about_job:
+      'Vaga para apoiar rotinas administrativas e financeiras, mantendo documentos, controles e indicadores organizados.',
     responsibilities: 'Organizar documentos; apoiar contas a pagar; acompanhar indicadores; preparar relatórios.',
     requirements: 'Experiência administrativa; Excel intermediário; perfil organizado e analítico.',
+    desirable_requirements: 'Vivência com rotinas financeiras; noções de indicadores; familiaridade com sistemas de gestão.',
     benefits: 'Vale-alimentação; assistência médica; bonificação por desempenho.',
     salary_range: 'R$ 2.200 a R$ 2.700',
     neighborhood: 'Cohama',
@@ -205,8 +211,11 @@ export const mockJobs: Job[] = [
     short_description: 'Atendimento ao cliente, organização de pedidos e apoio à rotina comercial.',
     description:
       'Atuar no atendimento aos clientes da Karolícias, apoiar pedidos, manter a organização do espaço e contribuir para uma experiência acolhedora.',
+    about_job:
+      'Vaga para atendimento em loja, com contato direto com clientes, apoio aos pedidos e organização do ambiente.',
     responsibilities: 'Atender clientes; organizar pedidos; apoiar exposição de produtos; manter o padrão de atendimento.',
     requirements: 'Boa comunicação, organização, disponibilidade de horário e interesse pelo segmento de alimentos.',
+    desirable_requirements: 'Experiência anterior em loja; facilidade com vendas; vivência com atendimento presencial.',
     benefits: 'Vale-transporte; alimentação no local; treinamento interno.',
     salary_range: 'R$ 1.500 a R$ 1.900',
     neighborhood: 'Centro',
@@ -233,8 +242,11 @@ export const mockJobs: Job[] = [
     short_description: 'Recepção de clientes, organização de agenda e suporte à rotina de atendimento.',
     description:
       'Recepcionar clientes do Darma Center, organizar agenda, registrar informações e apoiar o fluxo de atendimento.',
+    about_job:
+      'Vaga para recepção presencial, organização de agenda, acolhimento de clientes e suporte ao fluxo de atendimento.',
     responsibilities: 'Recepcionar clientes; organizar agenda; confirmar horários; apoiar rotinas administrativas.',
     requirements: 'Ensino médio completo; boa comunicação; experiência com recepção será diferencial.',
+    desirable_requirements: 'Experiência em clínica ou estética; noções de caixa; conhecimento básico em sistemas de agenda.',
     benefits: 'Vale-transporte; bonificação; treinamento interno.',
     salary_range: 'R$ 1.600 a R$ 2.000',
     neighborhood: 'Calhau',

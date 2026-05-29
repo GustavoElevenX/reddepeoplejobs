@@ -40,11 +40,14 @@ export function toJobPayload(values: JobFormValues, existing?: Job | null): Part
     short_description: emptyToNull(values.short_description),
     description:
       emptyToNull(values.description) ??
+      emptyToNull(values.about_job) ??
       emptyToNull(values.short_description) ??
       emptyToNull(values.responsibilities) ??
       values.title.trim(),
+    about_job: emptyToNull(values.about_job),
     responsibilities: emptyToNull(values.responsibilities),
     requirements: emptyToNull(values.requirements),
+    desirable_requirements: emptyToNull(values.desirable_requirements),
     benefits: emptyToNull(values.benefits),
     salary_range: formatSalaryRange(values.salary_range),
     education_level: emptyToNull(values.education_level),

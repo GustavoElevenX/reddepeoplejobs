@@ -70,11 +70,12 @@ export function JobDetail() {
   }
 
   const detailBlocks = [
+    { title: 'Sobre a vaga', text: job.about_job },
     { title: 'Benefícios', text: job.benefits },
     { title: 'Responsabilidades Da Posição', text: job.responsibilities },
-    { title: 'Requisitos Obrigatórios Para a Posição', text: job.requirements },
-    { title: 'Sobre a Empresa', text: job.about_company ?? job.company?.about_text },
   ];
+
+  const aboutCompany = job.about_company ?? job.company?.about_text;
 
   const summaryItems = [
     { label: 'Empresa', value: job.company?.name },
@@ -139,6 +140,31 @@ export function JobDetail() {
               </Card>
             ) : null,
           )}
+
+          {job.requirements || job.desirable_requirements ? (
+            <Card className="p-6">
+              <h2 className="text-2xl font-black text-ink-900">Requisitos Da Posição</h2>
+              {job.requirements ? (
+                <div className="mt-4">
+                  <h3 className="text-base font-black text-ink-900">Requisitos obrigatórios</h3>
+                  <TextBlock text={job.requirements} />
+                </div>
+              ) : null}
+              {job.desirable_requirements ? (
+                <div className="mt-5">
+                  <h3 className="text-base font-black text-ink-900">Requisitos desejáveis</h3>
+                  <TextBlock text={job.desirable_requirements} />
+                </div>
+              ) : null}
+            </Card>
+          ) : null}
+
+          {aboutCompany ? (
+            <Card className="p-6">
+              <h2 className="text-2xl font-black text-ink-900">Sobre a Empresa</h2>
+              <TextBlock text={aboutCompany} />
+            </Card>
+          ) : null}
         </div>
 
         <div className="grid h-fit gap-5 lg:sticky lg:top-24">
