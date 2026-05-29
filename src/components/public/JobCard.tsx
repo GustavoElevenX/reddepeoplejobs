@@ -43,6 +43,8 @@ export function JobCard({ job }: JobCardProps) {
       <div className="mt-4 flex flex-wrap gap-2">
         <Badge>{modalityLabels[job.modality]}</Badge>
         <Badge>{contractTypeLabels[job.contract_type]}</Badge>
+        {job.seniority ? <Badge>{job.seniority}</Badge> : null}
+        {job.salary_range ? <Badge variant="info">{job.salary_range}</Badge> : null}
       </div>
       <div className="mt-4 grid gap-2 text-sm text-ink-500">
         <span className="flex items-center gap-2">

@@ -36,7 +36,7 @@ export type Company = {
   updated_at: string;
 };
 
-export type CompanySummary = Pick<Company, 'id' | 'name' | 'slug' | 'logo_url' | 'segment' | 'city' | 'state'>;
+export type CompanySummary = Pick<Company, 'id' | 'name' | 'slug' | 'logo_url' | 'segment' | 'city' | 'state' | 'about_text'>;
 
 export type Job = {
   id: string;
@@ -49,11 +49,14 @@ export type Job = {
   requirements: string | null;
   benefits: string | null;
   salary_range: string | null;
+  seniority: string | null;
+  education_level: string | null;
+  work_schedule: string | null;
+  about_company: string | null;
   city: string | null;
   state: string | null;
   modality: JobModality;
   contract_type: JobContractType;
-  seniority: string | null;
   status: JobStatus;
   is_featured: boolean;
   application_deadline: string | null;

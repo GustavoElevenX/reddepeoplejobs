@@ -15,10 +15,13 @@ const jobSchema = z.object({
   title: z.string().min(3, 'Informe o título da vaga.'),
   slug: z.string().min(2, 'Informe o endereço da vaga.'),
   short_description: z.string().optional(),
-  description: z.string().min(10, 'Informe a descrição completa.'),
+  description: z.string().optional(),
   responsibilities: z.string().optional(),
   requirements: z.string().optional(),
   benefits: z.string().optional(),
+  education_level: z.string().optional(),
+  work_schedule: z.string().optional(),
+  about_company: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   modality: z.enum(['presencial', 'hibrido', 'remoto']),
@@ -58,6 +61,9 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
       responsibilities: job?.responsibilities ?? '',
       requirements: job?.requirements ?? '',
       benefits: job?.benefits ?? '',
+      education_level: job?.education_level ?? '',
+      work_schedule: job?.work_schedule ?? '',
+      about_company: job?.about_company ?? job?.company?.about_text ?? '',
       city: job?.city ?? '',
       state: job?.state ?? 'MA',
       modality: job?.modality ?? 'presencial',
@@ -92,7 +98,7 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
             ...companies.map((company) => ({ label: company.name, value: company.id })),
           ]}
         />
-        <Input label="Título" {...register('title')} error={errors.title?.message} />
+        <Input label="Cargo de divulgação" {...register('title')} error={errors.title?.message} />
         <Input
           label="Endereço da vaga"
           helperText="Esse texto será usado no link da vaga. Exemplo: auxiliar-administrativo"
@@ -122,8 +128,10 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
             { label: 'Outro', value: 'outro' },
           ]}
         />
-        <Input label="Senioridade" {...register('seniority')} />
-        <Input label="Faixa salarial" {...register('salary_range')} />
+        <Input label="Nível" {...register('seniority')} />
+        <Input label="Escolaridade" {...register('education_level')} />
+        <Input label="Faixa salarial base" {...register('salary_range')} />
+        <Input label="Jornada de trabalho" {...register('work_schedule')} />
         <Input label="Prazo de candidatura" type="date" {...register('application_deadline')} />
         <Select
           label="Status"
@@ -139,10 +147,10 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
       </div>
 
       <Textarea label="Descrição curta" rows={3} {...register('short_description')} />
-      <Textarea label="Descrição completa" {...register('description')} error={errors.description?.message} />
-      <Textarea label="Responsabilidades" {...register('responsibilities')} />
-      <Textarea label="Requisitos" {...register('requirements')} />
       <Textarea label="Benefícios" {...register('benefits')} />
+      <Textarea label="Responsabilidades Da Posição" {...register('responsibilities')} />
+      <Textarea label="Requisitos Obrigatórios Para a Posição" {...register('requirements')} />
+      <Textarea label="Sobre a Empresa" {...register('about_company')} />
 
       <label className="flex items-center gap-3 rounded-lg bg-surface-50 p-3 text-sm font-semibold text-ink-700">
         <input type="checkbox" className="h-4 w-4 accent-redde-500" {...register('is_featured')} />

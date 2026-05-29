@@ -46,25 +46,10 @@ export function CompanyJobs() {
   }
 
   async function changeStatus(job: Job, status: Job['status']) {
+    const jobPayload = { ...job };
+    delete jobPayload.company;
     await upsertJob({
-      id: job.id,
-      company_id: job.company_id,
-      title: job.title,
-      slug: job.slug,
-      description: job.description,
-      short_description: job.short_description,
-      responsibilities: job.responsibilities,
-      requirements: job.requirements,
-      benefits: job.benefits,
-      salary_range: job.salary_range,
-      city: job.city,
-      state: job.state,
-      modality: job.modality,
-      contract_type: job.contract_type,
-      seniority: job.seniority,
-      application_deadline: job.application_deadline,
-      is_featured: job.is_featured,
-      created_at: job.created_at,
+      ...jobPayload,
       status,
     });
     await load();

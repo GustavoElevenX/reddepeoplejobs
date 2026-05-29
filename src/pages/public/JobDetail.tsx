@@ -11,6 +11,28 @@ import { contractTypeLabels, formatDate, formatLocation, modalityLabels } from '
 import { getJobByCompanyAndSlug } from '../../lib/data';
 import type { Job } from '../../types';
 
+function TextBlock({ text }: { text: string }) {
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length > 1) {
+    return (
+      <ul className="mt-3 grid gap-2 leading-7 text-ink-500">
+        {lines.map((line) => (
+          <li key={line} className="flex gap-2">
+            <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-redde-500" />
+            <span>{line.replace(/^[-•]\s*/, '')}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return <p className="mt-3 whitespace-pre-line leading-7 text-ink-500">{text}</p>;
+}
+
 export function JobDetail() {
   const { companySlug, jobSlug } = useParams();
   const [job, setJob] = useState<Job | null>(null);
@@ -48,11 +70,24 @@ export function JobDetail() {
   }
 
   const detailBlocks = [
-    { title: 'Descrição da vaga', text: job.description },
-    { title: 'Responsabilidades', text: job.responsibilities },
-    { title: 'Requisitos', text: job.requirements },
     { title: 'Benefícios', text: job.benefits },
+    { title: 'Responsabilidades Da Posição', text: job.responsibilities },
+    { title: 'Requisitos Obrigatórios Para a Posição', text: job.requirements },
+    { title: 'Sobre a Empresa', text: job.about_company ?? job.company?.about_text },
   ];
+
+  const summaryItems = [
+    { label: 'Empresa', value: job.company?.name },
+    { label: 'Localização', value: job.city || job.state ? formatLocation(job.city, job.state) : null },
+    { label: 'Nível', value: job.seniority },
+    { label: 'Escolaridade', value: job.education_level },
+    { label: 'Tipo de contrato', value: contractTypeLabels[job.contract_type] },
+    { label: 'Modelo de trabalho', value: modalityLabels[job.modality] },
+    { label: 'Jornada de trabalho', value: job.work_schedule },
+    { label: 'Faixa salarial base', value: job.salary_range },
+    { label: 'Publicada em', value: formatDate(job.created_at) },
+    { label: 'Prazo de candidatura', value: job.application_deadline ? formatDate(job.application_deadline) : null },
+  ].filter((item) => item.value);
 
   return (
     <main className="bg-surface-50 py-10">
@@ -90,11 +125,17 @@ export function JobDetail() {
             </a>
           </Card>
 
+          {job.short_description ? (
+            <Card className="p-6">
+              <p className="whitespace-pre-line leading-7 text-ink-500">{job.short_description}</p>
+            </Card>
+          ) : null}
+
           {detailBlocks.map((block) =>
             block.text ? (
               <Card key={block.title} className="p-6">
                 <h2 className="text-2xl font-black text-ink-900">{block.title}</h2>
-                <p className="mt-3 whitespace-pre-line leading-7 text-ink-500">{block.text}</p>
+                <TextBlock text={block.text} />
               </Card>
             ) : null,
           )}
@@ -104,19 +145,12 @@ export function JobDetail() {
           <Card className="p-5">
             <h2 className="text-xl font-black text-ink-900">Resumo</h2>
             <div className="mt-4 grid gap-3 text-sm text-ink-500">
-              <p>
-                <strong className="text-ink-900">Empresa:</strong> {job.company?.name}
-              </p>
-              <p>
-                <strong className="text-ink-900">Modalidade:</strong> {modalityLabels[job.modality]}
-              </p>
-              <p>
-                <strong className="text-ink-900">Contrato:</strong> {contractTypeLabels[job.contract_type]}
-              </p>
-              <p className="flex items-center gap-2">
-                <CalendarDays size={15} />
-                Publicada em {formatDate(job.created_at)}
-              </p>
+              {summaryItems.map((item) => (
+                <p key={item.label} className={item.label === 'Publicada em' ? 'flex items-center gap-2' : undefined}>
+                  {item.label === 'Publicada em' ? <CalendarDays size={15} /> : null}
+                  <strong className="text-ink-900">{item.label}:</strong> {item.value}
+                </p>
+              ))}
             </div>
           </Card>
         </div>

@@ -293,7 +293,8 @@ export async function listJobs(filters: JobFilters = {}) {
             logo_url,
             segment,
             city,
-            state
+            state,
+            about_text
           )
         `,
       )
@@ -335,7 +336,8 @@ export async function getJobByCompanyAndSlug(companySlug: string, jobSlug: strin
             logo_url,
             segment,
             city,
-            state
+            state,
+            about_text
           )
         `,
       )
@@ -384,11 +386,14 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
     requirements: values.requirements ?? null,
     benefits: values.benefits ?? null,
     salary_range: values.salary_range ?? null,
+    seniority: values.seniority ?? null,
+    education_level: values.education_level ?? null,
+    work_schedule: values.work_schedule ?? null,
+    about_company: values.about_company ?? null,
     city: values.city ?? null,
     state: values.state ?? 'MA',
     modality: values.modality ?? 'presencial',
     contract_type: values.contract_type ?? 'clt',
-    seniority: values.seniority ?? null,
     status: values.status ?? 'draft',
     is_featured: values.is_featured ?? false,
     application_deadline: values.application_deadline ?? null,

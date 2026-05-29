@@ -37,11 +37,18 @@ export function toJobPayload(values: JobFormValues, existing?: Job | null): Part
     title: values.title.trim(),
     slug: values.slug.trim(),
     short_description: emptyToNull(values.short_description),
-    description: values.description.trim(),
+    description:
+      emptyToNull(values.description) ??
+      emptyToNull(values.short_description) ??
+      emptyToNull(values.responsibilities) ??
+      values.title.trim(),
     responsibilities: emptyToNull(values.responsibilities),
     requirements: emptyToNull(values.requirements),
     benefits: emptyToNull(values.benefits),
     salary_range: emptyToNull(values.salary_range),
+    education_level: emptyToNull(values.education_level),
+    work_schedule: emptyToNull(values.work_schedule),
+    about_company: emptyToNull(values.about_company),
     city: emptyToNull(values.city),
     state: emptyToNull(values.state) ?? 'MA',
     modality: values.modality,
