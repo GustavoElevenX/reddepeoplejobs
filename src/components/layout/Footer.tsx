@@ -1,9 +1,39 @@
 import { Link } from 'react-router-dom';
 
+const candidateLinks = [
+  { label: 'Ver vagas', to: '/vagas' },
+  { label: 'Ver empresas', to: '/empresas' },
+  { label: 'Enviar candidatura', to: '/vagas' },
+  { label: 'Dúvidas frequentes', to: '/#como-funciona' },
+];
+
+const companyLinks = [
+  { label: 'Sou empresa', to: '/#para-empresas' },
+  { label: 'Publicar vagas', to: '/#para-empresas' },
+  { label: 'Acessar painel', to: '/admin/login' },
+  { label: 'Falar com o People Jobs', to: 'mailto:contato@peoplejobs.com.br' },
+];
+
+const institutionalLinks = [
+  { label: 'Sobre o People Jobs', to: '/' },
+  { label: 'Política de privacidade', to: '/#seguranca-lgpd' },
+  { label: 'Termos de uso', to: '/#seguranca-lgpd' },
+  { label: 'LGPD', to: '/#seguranca-lgpd' },
+  { label: 'Contato', to: 'mailto:contato@peoplejobs.com.br' },
+];
+
+function FooterLink({ label, to }: { label: string; to: string }) {
+  if (to.startsWith('mailto:')) {
+    return <a href={to}>{label}</a>;
+  }
+
+  return <Link to={to}>{label}</Link>;
+}
+
 export function Footer() {
   return (
     <footer className="border-t border-surface-200 bg-white">
-      <div className="container-page grid gap-6 py-10 md:grid-cols-[1.4fr_1fr_1fr]">
+      <div className="container-page grid gap-8 py-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <div className="flex h-12 w-40 items-center overflow-hidden">
             <img
@@ -17,18 +47,31 @@ export function Footer() {
             criteriosos e profissionais.
           </p>
         </div>
+
         <div>
-          <p className="mb-3 text-sm font-bold text-ink-900">Candidatos</p>
+          <p className="mb-3 text-sm font-bold text-ink-900">Para candidatos</p>
           <div className="grid gap-2 text-sm text-ink-500">
-            <Link to="/vagas">Ver vagas</Link>
-            <Link to="/empresas">Empresas parceiras</Link>
+            {candidateLinks.map((link) => (
+              <FooterLink key={link.label} {...link} />
+            ))}
           </div>
         </div>
+
         <div>
-          <p className="mb-3 text-sm font-bold text-ink-900">People Jobs</p>
+          <p className="mb-3 text-sm font-bold text-ink-900">Para empresas</p>
           <div className="grid gap-2 text-sm text-ink-500">
-            <a href="mailto:contato@peoplejobs.com.br">contato@peoplejobs.com.br</a>
-            <Link to="/admin/login">Acesso administrativo</Link>
+            {companyLinks.map((link) => (
+              <FooterLink key={link.label} {...link} />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-3 text-sm font-bold text-ink-900">Institucional</p>
+          <div className="grid gap-2 text-sm text-ink-500">
+            {institutionalLinks.map((link) => (
+              <FooterLink key={link.label} {...link} />
+            ))}
           </div>
         </div>
       </div>

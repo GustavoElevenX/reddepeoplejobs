@@ -29,7 +29,22 @@ export function Jobs() {
 
   const filtered = useMemo(() => {
     return jobs
-      .filter((job) => !search || `${job.title} ${job.company?.name}`.toLowerCase().includes(search.toLowerCase()))
+      .filter((job) => {
+        if (!search) return true;
+        return [
+          job.title,
+          job.company?.name,
+          job.company?.segment,
+          job.short_description,
+          job.description,
+          job.requirements,
+          job.responsibilities,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(search.toLowerCase());
+      })
       .filter(
         (job) =>
           !city ||
