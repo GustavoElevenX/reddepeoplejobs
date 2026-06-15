@@ -64,7 +64,7 @@ export function FranchiseDashboard() {
               Nova empresa
             </Button>
           </Link>
-          <Link to="/admin/franqueado/vagas">
+          <Link to="/franqueado/processos">
             <Button>
               <BriefcaseBusiness size={18} />
               Abrir vaga
@@ -86,7 +86,7 @@ export function FranchiseDashboard() {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-black text-ink-900">Candidatos recentes</h2>
-            <Link to="/admin/franqueado/candidatos" className="text-sm font-bold text-redde-600">
+            <Link to="/franqueado/processos" className="text-sm font-bold text-redde-600">
               Ver todos
             </Link>
           </div>
@@ -111,7 +111,7 @@ export function FranchiseDashboard() {
               jobs.map((job) => (
                 <Link
                   key={job.id}
-                  to="/admin/franqueado/vagas"
+                  to={`/franqueado/processos/${job.id}`}
                   className="rounded-lg border border-surface-200 p-3 hover:bg-surface-50"
                 >
                   <p className="font-bold text-ink-900">{job.title}</p>

@@ -36,10 +36,27 @@ O acesso legado de empresa continua disponível e limitado aos próprios dados, 
 
 - `/admin/master`: visão consolidada da rede;
 - `/admin/master/franqueados`: cadastro e gestão de franqueados;
+- `/admin/processos`: processos seletivos de toda a rede;
 - `/admin/franqueado`: dashboard da unidade autenticada;
 - `/admin/franqueado/empresas`: empresas clientes da unidade;
-- `/admin/franqueado/vagas`: vagas da unidade;
-- `/admin/franqueado/candidatos`: candidatos da unidade.
+- `/franqueado/processos`: processos seletivos da unidade;
+- `/empresa/processos`: processos seletivos da empresa cliente.
+
+## Processos seletivos
+
+Cada vaga funciona também como uma requisição de recrutamento. A tela de detalhe centraliza:
+
+- ficha da requisição, responsáveis, requisitos e configurações;
+- comentários e histórico operacional;
+- triagem e candidatos desclassificados;
+- Kanban de seleção com etapas, ordenação e atualização do status;
+- drawer do candidato com currículo, respostas, comentários, arquivos, e-mail e histórico.
+
+Antes de publicar essa versão, aplique também:
+
+```txt
+supabase/migrations/20260615120000_add_recruitment_process_flow.sql
+```
 
 ## Escopo Posterior
 

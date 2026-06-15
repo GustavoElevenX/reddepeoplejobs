@@ -54,6 +54,11 @@ const jobSchema = z
     salary_unit: z.string().optional(),
     seo_title: z.string().optional(),
     seo_description: z.string().optional(),
+    responsible_name: z.string().optional(),
+    open_positions: z.number().int().min(1),
+    approved_positions: z.number().int().min(0),
+    process_status: z.enum(['draft', 'in_progress', 'paused', 'completed', 'cancelled']),
+    internal_notes: z.string().optional(),
   })
   .superRefine((values, context) => {
     const salaryMin = values.salary_min ? Number(values.salary_min) : null;
@@ -193,6 +198,11 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
       salary_unit: job?.salary_unit ?? 'MONTH',
       seo_title: job?.seo_title ?? '',
       seo_description: job?.seo_description ?? '',
+      responsible_name: job?.responsible_name ?? '',
+      open_positions: job?.open_positions ?? 1,
+      approved_positions: job?.approved_positions ?? 0,
+      process_status: job?.process_status ?? 'in_progress',
+      internal_notes: job?.internal_notes ?? '',
     },
   });
 
@@ -303,6 +313,25 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
             { label: 'Arquivada', value: 'archived' },
           ]}
         />
+        <Input label="Responsável pelo processo" {...register('responsible_name')} />
+        <Input label="Vagas abertas" type="number" min="1" {...register('open_positions', { valueAsNumber: true })} />
+        <Input
+          label="Vagas aprovadas/preenchidas"
+          type="number"
+          min="0"
+          {...register('approved_positions', { valueAsNumber: true })}
+        />
+        <Select
+          label="Status do processo seletivo"
+          {...register('process_status')}
+          options={[
+            { label: 'Em preparação', value: 'draft' },
+            { label: 'Em andamento', value: 'in_progress' },
+            { label: 'Pausado', value: 'paused' },
+            { label: 'Concluído', value: 'completed' },
+            { label: 'Cancelado', value: 'cancelled' },
+          ]}
+        />
       </div>
 
       <Textarea label="Descrição curta" rows={3} {...register('short_description')} />
@@ -312,6 +341,11 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
       <Textarea label="Requisitos obrigatórios" {...register('requirements')} />
       <Textarea label="Requisitos desejáveis" {...register('desirable_requirements')} />
       <Textarea label="Sobre a empresa" {...register('about_company')} />
+      <Textarea
+        label="Observações internas do processo"
+        placeholder="Visível apenas no painel administrativo."
+        {...register('internal_notes')}
+      />
 
       <section className="grid gap-4 rounded-xl border border-surface-200 bg-surface-50 p-4">
         <div>

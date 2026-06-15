@@ -54,7 +54,7 @@ export function CompanyDashboard() {
           <p className="mt-2 text-ink-500">Painel da empresa com vagas e candidatos próprios.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/admin/empresa/vagas">
+          <Link to="/empresa/processos">
             <Button>
               <BriefcaseBusiness size={18} />
               Criar vaga
@@ -99,7 +99,7 @@ export function CompanyDashboard() {
           <div className="mt-4 grid gap-3">
             {jobs.length ? (
               jobs.map((job) => (
-                <Link key={job.id} to="/admin/empresa/vagas" className="rounded-lg border border-surface-200 p-3 hover:bg-surface-50">
+                <Link key={job.id} to={`/empresa/processos/${job.id}`} className="rounded-lg border border-surface-200 p-3 hover:bg-surface-50">
                   <p className="font-bold text-ink-900">{job.title}</p>
                   <p className="text-sm text-ink-500">{jobStatusLabels[job.status]}</p>
                 </Link>

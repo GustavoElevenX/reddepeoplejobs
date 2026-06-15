@@ -11,3 +11,4 @@ pnpm-debug.log*
 Thumbs.db
 .vite/
 supabase/.temp/
+.codex-vite*.log

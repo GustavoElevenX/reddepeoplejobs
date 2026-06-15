@@ -1,10 +1,9 @@
 import {
-  BriefcaseBusiness,
   Building2,
   LayoutDashboard,
-  ListChecks,
   Network,
   Users,
+  Workflow,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { isAdminMaster, isFranchisee } from '../../lib/permissions';
@@ -22,22 +21,19 @@ export function Sidebar({ profile }: SidebarProps) {
         { label: 'Visão da rede', to: '/admin/master', icon: LayoutDashboard },
         { label: 'Franqueados', to: '/admin/master/franqueados', icon: Network },
         { label: 'Empresas clientes', to: '/admin/master/empresas', icon: Building2 },
-        { label: 'Vagas', to: '/admin/master/vagas', icon: BriefcaseBusiness },
-        { label: 'Candidatos', to: '/admin/master/candidatos', icon: ListChecks },
+        { label: 'Processos seletivos', to: '/admin/processos', icon: Workflow },
         { label: 'Usuários', to: '/admin/master/usuarios', icon: Users },
       ]
     : franchisee
       ? [
           { label: 'Minha operação', to: '/admin/franqueado', icon: LayoutDashboard },
           { label: 'Empresas clientes', to: '/admin/franqueado/empresas', icon: Building2 },
-          { label: 'Vagas', to: '/admin/franqueado/vagas', icon: BriefcaseBusiness },
-          { label: 'Candidatos', to: '/admin/franqueado/candidatos', icon: ListChecks },
+          { label: 'Processos seletivos', to: '/franqueado/processos', icon: Workflow },
         ]
       : [
           { label: 'Painel', to: '/admin/empresa', icon: LayoutDashboard },
           { label: 'Perfil público', to: '/admin/empresa/perfil', icon: Building2 },
-          { label: 'Vagas', to: '/admin/empresa/vagas', icon: BriefcaseBusiness },
-          { label: 'Candidaturas', to: '/admin/empresa/candidaturas', icon: ListChecks },
+          { label: 'Processos seletivos', to: '/empresa/processos', icon: Workflow },
         ];
 
   return (

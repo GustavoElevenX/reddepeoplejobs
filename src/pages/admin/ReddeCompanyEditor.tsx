@@ -108,7 +108,7 @@ export function ReddeCompanyEditor() {
       <Card className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-black text-ink-900">Vagas da empresa</h2>
-          <Link to="/admin/master/vagas">
+          <Link to="/admin/processos">
             <Button variant="secondary" size="sm">Gerenciar vagas</Button>
           </Link>
         </div>

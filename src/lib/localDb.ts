@@ -9,11 +9,14 @@ import {
 } from './mockData';
 import type {
   Application,
+  ApplicationNote,
+  ApplicationStageHistory,
   Company,
   CompanyUserAccess,
   Franchise,
   Job,
   JobDistribution,
+  ProcessComment,
   Profile,
   SiteContent,
 } from '../types';
@@ -23,6 +26,9 @@ type StoreShape = {
   companies: Company[];
   jobs: Job[];
   applications: Application[];
+  applicationNotes: ApplicationNote[];
+  applicationStageHistory: ApplicationStageHistory[];
+  processComments: ProcessComment[];
   distributions: JobDistribution[];
   profiles: Profile[];
   access: CompanyUserAccess[];
@@ -37,6 +43,9 @@ const seed: StoreShape = {
   companies: mockCompanies,
   jobs: mockJobs,
   applications: mockApplications,
+  applicationNotes: [],
+  applicationStageHistory: [],
+  processComments: [],
   distributions: [],
   profiles: mockProfiles,
   access: mockAccess,
@@ -86,6 +95,11 @@ function normalizeJob(job: Job, companies: Company[]): Job {
     salary_unit: job.salary_unit ?? 'MONTH',
     seo_title: job.seo_title ?? null,
     seo_description: job.seo_description ?? null,
+    responsible_name: job.responsible_name ?? null,
+    open_positions: job.open_positions ?? 1,
+    approved_positions: job.approved_positions ?? 0,
+    process_status: job.process_status ?? (job.status === 'closed' ? 'completed' : 'in_progress'),
+    internal_notes: job.internal_notes ?? null,
     company: companies.find((company) => company.id === job.company_id) ?? job.company,
   };
 }
@@ -110,7 +124,29 @@ function normalizeStore(store: StoreShape): StoreShape {
         application.franchise_id ??
         (store.jobs ?? []).find((job) => job.id === application.job_id)?.franchise_id ??
         null,
+      stage:
+        application.stage ??
+        (application.status === 'reprovado'
+          ? 'desclassificados'
+          : application.status === 'contratado'
+            ? 'contratacao'
+            : application.status === 'aprovado'
+              ? 'finalistas'
+              : application.status === 'entrevista'
+                ? 'entrevista'
+                : application.status === 'teste'
+                  ? 'testes'
+                  : 'qualificacao'),
+      kanban_order: application.kanban_order ?? 0,
+      match_score: application.match_score ?? null,
+      adhesion_score: application.adhesion_score ?? null,
+      is_new: application.is_new ?? application.status === 'novo',
+      rejection_reason: application.rejection_reason ?? null,
+      tags: application.tags ?? [],
     })),
+    applicationNotes: store.applicationNotes ?? [],
+    applicationStageHistory: store.applicationStageHistory ?? [],
+    processComments: store.processComments ?? [],
     distributions: store.distributions ?? [],
     profiles: (store.profiles ?? []).map((profile) => ({
       ...profile,

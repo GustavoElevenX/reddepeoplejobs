@@ -1,6 +1,7 @@
 import { format, formatDistanceToNowStrict, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type {
+  ApplicationStage,
   ApplicationStatus,
   AppRole,
   CompanyCommercialStatus,
@@ -10,6 +11,7 @@ import type {
   JobContractType,
   JobModality,
   JobStatus,
+  ProcessStatus,
 } from '../types';
 
 export const modalityLabels: Record<JobModality, string> = {
@@ -64,6 +66,23 @@ export const applicationStatusLabels: Record<ApplicationStatus, string> = {
   reprovado: 'Reprovado',
   contratado: 'Contratado',
   banco_talentos: 'Banco de talentos',
+};
+
+export const applicationStageLabels: Record<ApplicationStage, string> = {
+  qualificacao: 'Qualificação',
+  testes: 'Testes',
+  entrevista: 'Entrevista',
+  finalistas: 'Finalistas',
+  contratacao: 'Contratação',
+  desclassificados: 'Desclassificados',
+};
+
+export const processStatusLabels: Record<ProcessStatus, string> = {
+  draft: 'Em preparação',
+  in_progress: 'Em andamento',
+  paused: 'Pausado',
+  completed: 'Concluído',
+  cancelled: 'Cancelado',
 };
 
 export const franchiseStatusLabels: Record<FranchiseStatus, string> = {

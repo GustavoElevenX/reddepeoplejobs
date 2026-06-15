@@ -95,6 +95,11 @@ export function toJobPayload(values: JobFormValues, existing?: Job | null): Part
     salary_unit: emptyToNull(values.salary_unit) ?? 'MONTH',
     seo_title: emptyToNull(values.seo_title),
     seo_description: emptyToNull(values.seo_description),
+    responsible_name: emptyToNull(values.responsible_name),
+    open_positions: values.open_positions,
+    approved_positions: values.approved_positions,
+    process_status: values.process_status,
+    internal_notes: emptyToNull(values.internal_notes),
     created_at: existing?.created_at,
   };
 }

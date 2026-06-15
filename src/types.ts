@@ -22,6 +22,14 @@ export type JobDistributionStatus =
   | 'failed'
   | 'removed'
   | 'manual_required';
+export type ProcessStatus = 'draft' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
+export type ApplicationStage =
+  | 'qualificacao'
+  | 'testes'
+  | 'entrevista'
+  | 'finalistas'
+  | 'contratacao'
+  | 'desclassificados';
 export type ApplicationStatus =
   | 'novo'
   | 'triagem'
@@ -142,6 +150,11 @@ export type Job = {
   salary_unit: string | null;
   seo_title: string | null;
   seo_description: string | null;
+  responsible_name: string | null;
+  open_positions: number;
+  approved_positions: number;
+  process_status: ProcessStatus;
+  internal_notes: string | null;
   created_by?: string | null;
   created_at: string;
   updated_at: string;
@@ -176,12 +189,47 @@ export type Application = {
   message: string | null;
   resume_file_path: string;
   status: ApplicationStatus;
+  stage: ApplicationStage;
+  kanban_order: number;
+  match_score: number | null;
+  adhesion_score: number | null;
+  is_new: boolean;
+  rejection_reason: string | null;
+  tags: string[];
   lgpd_consent: boolean;
   source: string | null;
   created_at: string;
   updated_at: string;
   job?: Pick<Job, 'id' | 'title' | 'slug'>;
   company?: Pick<Company, 'id' | 'name' | 'slug'>;
+};
+
+export type ApplicationNote = {
+  id: string;
+  application_id: string;
+  note: string;
+  created_by: string;
+  created_at: string;
+  author?: Pick<Profile, 'id' | 'full_name'>;
+};
+
+export type ApplicationStageHistory = {
+  id: string;
+  application_id: string;
+  from_stage: ApplicationStage | null;
+  to_stage: ApplicationStage;
+  moved_by: string | null;
+  created_at: string;
+  actor?: Pick<Profile, 'id' | 'full_name'>;
+};
+
+export type ProcessComment = {
+  id: string;
+  job_id: string;
+  comment: string;
+  created_by: string;
+  created_at: string;
+  author?: Pick<Profile, 'id' | 'full_name'>;
 };
 
 export type Profile = {

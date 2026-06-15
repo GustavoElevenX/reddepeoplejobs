@@ -1,8 +1,11 @@
 import { formatISO, startOfMonth, subDays } from 'date-fns';
-import { getLocalStore, makeId, setLocalStore } from './localDb';
+import { getCurrentLocalProfileId, getLocalStore, makeId, setLocalStore } from './localDb';
 import { hasSupabaseConfig, supabase } from './supabase';
 import type {
   Application,
+  ApplicationNote,
+  ApplicationStage,
+  ApplicationStageHistory,
   ApplicationStatus,
   Company,
   CompanyCommercialStatus,
@@ -20,6 +23,7 @@ import type {
   JobModality,
   JobStatus,
   NetworkDashboardStats,
+  ProcessComment,
   Profile,
   SiteContent,
 } from '../types';
@@ -126,6 +130,11 @@ function normalizeJob(row: JobRow): Job {
     salary_unit: job.salary_unit ?? 'MONTH',
     seo_title: job.seo_title ?? null,
     seo_description: job.seo_description ?? null,
+    responsible_name: job.responsible_name ?? null,
+    open_positions: job.open_positions ?? 1,
+    approved_positions: job.approved_positions ?? 0,
+    process_status: job.process_status ?? (job.status === 'closed' ? 'completed' : 'in_progress'),
+    internal_notes: job.internal_notes ?? null,
     company: companies ?? undefined,
   };
 }
@@ -146,6 +155,25 @@ function normalizeApplication(row: ApplicationRow): Application {
   const { companies, jobs, ...application } = row;
   return {
     ...application,
+    stage:
+      application.stage ??
+      (application.status === 'reprovado'
+        ? 'desclassificados'
+        : application.status === 'contratado'
+          ? 'contratacao'
+          : application.status === 'aprovado'
+            ? 'finalistas'
+            : application.status === 'entrevista'
+              ? 'entrevista'
+              : application.status === 'teste'
+                ? 'testes'
+                : 'qualificacao'),
+    kanban_order: application.kanban_order ?? 0,
+    match_score: application.match_score ?? null,
+    adhesion_score: application.adhesion_score ?? null,
+    is_new: application.is_new ?? application.status === 'novo',
+    rejection_reason: application.rejection_reason ?? null,
+    tags: application.tags ?? [],
     company: companies ?? undefined,
     job: jobs ?? undefined,
   };
@@ -508,6 +536,41 @@ export async function listJobs(filters: JobFilters = {}) {
   return filterJobs(getLocalStore().jobs, filters);
 }
 
+export async function getJobById(jobId: string) {
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase
+      .from('jobs')
+      .select(
+        `
+          *,
+          companies (
+            id,
+            name,
+            slug,
+            logo_url,
+            segment,
+            city,
+            state,
+            about_text,
+            website_url,
+            legal_name,
+            same_as_url,
+            franchise_id
+          )
+        `,
+      )
+      .eq('id', jobId)
+      .single();
+
+    if (error) throw error;
+    return normalizeJob(data as JobRow);
+  }
+
+  const store = getLocalStore();
+  const job = store.jobs.find((item) => item.id === jobId);
+  return job ? withCompany(job, store.companies) : null;
+}
+
 export async function getJobByCompanyAndSlug(companySlug: string, jobSlug: string) {
   if (hasSupabaseConfig && supabase) {
     const company = await getCompanyBySlug(companySlug, true);
@@ -588,6 +651,11 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
     salary_unit: values.salary_unit ?? 'MONTH',
     seo_title: values.seo_title ?? null,
     seo_description: values.seo_description ?? null,
+    responsible_name: values.responsible_name ?? null,
+    open_positions: values.open_positions ?? 1,
+    approved_positions: values.approved_positions ?? 0,
+    process_status: values.process_status ?? (values.status === 'closed' ? 'completed' : 'in_progress'),
+    internal_notes: values.internal_notes ?? null,
   };
 
   if (hasSupabaseConfig && supabase) {
@@ -651,6 +719,11 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
     salary_unit: normalizedValues.salary_unit,
     seo_title: normalizedValues.seo_title,
     seo_description: normalizedValues.seo_description,
+    responsible_name: normalizedValues.responsible_name,
+    open_positions: normalizedValues.open_positions,
+    approved_positions: normalizedValues.approved_positions,
+    process_status: normalizedValues.process_status,
+    internal_notes: normalizedValues.internal_notes,
     created_by: values.created_by ?? null,
     created_at: values.created_at ?? timestamp,
     updated_at: timestamp,
@@ -772,6 +845,13 @@ export async function createApplication(
       id: '',
       ...payload,
       status: 'novo',
+      stage: 'qualificacao',
+      kanban_order: 0,
+      match_score: null,
+      adhesion_score: null,
+      is_new: true,
+      rejection_reason: null,
+      tags: [],
       created_at: timestamp,
       updated_at: timestamp,
     } as Application;
@@ -791,6 +871,13 @@ export async function createApplication(
     id: makeId(),
     ...payload,
     status: 'novo',
+    stage: 'qualificacao',
+    kanban_order: 0,
+    match_score: null,
+    adhesion_score: null,
+    is_new: true,
+    rejection_reason: null,
+    tags: [],
     created_at: timestamp,
     updated_at: timestamp,
     job,
@@ -865,11 +952,24 @@ export async function upsertJobDistribution(
 
 export async function updateApplicationStatus(id: string, status: ApplicationStatus) {
   const timestamp = new Date().toISOString();
+  const stageByStatus: Partial<Record<ApplicationStatus, ApplicationStage>> = {
+    novo: 'qualificacao',
+    triagem: 'qualificacao',
+    em_analise: 'qualificacao',
+    teste: 'testes',
+    entrevista: 'entrevista',
+    selecionado: 'finalistas',
+    encaminhado_cliente: 'finalistas',
+    aprovado: 'finalistas',
+    contratado: 'contratacao',
+    reprovado: 'desclassificados',
+  };
+  const nextStage = stageByStatus[status];
 
   if (hasSupabaseConfig && supabase) {
     const { data, error } = await supabase
       .from('applications')
-      .update({ status, updated_at: timestamp })
+      .update({ status, ...(nextStage ? { stage: nextStage } : {}), is_new: false, updated_at: timestamp })
       .eq('id', id)
       .select('*')
       .single();
@@ -884,10 +984,203 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
   store.applications[index] = {
     ...store.applications[index],
     status,
+    ...(nextStage ? { stage: nextStage } : {}),
+    is_new: false,
     updated_at: timestamp,
   };
   setLocalStore(store);
   return store.applications[index];
+}
+
+const statusByStage: Record<ApplicationStage, ApplicationStatus> = {
+  qualificacao: 'triagem',
+  testes: 'teste',
+  entrevista: 'entrevista',
+  finalistas: 'selecionado',
+  contratacao: 'contratado',
+  desclassificados: 'reprovado',
+};
+
+export async function updateApplicationStage(
+  id: string,
+  stage: ApplicationStage,
+  kanbanOrder: number,
+  rejectionReason?: string | null,
+) {
+  const timestamp = new Date().toISOString();
+  const payload = {
+    stage,
+    kanban_order: kanbanOrder,
+    status: statusByStage[stage],
+    is_new: false,
+    rejection_reason: stage === 'desclassificados' ? rejectionReason ?? null : null,
+    updated_at: timestamp,
+  };
+
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase.from('applications').update(payload).eq('id', id).select('*').single();
+    if (error) throw error;
+    return normalizeApplication(data as ApplicationRow);
+  }
+
+  const store = getLocalStore();
+  const index = store.applications.findIndex((application) => application.id === id);
+  if (index < 0) throw new Error('Candidatura não encontrada.');
+  const previousStage = store.applications[index].stage;
+  store.applications[index] = { ...store.applications[index], ...payload };
+  if (previousStage !== stage) {
+    const actorId = getCurrentLocalProfileId();
+    store.applicationStageHistory.unshift({
+      id: makeId(),
+      application_id: id,
+      from_stage: previousStage,
+      to_stage: stage,
+      moved_by: actorId,
+      created_at: timestamp,
+      actor: store.profiles.find((profile) => profile.id === actorId),
+    });
+  }
+  setLocalStore(store);
+  return store.applications[index];
+}
+
+export async function updateApplicationKanbanOrder(updates: { id: string; kanbanOrder: number }[]) {
+  if (!updates.length) return;
+
+  if (hasSupabaseConfig && supabase) {
+    const client = supabase;
+    const results = await Promise.all(
+      updates.map(({ id, kanbanOrder }) =>
+        client.from('applications').update({ kanban_order: kanbanOrder }).eq('id', id),
+      ),
+    );
+    const failed = results.find((result) => result.error);
+    if (failed?.error) throw failed.error;
+    return;
+  }
+
+  const store = getLocalStore();
+  const orderById = new Map(updates.map((item) => [item.id, item.kanbanOrder]));
+  store.applications = store.applications.map((application) => {
+    const kanbanOrder = orderById.get(application.id);
+    return kanbanOrder === undefined ? application : { ...application, kanban_order: kanbanOrder };
+  });
+  setLocalStore(store);
+}
+
+export async function listApplicationNotes(applicationId: string) {
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase
+      .from('application_notes')
+      .select('*, profiles(id, full_name)')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((item) => {
+      const { profiles, ...note } = item;
+      return { ...note, author: profiles ?? undefined } as ApplicationNote;
+    });
+  }
+
+  return getLocalStore().applicationNotes.filter((note) => note.application_id === applicationId);
+}
+
+export async function addApplicationNote(applicationId: string, note: string) {
+  const timestamp = new Date().toISOString();
+
+  if (hasSupabaseConfig && supabase) {
+    const { data: authData } = await supabase.auth.getUser();
+    const createdBy = authData.user?.id;
+    if (!createdBy) throw new Error('Sessão expirada.');
+    const { data, error } = await supabase
+      .from('application_notes')
+      .insert({ application_id: applicationId, note, created_by: createdBy })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as ApplicationNote;
+  }
+
+  const store = getLocalStore();
+  const createdBy = getCurrentLocalProfileId() ?? store.profiles[0]?.id;
+  if (!createdBy) throw new Error('Usuário não encontrado.');
+  const item: ApplicationNote = {
+    id: makeId(),
+    application_id: applicationId,
+    note,
+    created_by: createdBy,
+    created_at: timestamp,
+    author: store.profiles.find((profile) => profile.id === createdBy),
+  };
+  store.applicationNotes.unshift(item);
+  setLocalStore(store);
+  return item;
+}
+
+export async function listApplicationStageHistory(applicationId: string) {
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase
+      .from('application_stage_history')
+      .select('*, profiles(id, full_name)')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((item) => {
+      const { profiles, ...history } = item;
+      return { ...history, actor: profiles ?? undefined } as ApplicationStageHistory;
+    });
+  }
+
+  return getLocalStore().applicationStageHistory.filter((item) => item.application_id === applicationId);
+}
+
+export async function listProcessComments(jobId: string) {
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase
+      .from('process_comments')
+      .select('*, profiles(id, full_name)')
+      .eq('job_id', jobId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((item) => {
+      const { profiles, ...comment } = item;
+      return { ...comment, author: profiles ?? undefined } as ProcessComment;
+    });
+  }
+
+  return getLocalStore().processComments.filter((comment) => comment.job_id === jobId);
+}
+
+export async function addProcessComment(jobId: string, comment: string) {
+  const timestamp = new Date().toISOString();
+
+  if (hasSupabaseConfig && supabase) {
+    const { data: authData } = await supabase.auth.getUser();
+    const createdBy = authData.user?.id;
+    if (!createdBy) throw new Error('Sessão expirada.');
+    const { data, error } = await supabase
+      .from('process_comments')
+      .insert({ job_id: jobId, comment, created_by: createdBy })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as ProcessComment;
+  }
+
+  const store = getLocalStore();
+  const createdBy = getCurrentLocalProfileId() ?? store.profiles[0]?.id;
+  if (!createdBy) throw new Error('Usuário não encontrado.');
+  const item: ProcessComment = {
+    id: makeId(),
+    job_id: jobId,
+    comment,
+    created_by: createdBy,
+    created_at: timestamp,
+    author: store.profiles.find((profile) => profile.id === createdBy),
+  };
+  store.processComments.unshift(item);
+  setLocalStore(store);
+  return item;
 }
 
 export async function listProfiles() {

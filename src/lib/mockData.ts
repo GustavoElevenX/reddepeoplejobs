@@ -34,6 +34,21 @@ const jobDistributionDefaults = {
   salary_unit: 'MONTH',
   seo_title: null,
   seo_description: null,
+  responsible_name: 'Equipe de Recrutamento',
+  open_positions: 1,
+  approved_positions: 0,
+  process_status: 'in_progress' as const,
+  internal_notes: null,
+};
+
+const applicationProcessDefaults = {
+  stage: 'qualificacao' as const,
+  kanban_order: 0,
+  match_score: null,
+  adhesion_score: null,
+  is_new: true,
+  rejection_reason: null,
+  tags: [],
 };
 
 export const mockFranchises: Franchise[] = [
@@ -355,6 +370,7 @@ export const mockJobs: Job[] = [
 
 export const mockApplications: Application[] = [
   {
+    ...applicationProcessDefaults,
     id: 'bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
     franchise_id: mockFranchises[0].id,
     job_id: mockJobs[0].id,
@@ -378,6 +394,9 @@ export const mockApplications: Application[] = [
     company: mockCompanies[0],
   },
   {
+    ...applicationProcessDefaults,
+    stage: 'qualificacao',
+    is_new: false,
     id: 'bbbbbbb2-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
     franchise_id: mockFranchises[0].id,
     job_id: mockJobs[2].id,
