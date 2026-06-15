@@ -3,10 +3,11 @@ import {
   Building2,
   LayoutDashboard,
   ListChecks,
+  Network,
   Users,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
-import { isReddeAdmin } from '../../lib/permissions';
+import { isAdminMaster, isFranchisee } from '../../lib/permissions';
 import type { Profile } from '../../types';
 
 type SidebarProps = {
@@ -14,21 +15,30 @@ type SidebarProps = {
 };
 
 export function Sidebar({ profile }: SidebarProps) {
-  const redde = isReddeAdmin(profile);
-  const links = redde
+  const master = isAdminMaster(profile);
+  const franchisee = isFranchisee(profile);
+  const links = master
     ? [
-        { label: 'Painel', to: '/admin/geral', icon: LayoutDashboard },
-        { label: 'Empresas', to: '/admin/geral/empresas', icon: Building2 },
-        { label: 'Vagas', to: '/admin/geral/vagas', icon: BriefcaseBusiness },
-        { label: 'Candidaturas', to: '/admin/geral/candidaturas', icon: ListChecks },
-        { label: 'Usuários', to: '/admin/geral/usuarios', icon: Users },
+        { label: 'Visão da rede', to: '/admin/master', icon: LayoutDashboard },
+        { label: 'Franqueados', to: '/admin/master/franqueados', icon: Network },
+        { label: 'Empresas clientes', to: '/admin/master/empresas', icon: Building2 },
+        { label: 'Vagas', to: '/admin/master/vagas', icon: BriefcaseBusiness },
+        { label: 'Candidatos', to: '/admin/master/candidatos', icon: ListChecks },
+        { label: 'Usuários', to: '/admin/master/usuarios', icon: Users },
       ]
-    : [
-        { label: 'Painel', to: '/admin/empresa', icon: LayoutDashboard },
-        { label: 'Perfil público', to: '/admin/empresa/perfil', icon: Building2 },
-        { label: 'Vagas', to: '/admin/empresa/vagas', icon: BriefcaseBusiness },
-        { label: 'Candidaturas', to: '/admin/empresa/candidaturas', icon: ListChecks },
-      ];
+    : franchisee
+      ? [
+          { label: 'Minha operação', to: '/admin/franqueado', icon: LayoutDashboard },
+          { label: 'Empresas clientes', to: '/admin/franqueado/empresas', icon: Building2 },
+          { label: 'Vagas', to: '/admin/franqueado/vagas', icon: BriefcaseBusiness },
+          { label: 'Candidatos', to: '/admin/franqueado/candidatos', icon: ListChecks },
+        ]
+      : [
+          { label: 'Painel', to: '/admin/empresa', icon: LayoutDashboard },
+          { label: 'Perfil público', to: '/admin/empresa/perfil', icon: Building2 },
+          { label: 'Vagas', to: '/admin/empresa/vagas', icon: BriefcaseBusiness },
+          { label: 'Candidaturas', to: '/admin/empresa/candidaturas', icon: ListChecks },
+        ];
 
   return (
     <aside className="border-b border-surface-200 bg-ink-900 text-white lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r">
@@ -41,7 +51,9 @@ export function Sidebar({ profile }: SidebarProps) {
           />
         </span>
       </div>
-      <p className="px-4 pb-3 text-xs font-semibold text-white/60">Painel administrativo</p>
+      <p className="px-4 pb-3 text-xs font-semibold text-white/60">
+        {master ? 'Admin Master' : franchisee ? 'Operação do franqueado' : 'Área da empresa'}
+      </p>
       <nav className="flex gap-2 overflow-x-auto px-3 pb-4 lg:grid lg:overflow-visible">
         {links.map((link) => {
           const Icon = link.icon;
@@ -49,7 +61,7 @@ export function Sidebar({ profile }: SidebarProps) {
             <NavLink
               key={link.to}
               to={link.to}
-              end={link.to === '/admin/geral' || link.to === '/admin/empresa'}
+              end={['/admin/master', '/admin/franqueado', '/admin/empresa'].includes(link.to)}
               className={({ isActive }) =>
                 `flex min-w-max items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
                   isActive ? 'bg-redde-500 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'

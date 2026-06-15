@@ -52,9 +52,9 @@ export function Login() {
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-redde-50 text-redde-600">
             <LockKeyhole size={23} />
           </span>
-          <h1 className="mt-4 text-3xl font-black text-ink-900">Acesso administrativo</h1>
+          <h1 className="mt-4 text-3xl font-black text-ink-900">Acesso à plataforma</h1>
           <p className="mt-2 text-sm leading-6 text-ink-500">
-            Entre para gerenciar empresas, vagas, candidatos e permissões.
+            Plataforma própria da rede People para gestão de recrutamento, seleção e operação dos franqueados.
           </p>
         </div>
 

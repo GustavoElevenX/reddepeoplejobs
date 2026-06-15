@@ -1,5 +1,6 @@
 import { ArrowDown, Building2, CalendarDays, MapPin } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useParams } from 'react-router-dom';
 import { ApplicationForm } from '../../components/public/ApplicationForm';
 import { EmptyState } from '../../components/public/EmptyState';
@@ -7,8 +8,10 @@ import { LoadingState } from '../../components/public/LoadingState';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { contractTypeLabels, formatDate, formatLocation, formatSalaryRange, modalityLabels } from '../../lib/formatters';
+import { contractTypeLabels, formatDate, formatJobSalary, formatLocation, modalityLabels } from '../../lib/formatters';
 import { getJobByCompanyAndSlug } from '../../lib/data';
+import { buildJobPostingSchema } from '../../lib/jobPostingSchema';
+import { getJobUrl } from '../../lib/jobUrls';
 import type { Job } from '../../types';
 
 function TextBlock({ text }: { text: string }) {
@@ -74,12 +77,19 @@ export function JobDetail() {
   }
 
   const detailBlocks = [
-    { title: 'Sobre a vaga', text: job.about_job },
+    { title: 'Sobre a vaga', text: job.about_job ?? job.description },
     { title: 'Benefícios', text: job.benefits },
     { title: 'Responsabilidades Da Posição', text: job.responsibilities },
   ];
 
   const aboutCompany = job.about_company ?? job.company?.about_text;
+  const schema = buildJobPostingSchema(job);
+  const canonicalUrl = job.company?.slug ? getJobUrl(job.company.slug, job.slug) : undefined;
+  const pageTitle = job.seo_title || `${job.title} - ${job.company?.name ?? 'Redde People Jobs'}`;
+  const pageDescription =
+    job.seo_description || job.short_description || `Candidate-se para a vaga ${job.title}.`;
+  const usesExternalApplication = !job.direct_apply && Boolean(job.external_apply_url);
+  const salaryLabel = formatJobSalary(job);
 
   const summaryItems = [
     { label: 'Empresa', value: job.company?.name },
@@ -89,13 +99,22 @@ export function JobDetail() {
     { label: 'Tipo de contrato', value: contractTypeLabels[job.contract_type] },
     { label: 'Modelo de trabalho', value: modalityLabels[job.modality] },
     { label: 'Jornada de trabalho', value: job.work_schedule },
-    { label: 'Faixa salarial base', value: formatSalaryRange(job.salary_range) },
-    { label: 'Publicada em', value: formatDate(job.created_at) },
-    { label: 'Prazo de candidatura', value: job.application_deadline ? formatDate(job.application_deadline) : null },
+    { label: 'Faixa salarial base', value: salaryLabel },
+    { label: 'Publicada em', value: formatDate(job.published_at ?? job.created_at) },
+    {
+      label: 'Prazo de candidatura',
+      value: job.application_deadline || job.expires_at ? formatDate(job.application_deadline ?? job.expires_at) : null,
+    },
   ].filter((item) => item.value);
 
   return (
     <main className="bg-surface-50 py-10">
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
+        {canonicalUrl ? <link rel="canonical" href={canonicalUrl} /> : null}
+        {schema ? <script type="application/ld+json">{JSON.stringify(schema)}</script> : null}
+      </Helmet>
       <div className="container-page grid gap-6 lg:grid-cols-[1fr_0.42fr]">
         <div className="grid gap-5">
           <Card className="p-6">
@@ -119,12 +138,17 @@ export function JobDetail() {
             <div className="mt-6 flex flex-wrap gap-2">
               <Badge>{modalityLabels[job.modality]}</Badge>
               <Badge>{contractTypeLabels[job.contract_type]}</Badge>
-              {formatSalaryRange(job.salary_range) ? <Badge variant="info">{formatSalaryRange(job.salary_range)}</Badge> : null}
+              {salaryLabel ? <Badge variant="info">{salaryLabel}</Badge> : null}
               {job.application_deadline ? <Badge variant="warning">Prazo: {formatDate(job.application_deadline)}</Badge> : null}
             </div>
-            <a href="#candidatura" className="mt-6 inline-flex">
+            <a
+              href={usesExternalApplication ? job.external_apply_url! : '#candidatura'}
+              className="mt-6 inline-flex"
+              target={usesExternalApplication ? '_blank' : undefined}
+              rel={usesExternalApplication ? 'noreferrer' : undefined}
+            >
               <Button size="lg">
-                Candidatar-se
+                {usesExternalApplication ? 'Candidatar-se no site externo' : 'Candidatar-se'}
                 <ArrowDown size={18} />
               </Button>
             </a>
@@ -186,9 +210,11 @@ export function JobDetail() {
         </div>
       </div>
 
-      <section id="candidatura" className="container-page mt-6">
-        <ApplicationForm job={job} />
-      </section>
+      {job.direct_apply ? (
+        <section id="candidatura" className="container-page mt-6">
+          <ApplicationForm job={job} />
+        </section>
+      ) : null}
     </main>
   );
 }

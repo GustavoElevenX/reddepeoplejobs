@@ -1,6 +1,7 @@
 import { LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from '../../lib/auth';
+import { roleLabels } from '../../lib/formatters';
 import type { Profile } from '../../types';
 import { Button } from '../ui/Button';
 
@@ -21,7 +22,7 @@ export function AdminHeader({ profile }: AdminHeaderProps) {
       <div className="flex min-h-16 items-center justify-between gap-4 px-4 lg:px-6">
         <div>
           <p className="text-sm font-bold text-ink-900">{profile.full_name}</p>
-          <p className="text-xs text-ink-500">{profile.email}</p>
+          <p className="text-xs text-ink-500">{roleLabels[profile.role]} · {profile.email}</p>
         </div>
         <Button variant="secondary" size="sm" onClick={handleSignOut}>
           <LogOut size={16} />

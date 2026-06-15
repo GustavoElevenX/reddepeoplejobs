@@ -1,17 +1,25 @@
-import { formatISO, subDays } from 'date-fns';
+import { formatISO, startOfMonth, subDays } from 'date-fns';
 import { getLocalStore, makeId, setLocalStore } from './localDb';
 import { hasSupabaseConfig, supabase } from './supabase';
 import type {
   Application,
   ApplicationStatus,
   Company,
+  CompanyCommercialStatus,
   CompanyPageStatus,
   CompanyUserAccess,
   DashboardStats,
+  Franchise,
+  FranchiseDashboardStats,
+  FranchisePerformance,
+  FranchiseStatus,
   Job,
   JobContractType,
+  JobDistribution,
+  JobDistributionChannel,
   JobModality,
   JobStatus,
+  NetworkDashboardStats,
   Profile,
   SiteContent,
 } from '../types';
@@ -27,13 +35,18 @@ export type CreateAdminUserInput = {
   fullName: string;
   email: string;
   password?: string;
-  role: 'redde_admin' | 'company_admin' | 'company_recruiter';
+  role: 'admin_master' | 'franqueado' | 'empresa_cliente' | 'redde_admin' | 'company_admin' | 'company_recruiter';
+  franchiseId?: string;
   companyId?: string;
   permissions: UserPermissionInput;
 };
 
 type JobRow = Omit<Job, 'company'> & {
   companies?: Job['company'] | null;
+};
+
+type CompanyRow = Omit<Company, 'franchise'> & {
+  franchises?: Company['franchise'] | null;
 };
 
 type ApplicationRow = Omit<Application, 'company' | 'job'> & {
@@ -48,6 +61,8 @@ type CompanyFilters = {
   status?: CompanyPageStatus | 'all';
   publishedOnly?: boolean;
   featuredOnly?: boolean;
+  franchiseId?: string;
+  commercialStatus?: CompanyCommercialStatus | 'all';
 };
 
 type JobFilters = {
@@ -57,11 +72,13 @@ type JobFilters = {
   contractType?: JobContractType | 'all';
   status?: JobStatus | 'all';
   companyId?: string;
+  franchiseId?: string;
   openOnly?: boolean;
   limit?: number;
 };
 
 type ApplicationFilters = {
+  franchiseId?: string;
   companyId?: string;
   jobId?: string;
   status?: ApplicationStatus | 'all';
@@ -91,7 +108,37 @@ function normalizeJob(row: JobRow): Job {
   const { companies, ...job } = row;
   return {
     ...job,
+    franchise_id: job.franchise_id ?? companies?.franchise_id ?? null,
+    published_at: job.published_at ?? (job.status === 'open' ? job.created_at : null),
+    expires_at: job.expires_at ?? job.application_deadline ?? null,
+    distribution_google_enabled: job.distribution_google_enabled ?? true,
+    distribution_indeed_enabled: job.distribution_indeed_enabled ?? false,
+    distribution_glassdoor_enabled: job.distribution_glassdoor_enabled ?? false,
+    distribution_infojobs_enabled: job.distribution_infojobs_enabled ?? false,
+    external_apply_url: job.external_apply_url ?? null,
+    direct_apply: job.direct_apply ?? true,
+    country: job.country ?? 'BR',
+    street_address: job.street_address ?? null,
+    postal_code: job.postal_code ?? null,
+    salary_min: job.salary_min ?? null,
+    salary_max: job.salary_max ?? null,
+    salary_currency: job.salary_currency ?? 'BRL',
+    salary_unit: job.salary_unit ?? 'MONTH',
+    seo_title: job.seo_title ?? null,
+    seo_description: job.seo_description ?? null,
     company: companies ?? undefined,
+  };
+}
+
+function normalizeCompany(row: Company | CompanyRow): Company {
+  const { franchises, ...company } = row as CompanyRow;
+  return {
+    ...company,
+    franchise_id: company.franchise_id ?? null,
+    commercial_status: company.commercial_status ?? 'active_client',
+    legal_name: company.legal_name ?? null,
+    same_as_url: company.same_as_url ?? null,
+    franchise: franchises ?? ('franchise' in row ? row.franchise : undefined),
   };
 }
 
@@ -107,16 +154,29 @@ function normalizeApplication(row: ApplicationRow): Application {
 function withCompany(job: Job, companies: Company[]): Job {
   return {
     ...job,
-    company: job.company ?? companies.find((company) => company.id === job.company_id),
+    company: companies.find((company) => company.id === job.company_id) ?? job.company,
   };
 }
 
 function filterCompanies(companies: Company[], filters: CompanyFilters = {}) {
+  const franchises = getLocalStore().franchises;
   const search = filters.search?.trim().toLowerCase();
 
   return companies
     .filter((company) => !filters.publishedOnly || company.page_status === 'published')
+    .filter(
+      (company) =>
+        !filters.publishedOnly ||
+        franchises.some((franchise) => franchise.id === company.franchise_id && franchise.status === 'active'),
+    )
     .filter((company) => !filters.featuredOnly || company.is_featured)
+    .filter((company) => !filters.franchiseId || company.franchise_id === filters.franchiseId)
+    .filter(
+      (company) =>
+        !filters.commercialStatus ||
+        filters.commercialStatus === 'all' ||
+        company.commercial_status === filters.commercialStatus,
+    )
     .filter((company) => !filters.status || filters.status === 'all' || company.page_status === filters.status)
     .filter((company) => !search || company.name.toLowerCase().includes(search))
     .filter((company) => !filters.city || company.city?.toLowerCase().includes(filters.city.toLowerCase()))
@@ -134,6 +194,17 @@ function filterJobs(jobs: Job[], filters: JobFilters = {}) {
   return jobs
     .map((job) => withCompany(job, store.companies))
     .filter((job) => !filters.openOnly || job.status === 'open')
+    .filter(
+      (job) =>
+        !filters.openOnly ||
+        (store.companies.some(
+          (company) => company.id === job.company_id && company.page_status === 'published',
+        ) &&
+          store.franchises.some(
+            (franchise) => franchise.id === job.franchise_id && franchise.status === 'active',
+          )),
+    )
+    .filter((job) => !filters.franchiseId || job.franchise_id === filters.franchiseId)
     .filter((job) => !filters.companyId || job.company_id === filters.companyId)
     .filter((job) => !filters.status || filters.status === 'all' || job.status === filters.status)
     .filter(
@@ -158,12 +229,88 @@ function filterJobs(jobs: Job[], filters: JobFilters = {}) {
     .slice(0, filters.limit ?? Number.POSITIVE_INFINITY);
 }
 
+export async function listFranchises(filters: { status?: FranchiseStatus | 'all'; search?: string } = {}) {
+  if (hasSupabaseConfig && supabase) {
+    let query = supabase.from('franchises').select('*').order('name');
+    if (filters.status && filters.status !== 'all') query = query.eq('status', filters.status);
+    if (filters.search) query = query.ilike('name', `%${filters.search}%`);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data as Franchise[];
+  }
+
+  const search = filters.search?.trim().toLowerCase();
+  return getLocalStore()
+    .franchises.filter((franchise) => !filters.status || filters.status === 'all' || franchise.status === filters.status)
+    .filter((franchise) => !search || franchise.name.toLowerCase().includes(search))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function getFranchiseById(id: string) {
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase.from('franchises').select('*').eq('id', id).single();
+    if (error) throw error;
+    return data as Franchise;
+  }
+
+  return getLocalStore().franchises.find((franchise) => franchise.id === id) ?? null;
+}
+
+export async function upsertFranchise(
+  values: Partial<Franchise> & Pick<Franchise, 'name' | 'slug'>,
+) {
+  const timestamp = new Date().toISOString();
+
+  if (hasSupabaseConfig && supabase) {
+    const payload = { ...values, updated_at: timestamp };
+    const { data, error } = values.id
+      ? await supabase.from('franchises').update(payload).eq('id', values.id).select('*').single()
+      : await supabase.from('franchises').insert(payload).select('*').single();
+    if (error) throw error;
+    return data as Franchise;
+  }
+
+  const store = getLocalStore();
+  const existingIndex = values.id
+    ? store.franchises.findIndex((franchise) => franchise.id === values.id)
+    : -1;
+  const franchise: Franchise = {
+    id: values.id ?? makeId(),
+    name: values.name,
+    slug: values.slug,
+    legal_name: values.legal_name ?? null,
+    document: values.document ?? null,
+    contact_name: values.contact_name ?? null,
+    contact_email: values.contact_email ?? null,
+    contact_phone: values.contact_phone ?? null,
+    city: values.city ?? null,
+    state: values.state ?? 'MA',
+    status: values.status ?? 'active',
+    created_by: values.created_by ?? null,
+    created_at: values.created_at ?? timestamp,
+    updated_at: timestamp,
+  };
+
+  if (existingIndex >= 0) store.franchises[existingIndex] = franchise;
+  else store.franchises.unshift(franchise);
+  setLocalStore(store);
+  return franchise;
+}
+
 export async function listCompanies(filters: CompanyFilters = {}) {
   if (hasSupabaseConfig && supabase) {
-    let query = supabase.from('companies').select('*').order('created_at', { ascending: false });
+    let query = supabase
+      .from('companies')
+      .select('*, franchises(id, name, slug, status)')
+      .order('created_at', { ascending: false });
 
     if (filters.publishedOnly) query = query.eq('page_status', 'published');
     if (filters.featuredOnly) query = query.eq('is_featured', true);
+    if (filters.franchiseId) query = query.eq('franchise_id', filters.franchiseId);
+    if (filters.commercialStatus && filters.commercialStatus !== 'all') {
+      query = query.eq('commercial_status', filters.commercialStatus);
+    }
     if (filters.status && filters.status !== 'all') query = query.eq('page_status', filters.status);
     if (filters.search) query = query.ilike('name', `%${filters.search}%`);
     if (filters.city) query = query.or(`city.ilike.%${filters.city}%,neighborhood.ilike.%${filters.city}%`);
@@ -171,7 +318,7 @@ export async function listCompanies(filters: CompanyFilters = {}) {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data as Company[];
+    return (data as CompanyRow[]).map(normalizeCompany);
   }
 
   return filterCompanies(getLocalStore().companies, filters);
@@ -179,26 +326,40 @@ export async function listCompanies(filters: CompanyFilters = {}) {
 
 export async function getCompanyBySlug(slug: string, publishedOnly = true) {
   if (hasSupabaseConfig && supabase) {
-    let query = supabase.from('companies').select('*').eq('slug', slug);
+    let query = supabase
+      .from('companies')
+      .select('*, franchises(id, name, slug, status)')
+      .eq('slug', slug);
     if (publishedOnly) query = query.eq('page_status', 'published');
 
     const { data, error } = await query.single();
     if (error) throw error;
-    return data as Company;
+    return normalizeCompany(data as Company);
   }
 
+  const store = getLocalStore();
   return (
-    getLocalStore().companies.find(
-      (company) => company.slug === slug && (!publishedOnly || company.page_status === 'published'),
+    store.companies.find(
+      (company) =>
+        company.slug === slug &&
+        (!publishedOnly ||
+          (company.page_status === 'published' &&
+            store.franchises.some(
+              (franchise) => franchise.id === company.franchise_id && franchise.status === 'active',
+            ))),
     ) ?? null
   );
 }
 
 export async function getCompanyById(id: string) {
   if (hasSupabaseConfig && supabase) {
-    const { data, error } = await supabase.from('companies').select('*').eq('id', id).single();
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*, franchises(id, name, slug, status)')
+      .eq('id', id)
+      .single();
     if (error) throw error;
-    return data as Company;
+    return normalizeCompany(data as Company);
   }
 
   return getLocalStore().companies.find((company) => company.id === id) ?? null;
@@ -206,10 +367,12 @@ export async function getCompanyById(id: string) {
 
 export async function upsertCompany(values: Partial<Company> & Pick<Company, 'name' | 'slug'>) {
   const timestamp = new Date().toISOString();
+  const companyValues = { ...values };
+  delete companyValues.franchise;
 
   if (hasSupabaseConfig && supabase) {
     const payload = {
-      ...values,
+      ...companyValues,
       updated_at: timestamp,
     };
     const { data, error } = values.id
@@ -217,13 +380,14 @@ export async function upsertCompany(values: Partial<Company> & Pick<Company, 'na
       : await supabase.from('companies').insert(payload).select('*').single();
 
     if (error) throw error;
-    return data as Company;
+    return normalizeCompany(data as Company);
   }
 
   const store = getLocalStore();
   const existingIndex = values.id ? store.companies.findIndex((company) => company.id === values.id) : -1;
   const nextCompany: Company = {
     id: values.id ?? makeId(),
+    franchise_id: values.franchise_id ?? null,
     name: values.name,
     slug: values.slug,
     logo_url: values.logo_url ?? null,
@@ -233,21 +397,36 @@ export async function upsertCompany(values: Partial<Company> & Pick<Company, 'na
     state: values.state ?? 'MA',
     employees_range: values.employees_range ?? null,
     website_url: values.website_url ?? null,
+    legal_name: values.legal_name ?? null,
+    same_as_url: values.same_as_url ?? null,
     instagram_url: values.instagram_url ?? null,
     linkedin_url: values.linkedin_url ?? null,
     short_description: values.short_description ?? null,
     about_text: values.about_text ?? null,
     why_work_here: values.why_work_here ?? null,
     culture_text: values.culture_text ?? null,
+    commercial_status: values.commercial_status ?? 'active_client',
     page_status: values.page_status ?? 'draft',
     is_featured: values.is_featured ?? false,
     created_by: values.created_by ?? null,
     created_at: values.created_at ?? timestamp,
     updated_at: timestamp,
+    franchise: store.franchises.find((franchise) => franchise.id === values.franchise_id),
   };
 
   if (existingIndex >= 0) store.companies[existingIndex] = nextCompany;
   else store.companies.unshift(nextCompany);
+
+  if (values.id) {
+    store.jobs = store.jobs.map((job) =>
+      job.company_id === values.id ? { ...job, franchise_id: nextCompany.franchise_id } : job,
+    );
+    store.applications = store.applications.map((application) =>
+      application.company_id === values.id
+        ? { ...application, franchise_id: nextCompany.franchise_id }
+        : application,
+    );
+  }
 
   setLocalStore(store);
   return nextCompany;
@@ -268,7 +447,7 @@ export async function updateCompanyImages(
       .single();
 
     if (error) throw error;
-    return data as Company;
+    return normalizeCompany(data as Company);
   }
 
   const store = getLocalStore();
@@ -299,13 +478,18 @@ export async function listJobs(filters: JobFilters = {}) {
             segment,
             city,
             state,
-            about_text
+            about_text,
+            website_url,
+            legal_name,
+            same_as_url,
+            franchise_id
           )
         `,
       )
       .order('created_at', { ascending: false });
 
     if (filters.openOnly) query = query.eq('status', 'open');
+    if (filters.franchiseId) query = query.eq('franchise_id', filters.franchiseId);
     if (filters.status && filters.status !== 'all') query = query.eq('status', filters.status);
     if (filters.companyId) query = query.eq('company_id', filters.companyId);
     if (filters.city) query = query.ilike('city', `%${filters.city}%`);
@@ -342,7 +526,11 @@ export async function getJobByCompanyAndSlug(companySlug: string, jobSlug: strin
             segment,
             city,
             state,
-            about_text
+            about_text,
+            website_url,
+            legal_name,
+            same_as_url,
+            franchise_id
           )
         `,
       )
@@ -356,7 +544,14 @@ export async function getJobByCompanyAndSlug(companySlug: string, jobSlug: strin
   }
 
   const store = getLocalStore();
-  const company = store.companies.find((item) => item.slug === companySlug && item.page_status === 'published');
+  const company = store.companies.find(
+    (item) =>
+      item.slug === companySlug &&
+      item.page_status === 'published' &&
+      store.franchises.some(
+        (franchise) => franchise.id === item.franchise_id && franchise.status === 'active',
+      ),
+  );
   if (!company) return null;
   const job = store.jobs.find((item) => item.company_id === company.id && item.slug === jobSlug && item.status === 'open');
   return job ? withCompany(job, store.companies) : null;
@@ -364,10 +559,40 @@ export async function getJobByCompanyAndSlug(companySlug: string, jobSlug: strin
 
 export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 'title' | 'slug' | 'description'>) {
   const timestamp = new Date().toISOString();
+  const publishedAt = values.status === 'open' ? values.published_at ?? timestamp : values.published_at ?? null;
+  const expiresAt =
+    values.status === 'open'
+      ? values.expires_at ??
+        (values.application_deadline
+          ? `${values.application_deadline}T23:59:59-03:00`
+          : new Date(new Date(publishedAt ?? timestamp).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString())
+      : values.expires_at ?? null;
+  const jobValues = { ...values };
+  delete jobValues.company;
+  const normalizedValues = {
+    ...jobValues,
+    published_at: publishedAt,
+    expires_at: expiresAt,
+    distribution_google_enabled: values.distribution_google_enabled ?? true,
+    distribution_indeed_enabled: values.distribution_indeed_enabled ?? false,
+    distribution_glassdoor_enabled: values.distribution_glassdoor_enabled ?? false,
+    distribution_infojobs_enabled: values.distribution_infojobs_enabled ?? false,
+    external_apply_url: values.external_apply_url ?? null,
+    direct_apply: values.direct_apply ?? true,
+    country: values.country ?? 'BR',
+    street_address: values.street_address ?? null,
+    postal_code: values.postal_code ?? null,
+    salary_min: values.salary_min ?? null,
+    salary_max: values.salary_max ?? null,
+    salary_currency: values.salary_currency ?? 'BRL',
+    salary_unit: values.salary_unit ?? 'MONTH',
+    seo_title: values.seo_title ?? null,
+    seo_description: values.seo_description ?? null,
+  };
 
   if (hasSupabaseConfig && supabase) {
     const payload = {
-      ...values,
+      ...normalizedValues,
       updated_at: timestamp,
     };
     const { data, error } = values.id
@@ -382,6 +607,10 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
   const existingIndex = values.id ? store.jobs.findIndex((job) => job.id === values.id) : -1;
   const nextJob: Job = {
     id: values.id ?? makeId(),
+    franchise_id:
+      values.franchise_id ??
+      store.companies.find((company) => company.id === values.company_id)?.franchise_id ??
+      null,
     company_id: values.company_id,
     title: values.title,
     slug: values.slug,
@@ -405,6 +634,23 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
     status: values.status ?? 'draft',
     is_featured: values.is_featured ?? false,
     application_deadline: values.application_deadline ?? null,
+    published_at: normalizedValues.published_at,
+    expires_at: normalizedValues.expires_at,
+    distribution_google_enabled: normalizedValues.distribution_google_enabled,
+    distribution_indeed_enabled: normalizedValues.distribution_indeed_enabled,
+    distribution_glassdoor_enabled: normalizedValues.distribution_glassdoor_enabled,
+    distribution_infojobs_enabled: normalizedValues.distribution_infojobs_enabled,
+    external_apply_url: normalizedValues.external_apply_url,
+    direct_apply: normalizedValues.direct_apply,
+    country: normalizedValues.country,
+    street_address: normalizedValues.street_address,
+    postal_code: normalizedValues.postal_code,
+    salary_min: normalizedValues.salary_min,
+    salary_max: normalizedValues.salary_max,
+    salary_currency: normalizedValues.salary_currency,
+    salary_unit: normalizedValues.salary_unit,
+    seo_title: normalizedValues.seo_title,
+    seo_description: normalizedValues.seo_description,
     created_by: values.created_by ?? null,
     created_at: values.created_at ?? timestamp,
     updated_at: timestamp,
@@ -412,6 +658,18 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
 
   if (existingIndex >= 0) store.jobs[existingIndex] = nextJob;
   else store.jobs.unshift(nextJob);
+
+  if (values.id) {
+    store.applications = store.applications.map((application) =>
+      application.job_id === values.id
+        ? {
+            ...application,
+            company_id: nextJob.company_id,
+            franchise_id: nextJob.franchise_id,
+          }
+        : application,
+    );
+  }
 
   setLocalStore(store);
   return withCompany(nextJob, store.companies);
@@ -427,6 +685,7 @@ export async function deleteJob(jobId: string) {
   const store = getLocalStore();
   store.jobs = store.jobs.filter((job) => job.id !== jobId);
   store.applications = store.applications.filter((application) => application.job_id !== jobId);
+  store.distributions = store.distributions.filter((distribution) => distribution.job_id !== jobId);
   setLocalStore(store);
 }
 
@@ -452,6 +711,7 @@ export async function listApplications(filters: ApplicationFilters = {}) {
       .order('created_at', { ascending: false });
 
     if (filters.companyId) query = query.eq('company_id', filters.companyId);
+    if (filters.franchiseId) query = query.eq('franchise_id', filters.franchiseId);
     if (filters.jobId) query = query.eq('job_id', filters.jobId);
     if (filters.status && filters.status !== 'all') query = query.eq('status', filters.status);
 
@@ -468,6 +728,7 @@ export async function listApplications(filters: ApplicationFilters = {}) {
       job: application.job ?? store.jobs.find((job) => job.id === application.job_id),
     }))
     .filter((application) => !filters.companyId || application.company_id === filters.companyId)
+    .filter((application) => !filters.franchiseId || application.franchise_id === filters.franchiseId)
     .filter((application) => !filters.jobId || application.job_id === filters.jobId)
     .filter((application) => !filters.status || filters.status === 'all' || application.status === filters.status)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -489,18 +750,28 @@ export async function createApplication(
     | 'message'
     | 'resume_file_path'
     | 'lgpd_consent'
-  >,
+  > &
+    Partial<Pick<Application, 'source' | 'franchise_id'>>,
 ) {
   const timestamp = new Date().toISOString();
+  const payload = {
+    ...values,
+    source: values.source ?? 'direct',
+    franchise_id:
+      values.franchise_id ??
+      (!hasSupabaseConfig
+        ? getLocalStore().jobs.find((job) => job.id === values.job_id)?.franchise_id
+        : null) ??
+      null,
+  };
 
   if (hasSupabaseConfig && supabase) {
-    const { error } = await supabase.from('applications').insert(values);
+    const { error } = await supabase.from('applications').insert(payload);
     if (error) throw error;
     return {
       id: '',
-      ...values,
+      ...payload,
       status: 'novo',
-      source: 'portal_publico',
       created_at: timestamp,
       updated_at: timestamp,
     } as Application;
@@ -508,24 +779,88 @@ export async function createApplication(
 
   const store = getLocalStore();
   const job = store.jobs.find((item) => item.id === values.job_id);
-  if (!job || job.status !== 'open') {
+  const company = store.companies.find((item) => item.id === values.company_id);
+  const activeFranchise = store.franchises.some(
+    (franchise) => franchise.id === job?.franchise_id && franchise.status === 'active',
+  );
+  if (!job || job.status !== 'open' || company?.page_status !== 'published' || !activeFranchise) {
     throw new Error('Esta vaga não está aberta para candidatura.');
   }
 
   const application: Application = {
     id: makeId(),
-    ...values,
+    ...payload,
     status: 'novo',
-    source: 'portal_publico',
     created_at: timestamp,
     updated_at: timestamp,
     job,
-    company: store.companies.find((company) => company.id === values.company_id),
+    company,
   };
 
   store.applications.unshift(application);
   setLocalStore(store);
   return application;
+}
+
+export async function getJobDistribution(
+  jobId: string,
+  channel: JobDistributionChannel,
+): Promise<JobDistribution | null> {
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase
+      .from('job_distribution_channels')
+      .select('*')
+      .eq('job_id', jobId)
+      .eq('channel', channel)
+      .maybeSingle();
+    if (error) throw error;
+    return data as JobDistribution | null;
+  }
+
+  return (
+    getLocalStore().distributions.find(
+      (distribution) => distribution.job_id === jobId && distribution.channel === channel,
+    ) ?? null
+  );
+}
+
+export async function upsertJobDistribution(
+  values: Pick<JobDistribution, 'job_id' | 'channel' | 'status'> &
+    Partial<Pick<JobDistribution, 'external_url' | 'last_synced_at' | 'error_message'>>,
+) {
+  const timestamp = new Date().toISOString();
+  const payload = {
+    ...values,
+    external_url: values.external_url ?? null,
+    last_synced_at: values.last_synced_at ?? null,
+    error_message: values.error_message ?? null,
+    updated_at: timestamp,
+  };
+
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase
+      .from('job_distribution_channels')
+      .upsert(payload, { onConflict: 'job_id,channel' })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as JobDistribution;
+  }
+
+  const store = getLocalStore();
+  const existingIndex = store.distributions.findIndex(
+    (distribution) => distribution.job_id === values.job_id && distribution.channel === values.channel,
+  );
+  const distribution: JobDistribution = {
+    id: existingIndex >= 0 ? store.distributions[existingIndex].id : makeId(),
+    ...payload,
+    created_at: existingIndex >= 0 ? store.distributions[existingIndex].created_at : timestamp,
+  };
+
+  if (existingIndex >= 0) store.distributions[existingIndex] = distribution;
+  else store.distributions.unshift(distribution);
+  setLocalStore(store);
+  return distribution;
 }
 
 export async function updateApplicationStatus(id: string, status: ApplicationStatus) {
@@ -583,6 +918,7 @@ export async function createAdminUser(values: CreateAdminUserInput) {
         email: values.email,
         password: values.password || undefined,
         role: values.role,
+        franchiseId: values.franchiseId || undefined,
         companyId: values.companyId || undefined,
         permissions: values.permissions,
       },
@@ -602,6 +938,7 @@ export async function createAdminUser(values: CreateAdminUserInput) {
 
   const profile: Profile = {
     id: makeId(),
+    franchise_id: values.franchiseId ?? null,
     full_name: values.fullName,
     email: values.email,
     role: values.role,
@@ -732,6 +1069,85 @@ export async function getDashboardStats(companyId?: string): Promise<DashboardSt
     totalApplications: applications.length,
     applicationsLast7Days: applications.filter((application) => application.created_at >= formatISO(sevenDaysAgo)).length,
   };
+}
+
+export async function getFranchiseDashboardStats(franchiseId: string): Promise<FranchiseDashboardStats> {
+  const [companies, jobs, applications] = await Promise.all([
+    listCompanies({ franchiseId }),
+    listJobs({ franchiseId }),
+    listApplications({ franchiseId }),
+  ]);
+  const sevenDaysAgo = formatISO(subDays(new Date(), 7));
+  const monthStart = formatISO(startOfMonth(new Date()));
+
+  return {
+    totalCompanies: companies.length,
+    publishedCompanies: companies.filter((company) => company.page_status === 'published').length,
+    openJobs: jobs.filter((job) => job.status === 'open').length,
+    totalApplications: applications.length,
+    applicationsLast7Days: applications.filter((application) => application.created_at >= sevenDaysAgo).length,
+    candidatesInScreening: applications.filter((application) =>
+      ['triagem', 'em_analise'].includes(application.status),
+    ).length,
+    candidatesForwarded: applications.filter((application) =>
+      ['encaminhado_cliente', 'aprovado', 'contratado'].includes(application.status),
+    ).length,
+    closedJobsThisMonth: jobs.filter(
+      (job) => job.status === 'closed' && job.updated_at >= monthStart,
+    ).length,
+  };
+}
+
+export async function getNetworkDashboardStats(): Promise<NetworkDashboardStats> {
+  const [franchises, companies, jobs, applications] = await Promise.all([
+    listFranchises(),
+    listCompanies(),
+    listJobs(),
+    listApplications(),
+  ]);
+  const sevenDaysAgo = formatISO(subDays(new Date(), 7));
+  const monthStart = formatISO(startOfMonth(new Date()));
+
+  return {
+    totalFranchises: franchises.length,
+    activeFranchises: franchises.filter((franchise) => franchise.status === 'active').length,
+    totalCompanies: companies.length,
+    publishedCompanies: companies.filter((company) => company.page_status === 'published').length,
+    openJobs: jobs.filter((job) => job.status === 'open').length,
+    totalApplications: applications.length,
+    applicationsLast7Days: applications.filter((application) => application.created_at >= sevenDaysAgo).length,
+    closedJobsThisMonth: jobs.filter(
+      (job) => job.status === 'closed' && job.updated_at >= monthStart,
+    ).length,
+  };
+}
+
+export async function getFranchisePerformance(): Promise<FranchisePerformance[]> {
+  const [franchises, companies, jobs, applications] = await Promise.all([
+    listFranchises(),
+    listCompanies(),
+    listJobs(),
+    listApplications(),
+  ]);
+
+  return franchises
+    .map((franchise) => ({
+      franchise,
+      companies: companies.filter((company) => company.franchise_id === franchise.id).length,
+      openJobs: jobs.filter((job) => job.franchise_id === franchise.id && job.status === 'open').length,
+      applications: applications.filter((application) => application.franchise_id === franchise.id).length,
+      forwardedCandidates: applications.filter(
+        (application) =>
+          application.franchise_id === franchise.id &&
+          ['encaminhado_cliente', 'aprovado', 'contratado'].includes(application.status),
+      ).length,
+    }))
+    .sort(
+      (a, b) =>
+        b.applications - a.applications ||
+        b.openJobs - a.openJobs ||
+        a.franchise.name.localeCompare(b.franchise.name),
+    );
 }
 
 export async function deleteUser(userId: string) {

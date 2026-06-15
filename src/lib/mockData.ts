@@ -1,10 +1,69 @@
-import type { Application, Company, CompanyUserAccess, Job, Profile, SiteContent } from '../types';
+import type {
+  Application,
+  Company,
+  CompanyUserAccess,
+  Franchise,
+  Job,
+  Profile,
+  SiteContent,
+} from '../types';
 
 const now = new Date().toISOString();
+const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+const companyDistributionDefaults = {
+  legal_name: null,
+  same_as_url: null,
+};
+
+const jobDistributionDefaults = {
+  published_at: now,
+  expires_at: expiresAt,
+  distribution_google_enabled: true,
+  distribution_indeed_enabled: false,
+  distribution_glassdoor_enabled: false,
+  distribution_infojobs_enabled: false,
+  external_apply_url: null,
+  direct_apply: true,
+  country: 'BR',
+  street_address: null,
+  postal_code: null,
+  salary_min: null,
+  salary_max: null,
+  salary_currency: 'BRL',
+  salary_unit: 'MONTH',
+  seo_title: null,
+  seo_description: null,
+};
+
+export const mockFranchises: Franchise[] = [
+  {
+    id: 'f1111111-1111-4111-8111-111111111111',
+    name: 'Unidade Matriz',
+    slug: 'unidade-matriz',
+    legal_name: 'Redde People Jobs',
+    document: null,
+    contact_name: 'Gestor da Unidade',
+    contact_email: 'unidade@peoplejobs.com.br',
+    contact_phone: null,
+    city: 'São Luís',
+    state: 'MA',
+    status: 'active',
+    created_at: now,
+    updated_at: now,
+  },
+];
+
+const companyFranchiseDefaults = {
+  franchise_id: mockFranchises[0].id,
+  commercial_status: 'active_client' as const,
+  franchise: mockFranchises[0],
+};
 
 export const mockCompanies: Company[] = [
   {
     id: '11111111-1111-4111-8111-111111111111',
+    ...companyFranchiseDefaults,
     name: 'Aba Kids',
     slug: 'aba-kids',
     logo_url: '/imagens/clientes/aba-kids.png',
@@ -14,6 +73,7 @@ export const mockCompanies: Company[] = [
     state: 'MA',
     employees_range: '51-200',
     website_url: 'https://example.com',
+    ...companyDistributionDefaults,
     instagram_url: 'https://instagram.com',
     linkedin_url: 'https://linkedin.com',
     short_description: 'Empresa parceira do People Jobs com oportunidades em atendimento, apoio pedagógico e operação.',
@@ -28,6 +88,7 @@ export const mockCompanies: Company[] = [
   },
   {
     id: '22222222-2222-4222-8222-222222222222',
+    ...companyFranchiseDefaults,
     name: 'Aquarela',
     slug: 'aquarela',
     logo_url: '/imagens/clientes/aquarela.png',
@@ -37,6 +98,7 @@ export const mockCompanies: Company[] = [
     state: 'MA',
     employees_range: '11-50',
     website_url: null,
+    ...companyDistributionDefaults,
     instagram_url: null,
     linkedin_url: null,
     short_description: 'Empresa parceira com vagas abertas para áreas administrativas, atendimento e operação.',
@@ -50,6 +112,7 @@ export const mockCompanies: Company[] = [
   },
   {
     id: '33333333-3333-4333-8333-333333333333',
+    ...companyFranchiseDefaults,
     name: 'Conceito',
     slug: 'conceito',
     logo_url: '/imagens/clientes/conceito.png',
@@ -59,6 +122,7 @@ export const mockCompanies: Company[] = [
     state: 'MA',
     employees_range: '201-500',
     website_url: null,
+    ...companyDistributionDefaults,
     instagram_url: null,
     linkedin_url: null,
     short_description: 'Empresa parceira com oportunidades em atendimento, rotinas comerciais e gestão operacional.',
@@ -73,6 +137,7 @@ export const mockCompanies: Company[] = [
   },
   {
     id: '44444444-4444-4444-8444-444444444444',
+    ...companyFranchiseDefaults,
     name: 'Darma Center',
     slug: 'darma-center',
     logo_url: '/imagens/clientes/darma-center.png',
@@ -82,6 +147,7 @@ export const mockCompanies: Company[] = [
     state: 'MA',
     employees_range: '101-200',
     website_url: null,
+    ...companyDistributionDefaults,
     instagram_url: null,
     linkedin_url: null,
     short_description: 'Centro parceiro com oportunidades em atendimento, recepção, operação e suporte administrativo.',
@@ -95,6 +161,7 @@ export const mockCompanies: Company[] = [
   },
   {
     id: '55555555-5555-4555-8555-555555555555',
+    ...companyFranchiseDefaults,
     name: 'Karolícias',
     slug: 'karolicias',
     logo_url: '/imagens/clientes/karolicias.png',
@@ -104,6 +171,7 @@ export const mockCompanies: Company[] = [
     state: 'MA',
     employees_range: '51-200',
     website_url: null,
+    ...companyDistributionDefaults,
     instagram_url: null,
     linkedin_url: null,
     short_description: 'Marca parceira com oportunidades em produção, atendimento, vendas e rotinas operacionais.',
@@ -117,6 +185,7 @@ export const mockCompanies: Company[] = [
   },
   {
     id: '66666666-6666-4666-8666-666666666666',
+    ...companyFranchiseDefaults,
     name: 'Levive',
     slug: 'levive',
     logo_url: '/imagens/clientes/levive.png',
@@ -126,6 +195,7 @@ export const mockCompanies: Company[] = [
     state: 'MA',
     employees_range: '201-500',
     website_url: null,
+    ...companyDistributionDefaults,
     instagram_url: null,
     linkedin_url: null,
     short_description: 'Empresa parceira com oportunidades em atendimento, comercial e suporte à operação.',
@@ -142,6 +212,7 @@ export const mockCompanies: Company[] = [
 export const mockJobs: Job[] = [
   {
     id: 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    franchise_id: mockFranchises[0].id,
     company_id: mockCompanies[0].id,
     title: 'Assistente de Atendimento Infantil',
     slug: 'assistente-de-atendimento-infantil',
@@ -168,12 +239,16 @@ export const mockJobs: Job[] = [
     status: 'open',
     is_featured: true,
     application_deadline: null,
+    ...jobDistributionDefaults,
+    salary_min: 1600,
+    salary_max: 1900,
     created_at: now,
     updated_at: now,
     company: mockCompanies[0],
   },
   {
     id: 'aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
+    franchise_id: mockFranchises[0].id,
     company_id: mockCompanies[1].id,
     title: 'Assistente Administrativo',
     slug: 'assistente-administrativo',
@@ -199,12 +274,16 @@ export const mockJobs: Job[] = [
     status: 'open',
     is_featured: true,
     application_deadline: null,
+    ...jobDistributionDefaults,
+    salary_min: 2200,
+    salary_max: 2700,
     created_at: now,
     updated_at: now,
     company: mockCompanies[1],
   },
   {
     id: 'aaaaaaa3-aaaa-4aaa-8aaa-aaaaaaaaaaa3',
+    franchise_id: mockFranchises[0].id,
     company_id: mockCompanies[4].id,
     title: 'Atendente de Loja',
     slug: 'atendente-de-loja',
@@ -230,12 +309,16 @@ export const mockJobs: Job[] = [
     status: 'open',
     is_featured: true,
     application_deadline: null,
+    ...jobDistributionDefaults,
+    salary_min: 1500,
+    salary_max: 1900,
     created_at: now,
     updated_at: now,
     company: mockCompanies[4],
   },
   {
     id: 'aaaaaaa4-aaaa-4aaa-8aaa-aaaaaaaaaaa4',
+    franchise_id: mockFranchises[0].id,
     company_id: mockCompanies[3].id,
     title: 'Recepcionista',
     slug: 'recepcionista',
@@ -261,6 +344,9 @@ export const mockJobs: Job[] = [
     status: 'open',
     is_featured: false,
     application_deadline: null,
+    ...jobDistributionDefaults,
+    salary_min: 1600,
+    salary_max: 2000,
     created_at: now,
     updated_at: now,
     company: mockCompanies[3],
@@ -270,6 +356,7 @@ export const mockJobs: Job[] = [
 export const mockApplications: Application[] = [
   {
     id: 'bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
+    franchise_id: mockFranchises[0].id,
     job_id: mockJobs[0].id,
     company_id: mockCompanies[0].id,
     candidate_name: 'Mariana Costa',
@@ -292,6 +379,7 @@ export const mockApplications: Application[] = [
   },
   {
     id: 'bbbbbbb2-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
+    franchise_id: mockFranchises[0].id,
     job_id: mockJobs[2].id,
     company_id: mockCompanies[4].id,
     candidate_name: 'Rafael Lima',
@@ -317,6 +405,7 @@ export const mockApplications: Application[] = [
 export const mockProfiles: Profile[] = [
   {
     id: 'ccccccc1-cccc-4ccc-8ccc-ccccccccccc1',
+    franchise_id: null,
     full_name: 'Administrador People Jobs',
     email: 'admin@peoplejobs.com.br',
     role: 'redde_super_admin',
@@ -326,6 +415,7 @@ export const mockProfiles: Profile[] = [
   },
   {
     id: 'ccccccc2-cccc-4ccc-8ccc-ccccccccccc2',
+    franchise_id: mockFranchises[0].id,
     full_name: 'Gestor Aba Kids',
     email: 'gestor@abakids.com.br',
     role: 'company_admin',
@@ -335,6 +425,7 @@ export const mockProfiles: Profile[] = [
   },
   {
     id: 'ccccccc3-cccc-4ccc-8ccc-ccccccccccc3',
+    franchise_id: mockFranchises[0].id,
     full_name: 'Recrutador Cliente',
     email: 'talentos@abakids.com.br',
     role: 'company_recruiter',

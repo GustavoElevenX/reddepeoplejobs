@@ -10,23 +10,27 @@ import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
-import { listCompanies, updateCompanyImages, upsertCompany } from '../../lib/data';
+import { listCompanies, listFranchises, updateCompanyImages, upsertCompany } from '../../lib/data';
 import { toCompanyPayload } from '../../lib/formPayloads';
-import { companyPageStatusLabels, formatLocation } from '../../lib/formatters';
+import { companyCommercialStatusLabels, companyPageStatusLabels, formatLocation } from '../../lib/formatters';
 import { uploadCompanyAsset } from '../../lib/storage';
-import type { Company, CompanyPageStatus } from '../../types';
+import type { Company, CompanyPageStatus, Franchise } from '../../types';
 
 export function ReddeCompanies() {
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [franchises, setFranchises] = useState<Franchise[]>([]);
   const [editing, setEditing] = useState<Company | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [franchiseId, setFranchiseId] = useState('all');
   const [status, setStatus] = useState<CompanyPageStatus | 'all'>('all');
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    setCompanies(await listCompanies());
+    const [companyData, franchiseData] = await Promise.all([listCompanies(), listFranchises()]);
+    setCompanies(companyData);
+    setFranchises(franchiseData);
     setLoading(false);
   }
 
@@ -37,8 +41,9 @@ export function ReddeCompanies() {
   const filtered = useMemo(() => {
     return companies
       .filter((company) => !search || company.name.toLowerCase().includes(search.toLowerCase()))
+      .filter((company) => franchiseId === 'all' || company.franchise_id === franchiseId)
       .filter((company) => status === 'all' || company.page_status === status);
-  }, [companies, search, status]);
+  }, [companies, franchiseId, search, status]);
 
   async function handleSave(values: CompanyFormValues, assets: CompanyFormAssets) {
     const saved = await upsertCompany(toCompanyPayload(values, editing));
@@ -65,26 +70,42 @@ export function ReddeCompanies() {
     <div className="grid gap-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <h1 className="text-3xl font-black text-ink-900">Empresas</h1>
-          <p className="mt-2 text-ink-500">Crie, edite, publique e acompanhe empresas parceiras.</p>
+          <h1 className="text-3xl font-black text-ink-900">Empresas clientes</h1>
+          <p className="mt-2 text-ink-500">Acompanhe as empresas de todos os franqueados.</p>
         </div>
         <Button
+          disabled={!franchises.length}
           onClick={() => {
             setEditing(null);
             setModalOpen(true);
           }}
         >
           <Plus size={18} />
-          Criar empresa
+          Criar empresa cliente
         </Button>
       </div>
 
-      <Card className="grid gap-3 p-3 md:grid-cols-[1fr_220px]">
+      {!franchises.length && !loading ? (
+        <div className="rounded-lg bg-redde-50 p-3 text-sm font-semibold text-redde-700">
+          Cadastre um franqueado antes de criar a primeira empresa cliente.
+        </div>
+      ) : null}
+
+      <Card className="grid gap-3 p-3 md:grid-cols-[1fr_220px_220px]">
         <Input
           placeholder="Buscar por nome"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           aria-label="Buscar empresa"
+        />
+        <Select
+          aria-label="Filtrar franqueado"
+          value={franchiseId}
+          onChange={(event) => setFranchiseId(event.target.value)}
+          options={[
+            { label: 'Todos os franqueados', value: 'all' },
+            ...franchises.map((franchise) => ({ label: franchise.name, value: franchise.id })),
+          ]}
         />
         <Select
           aria-label="Filtrar status"
@@ -109,10 +130,11 @@ export function ReddeCompanies() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-lg font-black text-ink-900">{company.name}</h2>
                   <Badge variant={company.page_status === 'published' ? 'success' : 'neutral'}>{companyPageStatusLabels[company.page_status]}</Badge>
+                  <Badge variant="info">{companyCommercialStatusLabels[company.commercial_status]}</Badge>
                   {company.is_featured ? <Badge variant="info">Destaque</Badge> : null}
                 </div>
                 <p className="mt-1 text-sm text-ink-500">
-                  {company.segment ?? 'Sem segmento'} · {formatLocation(company.city, company.state)}
+                  {company.franchise?.name ?? 'Sem franqueado'} · {company.segment ?? 'Sem segmento'} · {formatLocation(company.city, company.state)}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -122,7 +144,7 @@ export function ReddeCompanies() {
                     Ver página
                   </Button>
                 </Link>
-                <Link to={`/admin/geral/empresas/${company.id}`}>
+                <Link to={`/admin/master/empresas/${company.id}`}>
                   <Button variant="secondary" size="sm">
                     <Search size={16} />
                     Gerenciar
@@ -153,7 +175,7 @@ export function ReddeCompanies() {
         description="Todos os textos públicos da empresa ficam editáveis aqui."
         onClose={() => setModalOpen(false)}
       >
-        <CompanyForm company={editing} onSubmit={handleSave} />
+        <CompanyForm company={editing} franchises={franchises} onSubmit={handleSave} />
       </Modal>
     </div>
   );

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://qglkvllmtrvyujhvojqb.supabase.co/functions/v1/job-sitemap

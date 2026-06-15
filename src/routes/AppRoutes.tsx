@@ -6,6 +6,11 @@ import { CompanyApplications } from '../pages/admin/CompanyApplications';
 import { CompanyDashboard } from '../pages/admin/CompanyDashboard';
 import { CompanyJobs } from '../pages/admin/CompanyJobs';
 import { CompanyProfileEditor } from '../pages/admin/CompanyProfileEditor';
+import { FranchiseApplications } from '../pages/admin/FranchiseApplications';
+import { FranchiseCompanies } from '../pages/admin/FranchiseCompanies';
+import { FranchiseDashboard } from '../pages/admin/FranchiseDashboard';
+import { FranchiseJobs } from '../pages/admin/FranchiseJobs';
+import { MasterFranchises } from '../pages/admin/MasterFranchises';
 import { AdminRouter } from '../pages/admin/AdminRouter';
 import { Login } from '../pages/admin/Login';
 import { ReddeApplications } from '../pages/admin/ReddeApplications';
@@ -39,7 +44,7 @@ function PublicLayout() {
 
 function LegacyCompanyRedirect() {
   const { id } = useParams();
-  return <Navigate to={id ? `/admin/geral/empresas/${id}` : '/admin/geral/empresas'} replace />;
+  return <Navigate to={id ? `/admin/master/empresas/${id}` : '/admin/master/empresas'} replace />;
 }
 
 function HashScroll() {
@@ -84,22 +89,36 @@ export function AppRoutes() {
         <Route path="/admin" element={<AdminRouter />} />
       </Route>
 
-      <Route element={<ProtectedRoute roles={['redde_super_admin', 'redde_admin']} />}>
-        <Route path="/admin/geral" element={<ReddeDashboard />} />
-        <Route path="/admin/geral/empresas" element={<ReddeCompanies />} />
-        <Route path="/admin/geral/empresas/:id" element={<ReddeCompanyEditor />} />
-        <Route path="/admin/geral/vagas" element={<ReddeJobs />} />
-        <Route path="/admin/geral/candidaturas" element={<ReddeApplications />} />
-        <Route path="/admin/geral/usuarios" element={<ReddeUsers />} />
-        <Route path="/admin/redde" element={<Navigate to="/admin/geral" replace />} />
-        <Route path="/admin/redde/empresas" element={<Navigate to="/admin/geral/empresas" replace />} />
+      <Route element={<ProtectedRoute roles={['admin_master', 'redde_super_admin', 'redde_admin']} />}>
+        <Route path="/admin/master" element={<ReddeDashboard />} />
+        <Route path="/admin/master/franqueados" element={<MasterFranchises />} />
+        <Route path="/admin/master/empresas" element={<ReddeCompanies />} />
+        <Route path="/admin/master/empresas/:id" element={<ReddeCompanyEditor />} />
+        <Route path="/admin/master/vagas" element={<ReddeJobs />} />
+        <Route path="/admin/master/candidatos" element={<ReddeApplications />} />
+        <Route path="/admin/master/usuarios" element={<ReddeUsers />} />
+        <Route path="/admin/geral" element={<Navigate to="/admin/master" replace />} />
+        <Route path="/admin/geral/empresas" element={<Navigate to="/admin/master/empresas" replace />} />
+        <Route path="/admin/geral/empresas/:id" element={<LegacyCompanyRedirect />} />
+        <Route path="/admin/geral/vagas" element={<Navigate to="/admin/master/vagas" replace />} />
+        <Route path="/admin/geral/candidaturas" element={<Navigate to="/admin/master/candidatos" replace />} />
+        <Route path="/admin/geral/usuarios" element={<Navigate to="/admin/master/usuarios" replace />} />
+        <Route path="/admin/redde" element={<Navigate to="/admin/master" replace />} />
+        <Route path="/admin/redde/empresas" element={<Navigate to="/admin/master/empresas" replace />} />
         <Route path="/admin/redde/empresas/:id" element={<LegacyCompanyRedirect />} />
-        <Route path="/admin/redde/vagas" element={<Navigate to="/admin/geral/vagas" replace />} />
-        <Route path="/admin/redde/candidaturas" element={<Navigate to="/admin/geral/candidaturas" replace />} />
-        <Route path="/admin/redde/usuarios" element={<Navigate to="/admin/geral/usuarios" replace />} />
+        <Route path="/admin/redde/vagas" element={<Navigate to="/admin/master/vagas" replace />} />
+        <Route path="/admin/redde/candidaturas" element={<Navigate to="/admin/master/candidatos" replace />} />
+        <Route path="/admin/redde/usuarios" element={<Navigate to="/admin/master/usuarios" replace />} />
       </Route>
 
-      <Route element={<ProtectedRoute roles={['company_admin', 'company_recruiter']} />}>
+      <Route element={<ProtectedRoute roles={['franqueado']} />}>
+        <Route path="/admin/franqueado" element={<FranchiseDashboard />} />
+        <Route path="/admin/franqueado/empresas" element={<FranchiseCompanies />} />
+        <Route path="/admin/franqueado/vagas" element={<FranchiseJobs />} />
+        <Route path="/admin/franqueado/candidatos" element={<FranchiseApplications />} />
+      </Route>
+
+      <Route element={<ProtectedRoute roles={['empresa_cliente', 'company_admin', 'company_recruiter']} />}>
         <Route path="/admin/empresa" element={<CompanyDashboard />} />
         <Route path="/admin/empresa/perfil" element={<CompanyProfileEditor />} />
         <Route path="/admin/empresa/vagas" element={<CompanyJobs />} />

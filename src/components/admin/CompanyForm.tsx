@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { slugify } from '../../lib/slugify';
 import { validateCompanyImage, type CompanyAssetType } from '../../lib/storage';
-import type { Company } from '../../types';
+import type { Company, Franchise } from '../../types';
 import { UploadField } from './UploadField';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -13,6 +13,7 @@ import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 
 const companySchema = z.object({
+  franchise_id: z.string().optional(),
   name: z.string().min(2, 'Informe o nome da empresa.'),
   slug: z.string().min(2, 'Informe o endereço da página.'),
   logo_url: z.string().optional(),
@@ -22,12 +23,15 @@ const companySchema = z.object({
   state: z.string().optional(),
   employees_range: z.string().optional(),
   website_url: z.string().optional(),
+  legal_name: z.string().optional(),
+  same_as_url: z.string().optional(),
   instagram_url: z.string().optional(),
   linkedin_url: z.string().optional(),
   short_description: z.string().optional(),
   about_text: z.string().optional(),
   why_work_here: z.string().optional(),
   culture_text: z.string().optional(),
+  commercial_status: z.enum(['lead', 'negotiation', 'active_client', 'inactive_client']),
   page_status: z.enum(['draft', 'published', 'archived']),
   is_featured: z.boolean(),
 });
@@ -40,11 +44,19 @@ export type CompanyFormAssets = {
 
 type CompanyFormProps = {
   company?: Company | null;
+  franchises?: Franchise[];
+  fixedFranchiseId?: string;
   onSubmit: (values: CompanyFormValues, assets: CompanyFormAssets) => Promise<void> | void;
   submitLabel?: string;
 };
 
-export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' }: CompanyFormProps) {
+export function CompanyForm({
+  company,
+  franchises,
+  fixedFranchiseId,
+  onSubmit,
+  submitLabel = 'Salvar empresa',
+}: CompanyFormProps) {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState('');
@@ -56,10 +68,12 @@ export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' 
     handleSubmit,
     watch,
     setValue,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<CompanyFormValues>({
     resolver: zodResolver(companySchema),
     defaultValues: {
+      franchise_id: fixedFranchiseId ?? company?.franchise_id ?? '',
       name: company?.name ?? '',
       slug: company?.slug ?? '',
       logo_url: company?.logo_url ?? '',
@@ -69,12 +83,15 @@ export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' 
       state: company?.state ?? 'MA',
       employees_range: company?.employees_range ?? '',
       website_url: company?.website_url ?? '',
+      legal_name: company?.legal_name ?? '',
+      same_as_url: company?.same_as_url ?? '',
       instagram_url: company?.instagram_url ?? '',
       linkedin_url: company?.linkedin_url ?? '',
       short_description: company?.short_description ?? '',
       about_text: company?.about_text ?? '',
       why_work_here: company?.why_work_here ?? '',
       culture_text: company?.culture_text ?? '',
+      commercial_status: company?.commercial_status ?? 'active_client',
       page_status: company?.page_status ?? 'draft',
       is_featured: company?.is_featured ?? false,
     },
@@ -144,6 +161,10 @@ export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' 
   }
 
   function handleFormSubmit(values: CompanyFormValues) {
+    if (!fixedFranchiseId && franchises && !values.franchise_id) {
+      setError('franchise_id', { type: 'manual', message: 'Selecione o franqueado responsável.' });
+      return;
+    }
     return onSubmit(values, { logoFile, bannerFile });
   }
 
@@ -151,8 +172,20 @@ export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' 
     <form onSubmit={handleSubmit(handleFormSubmit)} className="grid gap-4">
       <input type="hidden" {...register('logo_url')} />
       <input type="hidden" {...register('cover_image_url')} />
+      {fixedFranchiseId ? <input type="hidden" {...register('franchise_id')} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2">
+        {!fixedFranchiseId && franchises ? (
+          <Select
+            label="Franqueado responsável"
+            {...register('franchise_id')}
+            error={errors.franchise_id?.message}
+            options={[
+              { label: 'Selecione um franqueado', value: '' },
+              ...franchises.map((franchise) => ({ label: franchise.name, value: franchise.id })),
+            ]}
+          />
+        ) : null}
         <Input label="Nome" {...register('name')} error={errors.name?.message} />
         <Input
           label="Endereço da página"
@@ -165,8 +198,20 @@ export function CompanyForm({ company, onSubmit, submitLabel = 'Salvar empresa' 
         <Input label="Estado" {...register('state')} />
         <Input label="Tamanho da empresa" {...register('employees_range')} />
         <Input label="Site" {...register('website_url')} />
+        <Input label="Razão social" {...register('legal_name')} />
+        <Input label="URL institucional para buscadores" {...register('same_as_url')} />
         <Input label="Instagram" {...register('instagram_url')} />
         <Input label="LinkedIn" {...register('linkedin_url')} />
+        <Select
+          label="Status comercial"
+          {...register('commercial_status')}
+          options={[
+            { label: 'Lead', value: 'lead' },
+            { label: 'Em negociação', value: 'negotiation' },
+            { label: 'Cliente ativo', value: 'active_client' },
+            { label: 'Cliente inativo', value: 'inactive_client' },
+          ]}
+        />
         <Select
           label="Status da página"
           {...register('page_status')}

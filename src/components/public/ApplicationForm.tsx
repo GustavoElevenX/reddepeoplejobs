@@ -26,6 +26,11 @@ const applicationSchema = z.object({
 
 type ApplicationFormValues = z.infer<typeof applicationSchema>;
 
+export function getApplicationSource() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('utm_source') || params.get('source') || 'direct';
+}
+
 export function ApplicationForm({ job }: { job: Job }) {
   const navigate = useNavigate();
   const [resume, setResume] = useState<File | null>(null);
@@ -70,6 +75,7 @@ export function ApplicationForm({ job }: { job: Job }) {
     try {
       const resumePath = await uploadResume(resume, job.id);
       await createApplication({
+        franchise_id: job.franchise_id,
         job_id: job.id,
         company_id: job.company_id,
         candidate_name: values.name,
@@ -83,6 +89,7 @@ export function ApplicationForm({ job }: { job: Job }) {
         message: values.message || null,
         resume_file_path: resumePath,
         lgpd_consent: values.lgpdConsent,
+        source: getApplicationSource(),
       });
       navigate('/candidatura/sucesso');
     } catch (error) {

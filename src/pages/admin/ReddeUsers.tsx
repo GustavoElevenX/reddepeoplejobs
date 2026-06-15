@@ -14,12 +14,13 @@ import {
   deleteUser,
   listCompanies,
   listCompanyAccess,
+  listFranchises,
   listProfiles,
   updateCompanyAccess,
   type UserPermissionInput,
 } from '../../lib/data';
 import { roleLabels } from '../../lib/formatters';
-import type { Company, CompanyUserAccess, Profile } from '../../types';
+import type { Company, CompanyUserAccess, Franchise, Profile } from '../../types';
 
 const defaultPermissions: UserPermissionInput = {
   can_edit_company_page: true,
@@ -39,7 +40,8 @@ type CreateUserForm = {
   fullName: string;
   email: string;
   password: string;
-  role: 'redde_admin' | 'company_admin' | 'company_recruiter';
+  role: 'admin_master' | 'franqueado' | 'empresa_cliente' | 'redde_admin' | 'company_admin' | 'company_recruiter';
+  franchiseId: string;
   companyId: string;
   permissions: UserPermissionInput;
 };
@@ -54,7 +56,8 @@ const initialCreateForm: CreateUserForm = {
   fullName: '',
   email: '',
   password: '',
-  role: 'company_admin',
+  role: 'franqueado',
+  franchiseId: '',
   companyId: '',
   permissions: defaultPermissions,
 };
@@ -69,6 +72,7 @@ export function ReddeUsers() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [access, setAccess] = useState<CompanyUserAccess[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [franchises, setFranchises] = useState<Franchise[]>([]);
   const [permissionDrafts, setPermissionDrafts] = useState<Record<string, UserPermissionInput>>({});
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<CreateUserForm>(initialCreateForm);
@@ -81,14 +85,16 @@ export function ReddeUsers() {
 
   async function load() {
     setLoading(true);
-    const [profileData, accessData, companyData] = await Promise.all([
+    const [profileData, accessData, companyData, franchiseData] = await Promise.all([
       listProfiles(),
       listCompanyAccess(),
       listCompanies(),
+      listFranchises(),
     ]);
     setProfiles(profileData);
     setAccess(accessData);
     setCompanies(companyData);
+    setFranchises(franchiseData);
     setPermissionDrafts(
       Object.fromEntries(
         accessData.map((item) => [
@@ -111,6 +117,10 @@ export function ReddeUsers() {
 
   function companyName(companyId: string) {
     return companies.find((company) => company.id === companyId)?.name ?? 'Empresa';
+  }
+
+  function franchiseName(franchiseId?: string | null) {
+    return franchises.find((franchise) => franchise.id === franchiseId)?.name ?? 'Franqueado não informado';
   }
 
   function updateCreatePermission(key: keyof UserPermissionInput, value: boolean) {
@@ -147,7 +157,12 @@ export function ReddeUsers() {
       return;
     }
 
-    if (createForm.role !== 'redde_admin' && !createForm.companyId) {
+    if (createForm.role === 'franqueado' && !createForm.franchiseId) {
+      setError('Selecione o franqueado deste usuário.');
+      return;
+    }
+
+    if (['empresa_cliente', 'company_admin', 'company_recruiter'].includes(createForm.role) && !createForm.companyId) {
       setError('Selecione uma empresa para usuários de cliente.');
       return;
     }
@@ -159,7 +174,10 @@ export function ReddeUsers() {
         email: createForm.email.trim(),
         password: createForm.password.trim() || undefined,
         role: createForm.role,
-        companyId: createForm.role === 'redde_admin' ? undefined : createForm.companyId,
+        franchiseId: createForm.role === 'franqueado' ? createForm.franchiseId : undefined,
+        companyId: ['empresa_cliente', 'company_admin', 'company_recruiter'].includes(createForm.role)
+          ? createForm.companyId
+          : undefined,
         permissions: createForm.permissions,
       });
 
@@ -233,7 +251,9 @@ export function ReddeUsers() {
     }
   }
 
-  const companyUsers = profiles.filter((profile) => ['company_admin', 'company_recruiter'].includes(profile.role));
+  const companyUsers = profiles.filter((profile) =>
+    ['empresa_cliente', 'company_admin', 'company_recruiter'].includes(profile.role),
+  );
 
   return (
     <div className="grid gap-6">
@@ -322,6 +342,9 @@ export function ReddeUsers() {
                       <Badge variant={profile.is_active ? 'success' : 'danger'}>{profile.is_active ? 'Ativo' : 'Inativo'}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-ink-500">{profile.email}</p>
+                    {profile.role === 'franqueado' ? (
+                      <p className="mt-1 text-xs font-semibold text-redde-600">{franchiseName(profile.franchise_id)}</p>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="info">{roleLabels[profile.role]}</Badge>
@@ -390,7 +413,7 @@ export function ReddeUsers() {
                       );
                     })}
                   </div>
-                ) : profile.role !== 'redde_admin' && profile.role !== 'redde_super_admin' ? (
+                ) : ['empresa_cliente', 'company_admin', 'company_recruiter'].includes(profile.role) ? (
                   <p className="mt-4 rounded-lg bg-surface-50 p-3 text-sm text-ink-500">Usuário ainda não vinculado a uma empresa.</p>
                 ) : null}
               </Card>
@@ -437,12 +460,26 @@ export function ReddeUsers() {
                 }))
               }
               options={[
+                { label: 'Admin Master', value: 'admin_master' },
+                { label: 'Franqueado', value: 'franqueado' },
+                { label: 'Empresa cliente', value: 'empresa_cliente' },
                 { label: 'Administrador geral', value: 'redde_admin' },
                 { label: 'Administrador da empresa', value: 'company_admin' },
                 { label: 'Recrutador da empresa', value: 'company_recruiter' },
               ]}
             />
-            {createForm.role !== 'redde_admin' ? (
+            {createForm.role === 'franqueado' ? (
+              <Select
+                label="Franqueado"
+                value={createForm.franchiseId}
+                onChange={(event) => setCreateForm((current) => ({ ...current, franchiseId: event.target.value }))}
+                options={[
+                  { label: 'Selecione um franqueado', value: '' },
+                  ...franchises.map((franchise) => ({ label: franchise.name, value: franchise.id })),
+                ]}
+              />
+            ) : null}
+            {['empresa_cliente', 'company_admin', 'company_recruiter'].includes(createForm.role) ? (
               <Select
                 label="Empresa"
                 value={createForm.companyId}
@@ -455,7 +492,7 @@ export function ReddeUsers() {
             ) : null}
           </div>
 
-          {createForm.role !== 'redde_admin' ? (
+          {['empresa_cliente', 'company_admin', 'company_recruiter'].includes(createForm.role) ? (
             <div className="grid gap-2 sm:grid-cols-2">
               {permissionLabels.map((permission) => (
                 <label key={permission.key} className="flex items-center gap-2 rounded-lg bg-surface-50 p-3 text-sm font-semibold text-ink-700">

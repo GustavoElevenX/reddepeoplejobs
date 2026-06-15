@@ -1,6 +1,7 @@
 import { Edit, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { JobForm, type JobFormValues } from '../../components/admin/JobForm';
+import { InfoJobsExport } from '../../components/admin/InfoJobsExport';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
 import { Badge } from '../../components/ui/Badge';
@@ -9,25 +10,32 @@ import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
-import { deleteJob, listCompanies, listJobs, upsertJob } from '../../lib/data';
+import { deleteJob, listCompanies, listFranchises, listJobs, upsertJob } from '../../lib/data';
 import { toJobPayload } from '../../lib/formPayloads';
 import { contractTypeLabels, formatLocation, jobStatusLabels, modalityLabels } from '../../lib/formatters';
-import type { Company, Job, JobStatus } from '../../types';
+import type { Company, Franchise, Job, JobStatus } from '../../types';
 
 export function ReddeJobs() {
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [franchises, setFranchises] = useState<Franchise[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [editing, setEditing] = useState<Job | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [franchiseId, setFranchiseId] = useState('all');
   const [companyId, setCompanyId] = useState('all');
   const [status, setStatus] = useState<JobStatus | 'all'>('all');
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [companyData, jobData] = await Promise.all([listCompanies(), listJobs()]);
+    const [companyData, franchiseData, jobData] = await Promise.all([
+      listCompanies(),
+      listFranchises(),
+      listJobs(),
+    ]);
     setCompanies(companyData);
+    setFranchises(franchiseData);
     setJobs(jobData);
     setLoading(false);
   }
@@ -36,12 +44,18 @@ export function ReddeJobs() {
     void load();
   }, []);
 
+  const filteredCompanies = useMemo(
+    () => companies.filter((company) => franchiseId === 'all' || company.franchise_id === franchiseId),
+    [companies, franchiseId],
+  );
+
   const filtered = useMemo(() => {
     return jobs
       .filter((job) => !search || job.title.toLowerCase().includes(search.toLowerCase()))
+      .filter((job) => franchiseId === 'all' || job.franchise_id === franchiseId)
       .filter((job) => companyId === 'all' || job.company_id === companyId)
       .filter((job) => status === 'all' || job.status === status);
-  }, [companyId, jobs, search, status]);
+  }, [companyId, franchiseId, jobs, search, status]);
 
   async function handleSave(values: JobFormValues) {
     await upsertJob(toJobPayload(values, editing));
@@ -78,6 +92,7 @@ export function ReddeJobs() {
           <p className="mt-2 text-ink-500">Gerencie vagas de todas as empresas parceiras.</p>
         </div>
         <Button
+          disabled={!companies.length}
           onClick={() => {
             setEditing(null);
             setModalOpen(true);
@@ -88,13 +103,34 @@ export function ReddeJobs() {
         </Button>
       </div>
 
-      <Card className="grid gap-3 p-3 md:grid-cols-[1fr_220px_220px]">
+      {!companies.length && !loading ? (
+        <div className="rounded-lg bg-redde-50 p-3 text-sm font-semibold text-redde-700">
+          Cadastre uma empresa cliente antes de criar a primeira vaga.
+        </div>
+      ) : null}
+
+      <Card className="grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-[1fr_220px_220px_220px]">
         <Input placeholder="Buscar por título" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <Select
+          aria-label="Franqueado"
+          value={franchiseId}
+          onChange={(event) => {
+            setFranchiseId(event.target.value);
+            setCompanyId('all');
+          }}
+          options={[
+            { label: 'Todos os franqueados', value: 'all' },
+            ...franchises.map((franchise) => ({ label: franchise.name, value: franchise.id })),
+          ]}
+        />
         <Select
           aria-label="Empresa"
           value={companyId}
           onChange={(event) => setCompanyId(event.target.value)}
-          options={[{ label: 'Todas as empresas', value: 'all' }, ...companies.map((company) => ({ label: company.name, value: company.id }))]}
+          options={[
+            { label: 'Todas as empresas', value: 'all' },
+            ...filteredCompanies.map((company) => ({ label: company.name, value: company.id })),
+          ]}
         />
         <Select
           aria-label="Status"
@@ -124,11 +160,13 @@ export function ReddeJobs() {
                   {job.is_featured ? <Badge variant="info">Destaque</Badge> : null}
                 </div>
                 <p className="mt-1 text-sm text-ink-500">
-                  {job.company?.name ?? 'Empresa'} · {formatLocation(job.city, job.state, job.neighborhood)} · {modalityLabels[job.modality]} ·{' '}
-                  {contractTypeLabels[job.contract_type]}
+                  {companies.find((company) => company.id === job.company_id)?.franchise?.name ?? 'Sem franqueado'} ·{' '}
+                  {job.company?.name ?? 'Empresa'} · {formatLocation(job.city, job.state, job.neighborhood)} ·{' '}
+                  {modalityLabels[job.modality]} · {contractTypeLabels[job.contract_type]}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                <InfoJobsExport job={job} />
                 <Button
                   variant="secondary"
                   size="sm"

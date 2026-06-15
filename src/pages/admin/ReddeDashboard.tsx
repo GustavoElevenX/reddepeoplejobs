@@ -1,101 +1,102 @@
-import { BriefcaseBusiness, Building2, ClipboardList, Sparkles, UsersRound } from 'lucide-react';
+import { BriefcaseBusiness, Building2, Network, Trophy, UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminStatCard } from '../../components/admin/AdminStatCard';
-import { CandidateTable } from '../../components/admin/CandidateTable';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { getDashboardStats, listApplications, listJobs, updateApplicationStatus } from '../../lib/data';
-import type { Application, DashboardStats, Job } from '../../types';
+import { getFranchisePerformance, getNetworkDashboardStats } from '../../lib/data';
+import type { FranchisePerformance, NetworkDashboardStats } from '../../types';
 
 export function ReddeDashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [stats, setStats] = useState<NetworkDashboardStats | null>(null);
+  const [performance, setPerformance] = useState<FranchisePerformance[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function load() {
-    setLoading(true);
-    const [statsData, applicationData, jobData] = await Promise.all([
-      getDashboardStats(),
-      listApplications(),
-      listJobs({ limit: 6 }),
-    ]);
-    setStats(statsData);
-    setApplications(applicationData.slice(0, 6));
-    setJobs(jobData.slice(0, 6));
-    setLoading(false);
-  }
-
   useEffect(() => {
+    async function load() {
+      setLoading(true);
+      const [statsData, performanceData] = await Promise.all([
+        getNetworkDashboardStats(),
+        getFranchisePerformance(),
+      ]);
+      setStats(statsData);
+      setPerformance(performanceData);
+      setLoading(false);
+    }
+
     void load();
   }, []);
 
-  if (loading || !stats) return <LoadingState label="Carregando painel geral..." />;
+  if (loading || !stats) return <LoadingState label="Carregando visão da rede..." />;
 
   return (
     <div className="grid gap-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <h1 className="text-3xl font-black text-ink-900">Painel People Jobs</h1>
-          <p className="mt-2 text-ink-500">Visão global de empresas, vagas e candidaturas.</p>
+          <h1 className="text-3xl font-black text-ink-900">Admin Master</h1>
+          <p className="mt-2 text-ink-500">
+            Visão consolidada dos franqueados, empresas, vagas e candidatos da rede People.
+          </p>
         </div>
-        <Link to="/admin/geral/empresas">
+        <Link to="/admin/master/franqueados">
           <Button>
-            <Building2 size={18} />
-            Nova empresa
+            <Network size={18} />
+            Cadastrar franqueado
           </Button>
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <AdminStatCard title="Empresas" value={stats.totalCompanies} icon={Building2} />
-        <AdminStatCard title="Publicadas" value={stats.publishedCompanies} icon={Sparkles} />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <AdminStatCard title="Total de franqueados" value={stats.totalFranchises} icon={Network} />
+        <AdminStatCard title="Franqueados ativos" value={stats.activeFranchises} icon={Trophy} />
+        <AdminStatCard title="Empresas clientes" value={stats.totalCompanies} icon={Building2} />
         <AdminStatCard title="Vagas abertas" value={stats.openJobs} icon={BriefcaseBusiness} />
-        <AdminStatCard title="Candidaturas" value={stats.totalApplications} icon={ClipboardList} />
-        <AdminStatCard title="Últimos 7 dias" value={stats.applicationsLast7Days} icon={UsersRound} />
+        <AdminStatCard title="Total de candidatos" value={stats.totalApplications} icon={UsersRound} />
+        <AdminStatCard title="Vagas fechadas no mês" value={stats.closedJobsThisMonth} icon={BriefcaseBusiness} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-black text-ink-900">Últimas candidaturas</h2>
-            <Link to="/admin/geral/candidaturas" className="text-sm font-bold text-redde-600">
-              Ver todas
-            </Link>
+      <Card className="p-5">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-black text-ink-900">Performance por franqueado</h2>
+            <p className="mt-1 text-sm text-ink-500">Indicadores operacionais iniciais por unidade.</p>
           </div>
-          {applications.length ? (
-            <CandidateTable
-              applications={applications}
-              showCompany
-              onStatusChange={async (id, status) => {
-                await updateApplicationStatus(id, status);
-                await load();
-              }}
-            />
-          ) : (
-            <EmptyState title="Ainda não há candidaturas." />
-          )}
+          <Link to="/admin/master/franqueados" className="text-sm font-bold text-redde-600">
+            Gerenciar unidades
+          </Link>
         </div>
 
-        <Card className="p-5">
-          <h2 className="text-xl font-black text-ink-900">Últimas vagas criadas</h2>
-          <div className="mt-4 grid gap-3">
-            {jobs.length ? (
-              jobs.map((job) => (
-                <Link key={job.id} to="/admin/geral/vagas" className="rounded-lg border border-surface-200 p-3 hover:bg-surface-50">
-                  <p className="font-bold text-ink-900">{job.title}</p>
-                  <p className="text-sm text-ink-500">{job.company?.name ?? 'Empresa'}</p>
-                </Link>
-              ))
-            ) : (
-              <p className="text-sm text-ink-500">Nenhuma vaga cadastrada.</p>
-            )}
+        {performance.length ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-surface-200 text-sm">
+              <thead>
+                <tr className="text-left text-xs font-black uppercase tracking-[0.08em] text-ink-500">
+                  <th className="px-3 py-3">Franqueado</th>
+                  <th className="px-3 py-3">Empresas</th>
+                  <th className="px-3 py-3">Vagas abertas</th>
+                  <th className="px-3 py-3">Candidatos</th>
+                  <th className="px-3 py-3">Encaminhados</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-200">
+                {performance.map((item) => (
+                  <tr key={item.franchise.id}>
+                    <td className="px-3 py-3 font-bold text-ink-900">{item.franchise.name}</td>
+                    <td className="px-3 py-3 text-ink-700">{item.companies}</td>
+                    <td className="px-3 py-3 text-ink-700">{item.openJobs}</td>
+                    <td className="px-3 py-3 text-ink-700">{item.applications}</td>
+                    <td className="px-3 py-3 text-ink-700">{item.forwardedCandidates}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </Card>
-      </div>
+        ) : (
+          <EmptyState title="Cadastre o primeiro franqueado para iniciar a rede." />
+        )}
+      </Card>
     </div>
   );
 }

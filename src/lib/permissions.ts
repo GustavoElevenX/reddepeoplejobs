@@ -1,10 +1,20 @@
 import type { AppRole, CompanyUserAccess, Profile } from '../types';
 
-export const reddeRoles: AppRole[] = ['redde_super_admin', 'redde_admin'];
-export const companyRoles: AppRole[] = ['company_admin', 'company_recruiter'];
+export const masterRoles: AppRole[] = ['admin_master', 'redde_super_admin', 'redde_admin'];
+export const franchiseRoles: AppRole[] = ['franqueado'];
+export const companyRoles: AppRole[] = ['empresa_cliente', 'company_admin', 'company_recruiter'];
+export const reddeRoles = masterRoles;
+
+export function isAdminMaster(profile?: Profile | null) {
+  return Boolean(profile?.is_active && masterRoles.includes(profile.role));
+}
 
 export function isReddeAdmin(profile?: Profile | null) {
-  return Boolean(profile?.is_active && reddeRoles.includes(profile.role));
+  return isAdminMaster(profile);
+}
+
+export function isFranchisee(profile?: Profile | null) {
+  return Boolean(profile?.is_active && franchiseRoles.includes(profile.role));
 }
 
 export function isCompanyUser(profile?: Profile | null) {
@@ -12,7 +22,7 @@ export function isCompanyUser(profile?: Profile | null) {
 }
 
 export function canAccessAdmin(profile?: Profile | null) {
-  return isReddeAdmin(profile) || isCompanyUser(profile);
+  return isAdminMaster(profile) || isFranchisee(profile) || isCompanyUser(profile);
 }
 
 export function canEditCompanyPage(access?: CompanyUserAccess | null) {

@@ -1,6 +1,7 @@
 import { Edit, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { JobForm, type JobFormValues } from '../../components/admin/JobForm';
+import { InfoJobsExport } from '../../components/admin/InfoJobsExport';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
 import { Badge } from '../../components/ui/Badge';
@@ -101,6 +102,7 @@ export function CompanyJobs() {
                 <p className="mt-1 text-sm text-ink-500">{job.short_description}</p>
               </div>
               <div className="flex flex-wrap gap-2">
+                <InfoJobsExport job={job} />
                 <Button
                   variant="secondary"
                   size="sm"

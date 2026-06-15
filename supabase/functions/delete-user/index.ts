@@ -43,7 +43,11 @@ serve(async (req) => {
     .eq('id', user.id)
     .single();
 
-  if (callerError || !callerProfile?.is_active || !['redde_super_admin', 'redde_admin'].includes(callerProfile.role)) {
+  if (
+    callerError ||
+    !callerProfile?.is_active ||
+    !['admin_master', 'redde_super_admin', 'redde_admin'].includes(callerProfile.role)
+  ) {
     return Response.json({ error: 'Forbidden.' }, { status: 403, headers: corsHeaders });
   }
 
@@ -65,7 +69,10 @@ serve(async (req) => {
     .eq('id', userId)
     .single();
 
-  if (targetProfile?.role === 'redde_super_admin' && callerProfile.role !== 'redde_super_admin') {
+  if (
+    ['admin_master', 'redde_super_admin'].includes(targetProfile?.role) &&
+    !['admin_master', 'redde_super_admin'].includes(callerProfile.role)
+  ) {
     return Response.json({ error: 'Apenas o administrador principal pode remover outros administradores principais.' }, { status: 403, headers: corsHeaders });
   }
 

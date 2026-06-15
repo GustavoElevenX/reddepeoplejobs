@@ -68,7 +68,7 @@ export function ReddeCompanyEditor() {
     <div className="grid gap-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <Link to="/admin/geral/empresas" className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-redde-600">
+          <Link to="/admin/master/empresas" className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-redde-600">
             <ArrowLeft size={16} />
             Voltar para empresas
           </Link>
@@ -108,7 +108,7 @@ export function ReddeCompanyEditor() {
       <Card className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-black text-ink-900">Vagas da empresa</h2>
-          <Link to="/admin/geral/vagas">
+          <Link to="/admin/master/vagas">
             <Button variant="secondary" size="sm">Gerenciar vagas</Button>
           </Link>
         </div>

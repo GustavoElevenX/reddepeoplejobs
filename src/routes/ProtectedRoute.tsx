@@ -35,6 +35,7 @@ export function ProtectedRoute({ roles }: ProtectedRouteProps) {
   }
 
   if (!profile) return <Navigate to="/admin/login" replace />;
+  if (!profile.is_active) return <Navigate to="/admin/login" replace />;
   if (roles && !roles.includes(profile.role)) return <Navigate to={getAdminRedirectPath(profile)} replace />;
 
   return (

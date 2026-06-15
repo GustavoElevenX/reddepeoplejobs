@@ -5,7 +5,14 @@ type CreateCompanyUserPayload = {
   fullName: string;
   email: string;
   password?: string;
-  role: 'company_admin' | 'company_recruiter' | 'redde_admin';
+  role:
+    | 'admin_master'
+    | 'franqueado'
+    | 'empresa_cliente'
+    | 'company_admin'
+    | 'company_recruiter'
+    | 'redde_admin';
+  franchiseId?: string;
   companyId?: string;
   permissions?: {
     can_edit_company_page?: boolean;
@@ -56,11 +63,47 @@ serve(async (req) => {
     .eq('id', user.id)
     .single();
 
-  if (callerError || !callerProfile?.is_active || !['redde_super_admin', 'redde_admin'].includes(callerProfile.role)) {
+  if (
+    callerError ||
+    !callerProfile?.is_active ||
+    !['admin_master', 'redde_super_admin', 'redde_admin'].includes(callerProfile.role)
+  ) {
     return Response.json({ error: 'Forbidden.' }, { status: 403, headers: corsHeaders });
   }
 
   const payload = (await req.json()) as CreateCompanyUserPayload;
+  const allowedRoles: CreateCompanyUserPayload['role'][] = [
+    'admin_master',
+    'franqueado',
+    'empresa_cliente',
+    'company_admin',
+    'company_recruiter',
+    'redde_admin',
+  ];
+
+  if (!payload.fullName?.trim() || !payload.email?.trim() || !allowedRoles.includes(payload.role)) {
+    return Response.json({ error: 'Invalid user data.' }, { status: 400, headers: corsHeaders });
+  }
+
+  if (payload.role === 'franqueado' && !payload.franchiseId) {
+    return Response.json({ error: 'franchiseId is required for franchise users.' }, { status: 400, headers: corsHeaders });
+  }
+
+  if (['empresa_cliente', 'company_admin', 'company_recruiter'].includes(payload.role) && !payload.companyId) {
+    return Response.json({ error: 'companyId is required for company users.' }, { status: 400, headers: corsHeaders });
+  }
+
+  if (payload.franchiseId) {
+    const { data: franchise } = await adminClient
+      .from('franchises')
+      .select('id')
+      .eq('id', payload.franchiseId)
+      .maybeSingle();
+    if (!franchise) {
+      return Response.json({ error: 'Franchise not found.' }, { status: 400, headers: corsHeaders });
+    }
+  }
+
   const password = payload.password ?? crypto.randomUUID();
 
   const { data: created, error: createError } = await adminClient.auth.admin.createUser({
@@ -79,14 +122,16 @@ serve(async (req) => {
     full_name: payload.fullName,
     email: payload.email,
     role: payload.role,
+    franchise_id: payload.franchiseId ?? null,
     created_by: callerProfile.id,
   });
 
   if (profileError) {
+    await adminClient.auth.admin.deleteUser(created.user.id);
     return Response.json({ error: profileError.message }, { status: 400, headers: corsHeaders });
   }
 
-  if (payload.companyId && payload.role !== 'redde_admin') {
+  if (payload.companyId && ['empresa_cliente', 'company_admin', 'company_recruiter'].includes(payload.role)) {
     const { error: accessError } = await adminClient.from('company_user_access').insert({
       user_id: created.user.id,
       company_id: payload.companyId,
@@ -98,6 +143,7 @@ serve(async (req) => {
     });
 
     if (accessError) {
+      await adminClient.auth.admin.deleteUser(created.user.id);
       return Response.json({ error: accessError.message }, { status: 400, headers: corsHeaders });
     }
   }
