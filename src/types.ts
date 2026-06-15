@@ -23,6 +23,8 @@ export type JobDistributionStatus =
   | 'removed'
   | 'manual_required';
 export type ProcessStatus = 'draft' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
+export type BillingType = 'fixed' | 'success_fee' | 'monthly' | 'other';
+export type BillingStatus = 'not_started' | 'pending' | 'invoiced' | 'paid' | 'overdue' | 'cancelled';
 export type ApplicationStage =
   | 'qualificacao'
   | 'testes'
@@ -155,6 +157,12 @@ export type Job = {
   approved_positions: number;
   process_status: ProcessStatus;
   internal_notes: string | null;
+  billing_amount: number | null;
+  billing_type: BillingType;
+  billing_status: BillingStatus;
+  billing_due_date: string | null;
+  finance_responsible: string | null;
+  franchise_commission: number | null;
   created_by?: string | null;
   created_at: string;
   updated_at: string;
@@ -196,12 +204,36 @@ export type Application = {
   is_new: boolean;
   rejection_reason: string | null;
   tags: string[];
+  interview_scheduled_at: string | null;
+  recruiter_opinion: string | null;
+  professional_summary: string | null;
+  skills: string[];
+  education: CandidateEducation[];
+  experiences: CandidateExperience[];
   lgpd_consent: boolean;
   source: string | null;
   created_at: string;
   updated_at: string;
   job?: Pick<Job, 'id' | 'title' | 'slug'>;
   company?: Pick<Company, 'id' | 'name' | 'slug'>;
+};
+
+export type CandidateEducation = {
+  course: string;
+  institution: string;
+  level?: string | null;
+  status?: string | null;
+  start_year?: number | null;
+  end_year?: number | null;
+};
+
+export type CandidateExperience = {
+  role: string;
+  company: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  current?: boolean;
+  description?: string | null;
 };
 
 export type ApplicationNote = {

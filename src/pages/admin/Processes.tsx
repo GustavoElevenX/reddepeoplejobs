@@ -1,4 +1,4 @@
-import { Plus, Search } from 'lucide-react';
+import { Download, Filter, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { JobForm, type JobFormValues } from '../../components/admin/JobForm';
 import { ProcessListTable } from '../../components/admin/ProcessListTable';
@@ -93,6 +93,37 @@ export function Processes({ scope }: ProcessesProps) {
 
   const canManage = scope !== 'company' || Boolean(access?.can_manage_jobs);
   const fixedCompanyId = scope === 'company' ? access?.company_id : undefined;
+  const appliedFilters = [search.trim(), companyId !== 'all', processStatus !== 'all'].filter(Boolean).length;
+
+  function exportReport() {
+    const rows = filtered.map((job) => {
+      const candidates = applications.filter((application) => application.job_id === job.id);
+      return [
+        job.id,
+        job.title,
+        job.company?.name ?? '',
+        job.city ?? '',
+        job.state ?? '',
+        job.process_status,
+        candidates.length,
+        candidates.filter((application) => application.is_new).length,
+        job.approved_positions,
+        job.open_positions,
+        job.application_deadline ?? '',
+      ];
+    });
+    const csv = [
+      ['ID', 'Processo', 'Cliente', 'Cidade', 'Estado', 'Status', 'Candidatos', 'Novos', 'Aprovados', 'Posições', 'Prazo'],
+      ...rows,
+    ]
+      .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(';'))
+      .join('\n');
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    link.download = 'relatorio-processos-seletivos.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
 
   async function handleSave(values: JobFormValues) {
     const payload = toJobPayload(values, editing);
@@ -123,18 +154,24 @@ export function Processes({ scope }: ProcessesProps) {
             Acompanhe requisições, candidatos, etapas e contratações em um único fluxo.
           </p>
         </div>
-        {canManage ? (
-          <Button
-            disabled={!companies.length}
-            onClick={() => {
-              setEditing(null);
-              setModalOpen(true);
-            }}
-          >
-            <Plus size={18} />
-            Novo processo
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={exportReport}>
+            <Download size={17} />
+            Relatório
           </Button>
-        ) : null}
+          {canManage ? (
+            <Button
+              disabled={!companies.length}
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
+            >
+              <Plus size={18} />
+              Novo processo
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <Card className="grid gap-3 p-3 md:grid-cols-[1fr_220px_220px]">
@@ -167,6 +204,13 @@ export function Processes({ scope }: ProcessesProps) {
           ]}
         />
       </Card>
+
+      {appliedFilters ? (
+        <div className="flex items-center gap-2 text-sm font-bold text-redde-700">
+          <Filter size={15} />
+          {appliedFilters} {appliedFilters === 1 ? 'filtro aplicado' : 'filtros aplicados'}
+        </div>
+      ) : null}
 
       {filtered.length ? (
         <ProcessListTable

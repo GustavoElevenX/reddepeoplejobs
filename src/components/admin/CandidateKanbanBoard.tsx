@@ -12,10 +12,14 @@ import { useEffect, useState } from 'react';
 import { activeApplicationStages, resolveApplicationStage } from '../../lib/applicationStages';
 import type { Application, ApplicationStage } from '../../types';
 import { CandidateKanbanColumn } from './CandidateKanbanColumn';
+import type { CandidateKanbanAction } from './CandidateKanbanCard';
 
 type CandidateKanbanBoardProps = {
   applications: Application[];
+  canManage?: boolean;
   onOpenCandidate: (application: Application) => void;
+  onCandidateAction: (application: Application, action: CandidateKanbanAction) => void;
+  onBulkAction: (applications: Application[], action: 'next' | 'schedule' | 'disqualify') => void;
   onMoveCandidate: (
     application: Application,
     stage: ApplicationStage,
@@ -26,7 +30,10 @@ type CandidateKanbanBoardProps = {
 
 export function CandidateKanbanBoard({
   applications,
+  canManage = true,
   onOpenCandidate,
+  onCandidateAction,
+  onBulkAction,
   onMoveCandidate,
 }: CandidateKanbanBoardProps) {
   const normalizedApplications = applications.map((application) => ({
@@ -34,6 +41,7 @@ export function CandidateKanbanBoard({
     stage: resolveApplicationStage(application),
   }));
   const [items, setItems] = useState(normalizedApplications);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -46,9 +54,20 @@ export function CandidateKanbanBoard({
         stage: resolveApplicationStage(application),
       })),
     );
+    setSelectedIds((current) => new Set([...current].filter((id) => applications.some((item) => item.id === id))));
   }, [applications]);
 
+  function handleSelect(application: Application, selected: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (selected) next.add(application.id);
+      else next.delete(application.id);
+      return next;
+    });
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    if (!canManage) return;
     const { active, over } = event;
     if (!over) return;
 
@@ -116,10 +135,18 @@ export function CandidateKanbanBoard({
               <CandidateKanbanColumn
                 key={stage}
                 stage={stage}
+                canManage={canManage}
                 applications={items
                   .filter((application) => application.stage === stage)
                   .sort((a, b) => a.kanban_order - b.kanban_order)}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
                 onOpenCandidate={onOpenCandidate}
+                onCandidateAction={onCandidateAction}
+                onBulkAction={(selected, action) => {
+                  onBulkAction(selected, action);
+                  setSelectedIds(new Set());
+                }}
               />
             ))}
           </div>

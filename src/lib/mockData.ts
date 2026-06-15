@@ -39,6 +39,12 @@ const jobDistributionDefaults = {
   approved_positions: 0,
   process_status: 'in_progress' as const,
   internal_notes: null,
+  billing_amount: 2800,
+  billing_type: 'fixed' as const,
+  billing_status: 'pending' as const,
+  billing_due_date: null,
+  finance_responsible: 'Financeiro People Jobs',
+  franchise_commission: 20,
 };
 
 const applicationProcessDefaults = {
@@ -49,6 +55,12 @@ const applicationProcessDefaults = {
   is_new: true,
   rejection_reason: null,
   tags: [],
+  interview_scheduled_at: null,
+  recruiter_opinion: null,
+  professional_summary: null,
+  skills: [],
+  education: [],
+  experiences: [],
 };
 
 export const mockFranchises: Franchise[] = [
@@ -389,6 +401,29 @@ export const mockApplications: Application[] = [
     adhesion_score: 91,
     match_score: 88,
     tags: ['Atendimento', 'Disponível'],
+    professional_summary:
+      'Profissional de atendimento com experiência em acolhimento de famílias, organização de demandas e comunicação multicanal.',
+    skills: ['Atendimento ao cliente', 'Organização', 'Comunicação', 'Pacote Office'],
+    education: [
+      {
+        course: 'Pedagogia',
+        institution: 'Universidade Estadual do Maranhão',
+        level: 'Graduação',
+        status: 'Cursando',
+        start_year: 2023,
+        end_year: null,
+      },
+    ],
+    experiences: [
+      {
+        role: 'Assistente de atendimento',
+        company: 'Espaço Aprender',
+        start_date: '2024-02-01',
+        end_date: null,
+        current: true,
+        description: 'Atendimento a responsáveis, controle de agenda e apoio à equipe pedagógica.',
+      },
+    ],
     lgpd_consent: true,
     source: 'portal_publico',
     created_at: now,
@@ -502,6 +537,8 @@ export const mockApplications: Application[] = [
     resume_file_path: 'applications/local/joana-ribeiro.pdf',
     status: 'entrevista',
     stage: 'entrevista',
+    interview_scheduled_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    recruiter_opinion: 'Boa comunicação, postura acolhedora e experiência compatível com o atendimento da unidade.',
     adhesion_score: 94,
     match_score: 90,
     is_new: false,

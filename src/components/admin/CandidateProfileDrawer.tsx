@@ -1,9 +1,21 @@
-import { Download, ExternalLink, Mail, MapPin, Phone, X } from 'lucide-react';
+import {
+  BriefcaseBusiness,
+  CalendarClock,
+  Download,
+  ExternalLink,
+  GraduationCap,
+  Mail,
+  MapPin,
+  Phone,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   addApplicationNote,
   listApplicationNotes,
   listApplicationStageHistory,
+  updateApplicationDetails,
 } from '../../lib/data';
 import { applicationStageLabels, formatDate } from '../../lib/formatters';
 import { createResumeSignedUrl } from '../../lib/storage';
@@ -11,12 +23,29 @@ import type { Application, ApplicationNote, ApplicationStage, ApplicationStageHi
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
+import { Textarea } from '../ui/Textarea';
 import { CommentComposer } from './CommentComposer';
 import { HistoryTimeline } from './HistoryTimeline';
 
-type CandidateDrawerTab = 'curriculo' | 'perguntas' | 'comentarios' | 'email' | 'arquivos' | 'historico';
+export type CandidateDrawerTab =
+  | 'sobre'
+  | 'profissional'
+  | 'diversidade'
+  | 'conhecimentos'
+  | 'experiencias'
+  | 'curriculo'
+  | 'perguntas'
+  | 'comentarios'
+  | 'email'
+  | 'arquivos'
+  | 'historico';
 
 const tabs: { id: CandidateDrawerTab; label: string }[] = [
+  { id: 'sobre', label: 'Sobre' },
+  { id: 'profissional', label: 'Dados profissionais' },
+  { id: 'diversidade', label: 'Diversidade e inclusão' },
+  { id: 'conhecimentos', label: 'Conhecimentos' },
+  { id: 'experiencias', label: 'Experiências' },
   { id: 'curriculo', label: 'Currículo' },
   { id: 'perguntas', label: 'Perguntas' },
   { id: 'comentarios', label: 'Comentários' },
@@ -27,34 +56,58 @@ const tabs: { id: CandidateDrawerTab; label: string }[] = [
 
 type CandidateProfileDrawerProps = {
   application: Application | null;
+  initialTab?: CandidateDrawerTab;
   canDownload?: boolean;
+  onApplicationUpdate?: (application: Application) => void;
   onStageChange?: (application: Application, stage: ApplicationStage) => Promise<void> | void;
   onClose: () => void;
 };
 
+function formatDateTime(value?: string | null) {
+  if (!value) return 'Não agendada';
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function EmptyInfo({ children }: { children: string }) {
+  return <p className="rounded-xl border border-dashed border-surface-200 p-4 text-sm text-ink-500">{children}</p>;
+}
+
 export function CandidateProfileDrawer({
   application,
+  initialTab = 'sobre',
   canDownload = true,
+  onApplicationUpdate,
   onStageChange,
   onClose,
 }: CandidateProfileDrawerProps) {
-  const [activeTab, setActiveTab] = useState<CandidateDrawerTab>('curriculo');
+  const [activeTab, setActiveTab] = useState<CandidateDrawerTab>(initialTab);
   const [notes, setNotes] = useState<ApplicationNote[]>([]);
   const [history, setHistory] = useState<ApplicationStageHistory[]>([]);
+  const [opinion, setOpinion] = useState('');
+  const [savingOpinion, setSavingOpinion] = useState(false);
 
   useEffect(() => {
     if (!application) return;
-    setActiveTab('curriculo');
+    setActiveTab(initialTab);
+    setOpinion(application.recruiter_opinion ?? '');
     void Promise.all([
       listApplicationNotes(application.id).then(setNotes),
       listApplicationStageHistory(application.id).then(setHistory),
     ]);
-  }, [application]);
+  }, [application, initialTab]);
 
   if (!application) return null;
   const currentApplication = application;
+  const score = application.adhesion_score ?? application.match_score ?? 0;
 
   async function downloadResume() {
+    if (!currentApplication.resume_file_path) {
+      window.alert('Este candidato foi cadastrado manualmente e ainda não possui currículo anexado.');
+      return;
+    }
     const url = await createResumeSignedUrl(currentApplication.resume_file_path);
     if (url === '#') {
       window.alert('O download real de currículos fica disponível no ambiente publicado.');
@@ -63,18 +116,33 @@ export function CandidateProfileDrawer({
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
+  async function saveOpinion() {
+    setSavingOpinion(true);
+    try {
+      const updated = await updateApplicationDetails(currentApplication.id, {
+        recruiter_opinion: opinion.trim() || null,
+      });
+      onApplicationUpdate?.({ ...currentApplication, ...updated });
+    } finally {
+      setSavingOpinion(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-ink-900/45" onMouseDown={onClose}>
       <aside
-        className="h-full w-full max-w-2xl overflow-y-auto bg-white shadow-2xl"
+        className="h-full w-full max-w-3xl overflow-y-auto bg-white shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="sticky top-0 z-10 border-b border-surface-200 bg-white px-5 py-4">
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-2xl font-black text-ink-900">{application.candidate_name}</h2>
+                <h2 className="truncate text-2xl font-black text-ink-900">{application.candidate_name}</h2>
                 {application.is_new ? <Badge variant="info">Novo</Badge> : null}
+                <Badge variant={score >= 70 ? 'success' : score >= 45 ? 'warning' : 'neutral'}>
+                  {score}% aderência
+                </Badge>
               </div>
               <p className="mt-1 text-sm font-semibold text-redde-700">{applicationStageLabels[application.stage]}</p>
             </div>
@@ -96,7 +164,10 @@ export function CandidateProfileDrawer({
               <MapPin size={15} />
               {application.candidate_city ?? 'Localização não informada'}
             </span>
-            <span>Pretensão: {application.salary_expectation ?? 'Não informada'}</span>
+            <span className="flex items-center gap-2">
+              <CalendarClock size={15} />
+              {formatDateTime(application.interview_scheduled_at)}
+            </span>
           </div>
           {onStageChange ? (
             <Select
@@ -129,20 +200,159 @@ export function CandidateProfileDrawer({
         </div>
 
         <div className="p-5">
-          {activeTab === 'curriculo' ? (
+          {activeTab === 'sobre' ? (
             <div className="grid gap-4">
-              <div className="rounded-xl border border-surface-200 bg-surface-50 p-4">
-                <h3 className="font-black text-ink-900">Resumo da candidatura</h3>
+              <section className="rounded-xl border border-surface-200 bg-surface-50 p-4">
+                <h3 className="font-black text-ink-900">Apresentação</h3>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink-700">
                   {application.message ?? 'O candidato não adicionou uma apresentação.'}
                 </p>
+              </section>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  ['Origem', application.source ?? 'Não informada'],
+                  ['Disponibilidade', application.availability ?? 'Não informada'],
+                  ['Pretensão', application.salary_expectation ?? 'Não informada'],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-surface-200 p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-ink-500">{label}</p>
+                    <p className="mt-2 text-sm font-bold text-ink-900">{value}</p>
+                  </div>
+                ))}
               </div>
+              <section className="rounded-xl border border-surface-200 p-4">
+                <h3 className="font-black text-ink-900">Marcadores</h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {application.tags.length ? (
+                    application.tags.map((tag) => <Badge key={tag} variant="neutral">{tag}</Badge>)
+                  ) : (
+                    <span className="text-sm text-ink-500">Nenhum marcador aplicado.</span>
+                  )}
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          {activeTab === 'profissional' ? (
+            <div className="grid gap-4">
+              <section className="rounded-xl border border-surface-200 p-4">
+                <div className="flex items-center gap-2">
+                  <BriefcaseBusiness size={18} className="text-redde-700" />
+                  <h3 className="font-black text-ink-900">Resumo profissional</h3>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-ink-700">
+                  {application.professional_summary ?? 'Resumo profissional não informado.'}
+                </p>
+              </section>
+              <section className="rounded-xl border border-redde-100 bg-redde-50 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-redde-700">Aderência ao processo</p>
+                    <p className="mt-1 text-3xl font-black text-redde-700">{score}%</p>
+                  </div>
+                  <Sparkles size={28} className="text-redde-500" />
+                </div>
+                <p className="mt-3 text-sm text-redde-800">
+                  Indicador consolidado do perfil, experiência e requisitos registrados para a vaga.
+                </p>
+              </section>
+              <section className="rounded-xl border border-surface-200 p-4">
+                <Textarea
+                  label="Parecer do recrutador"
+                  rows={6}
+                  value={opinion}
+                  placeholder="Registre pontos fortes, riscos e recomendação para a próxima etapa..."
+                  onChange={(event) => setOpinion(event.target.value)}
+                />
+                <Button className="mt-3" size="sm" disabled={savingOpinion} onClick={saveOpinion}>
+                  {savingOpinion ? 'Salvando...' : 'Salvar parecer'}
+                </Button>
+              </section>
+            </div>
+          ) : null}
+
+          {activeTab === 'diversidade' ? (
+            <div className="grid gap-4">
+              <section className="rounded-xl border border-surface-200 p-4">
+                <h3 className="font-black text-ink-900">Diversidade e inclusão</h3>
+                <p className="mt-2 text-sm leading-6 text-ink-500">
+                  Dados sensíveis devem ser voluntários, usados apenas para políticas de inclusão e nunca como critério
+                  automático de desclassificação.
+                </p>
+              </section>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-surface-200 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-ink-500">Consentimento LGPD</p>
+                  <p className="mt-2 font-black text-ink-900">
+                    {application.lgpd_consent ? 'Registrado' : 'Cadastro interno sem consentimento público'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-surface-200 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-ink-500">Dados demográficos</p>
+                  <p className="mt-2 font-black text-ink-900">Não informados</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === 'conhecimentos' ? (
+            <div className="grid gap-4">
+              <section className="rounded-xl border border-surface-200 p-4">
+                <h3 className="font-black text-ink-900">Competências e conhecimentos</h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {application.skills.length ? (
+                    application.skills.map((skill) => <Badge key={skill} variant="info">{skill}</Badge>)
+                  ) : (
+                    <span className="text-sm text-ink-500">Nenhuma competência estruturada.</span>
+                  )}
+                </div>
+              </section>
+              <section className="rounded-xl border border-surface-200 p-4">
+                <div className="flex items-center gap-2">
+                  <GraduationCap size={18} className="text-redde-700" />
+                  <h3 className="font-black text-ink-900">Formação acadêmica</h3>
+                </div>
+                <div className="mt-3 grid gap-3">
+                  {application.education.length ? application.education.map((item, index) => (
+                    <div key={`${item.institution}-${index}`} className="rounded-lg bg-surface-50 p-3">
+                      <p className="font-black text-ink-900">{item.course}</p>
+                      <p className="mt-1 text-sm text-ink-500">
+                        {item.institution}
+                        {item.level ? ` · ${item.level}` : ''}
+                        {item.status ? ` · ${item.status}` : ''}
+                      </p>
+                    </div>
+                  )) : <EmptyInfo>Formação acadêmica não informada.</EmptyInfo>}
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          {activeTab === 'experiencias' ? (
+            <div className="grid gap-3">
+              {application.experiences.length ? application.experiences.map((experience, index) => (
+                <section key={`${experience.company}-${index}`} className="rounded-xl border border-surface-200 p-4">
+                  <p className="font-black text-ink-900">{experience.role}</p>
+                  <p className="mt-1 text-sm font-semibold text-redde-700">{experience.company}</p>
+                  <p className="mt-1 text-xs text-ink-500">
+                    {experience.start_date ? formatDate(experience.start_date) : 'Início não informado'}
+                    {' até '}
+                    {experience.current ? 'o momento' : experience.end_date ? formatDate(experience.end_date) : 'fim não informado'}
+                  </p>
+                  {experience.description ? (
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-ink-700">{experience.description}</p>
+                  ) : null}
+                </section>
+              )) : <EmptyInfo>Experiências profissionais não informadas.</EmptyInfo>}
+            </div>
+          ) : null}
+
+          {activeTab === 'curriculo' ? (
+            <div className="grid gap-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-surface-200 p-4">
                   <p className="text-xs font-black uppercase tracking-wide text-ink-500">Aderência</p>
-                  <p className="mt-2 text-3xl font-black text-redde-700">
-                    {application.adhesion_score ?? application.match_score ?? 0}%
-                  </p>
+                  <p className="mt-2 text-3xl font-black text-redde-700">{score}%</p>
                 </div>
                 <div className="rounded-xl border border-surface-200 p-4">
                   <p className="text-xs font-black uppercase tracking-wide text-ink-500">Disponibilidade</p>
@@ -151,7 +361,7 @@ export function CandidateProfileDrawer({
               </div>
               <Button onClick={downloadResume} disabled={!canDownload}>
                 <Download size={17} />
-                Baixar currículo
+                {application.resume_file_path ? 'Baixar currículo' : 'Currículo não anexado'}
               </Button>
             </div>
           ) : null}
@@ -199,9 +409,7 @@ export function CandidateProfileDrawer({
             <div className="rounded-xl border border-surface-200 bg-surface-50 p-5">
               <Mail className="text-redde-700" size={24} />
               <h3 className="mt-3 text-lg font-black text-ink-900">Entrar em contato</h3>
-              <p className="mt-1 text-sm text-ink-500">
-                Abra seu cliente de e-mail com o endereço do candidato preenchido.
-              </p>
+              <p className="mt-1 text-sm text-ink-500">Abra seu cliente de e-mail com o endereço preenchido.</p>
               <a href={`mailto:${application.candidate_email}?subject=Processo seletivo - ${application.job?.title ?? ''}`}>
                 <Button className="mt-4">Escrever e-mail</Button>
               </a>
@@ -213,22 +421,19 @@ export function CandidateProfileDrawer({
               <button
                 type="button"
                 onClick={downloadResume}
-                disabled={!canDownload}
+                disabled={!canDownload || !application.resume_file_path}
                 className="flex items-center justify-between rounded-xl border border-surface-200 p-4 text-left hover:bg-surface-50 disabled:opacity-60"
               >
                 <span>
                   <span className="block font-black text-ink-900">Currículo</span>
-                  <span className="text-sm text-ink-500">Arquivo enviado na candidatura</span>
+                  <span className="text-sm text-ink-500">
+                    {application.resume_file_path ? 'Arquivo enviado na candidatura' : 'Ainda não anexado'}
+                  </span>
                 </span>
                 <Download size={18} />
               </button>
               {application.portfolio_url ? (
-                <a
-                  href={application.portfolio_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between rounded-xl border border-surface-200 p-4 hover:bg-surface-50"
-                >
+                <a href={application.portfolio_url} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl border border-surface-200 p-4 hover:bg-surface-50">
                   <span>
                     <span className="block font-black text-ink-900">Portfólio</span>
                     <span className="text-sm text-ink-500">{application.portfolio_url}</span>
@@ -237,12 +442,7 @@ export function CandidateProfileDrawer({
                 </a>
               ) : null}
               {application.linkedin_url ? (
-                <a
-                  href={application.linkedin_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between rounded-xl border border-surface-200 p-4 hover:bg-surface-50"
-                >
+                <a href={application.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl border border-surface-200 p-4 hover:bg-surface-50">
                   <span>
                     <span className="block font-black text-ink-900">LinkedIn</span>
                     <span className="text-sm text-ink-500">{application.linkedin_url}</span>

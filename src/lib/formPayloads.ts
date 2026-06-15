@@ -100,6 +100,12 @@ export function toJobPayload(values: JobFormValues, existing?: Job | null): Part
     approved_positions: values.approved_positions,
     process_status: values.process_status,
     internal_notes: emptyToNull(values.internal_notes),
+    billing_amount: numberToNull(values.billing_amount),
+    billing_type: values.billing_type,
+    billing_status: values.billing_status,
+    billing_due_date: emptyToNull(values.billing_due_date),
+    finance_responsible: emptyToNull(values.finance_responsible),
+    franchise_commission: numberToNull(values.franchise_commission),
     created_at: existing?.created_at,
   };
 }

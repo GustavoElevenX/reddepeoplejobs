@@ -136,6 +136,12 @@ function normalizeJob(row: JobRow): Job {
     approved_positions: job.approved_positions ?? 0,
     process_status: job.process_status ?? (job.status === 'closed' ? 'completed' : 'in_progress'),
     internal_notes: job.internal_notes ?? null,
+    billing_amount: job.billing_amount ?? null,
+    billing_type: job.billing_type ?? 'fixed',
+    billing_status: job.billing_status ?? 'not_started',
+    billing_due_date: job.billing_due_date ?? null,
+    finance_responsible: job.finance_responsible ?? null,
+    franchise_commission: job.franchise_commission ?? null,
     company: companies ?? undefined,
   };
 }
@@ -163,6 +169,12 @@ function normalizeApplication(row: ApplicationRow): Application {
     is_new: application.is_new ?? application.status === 'novo',
     rejection_reason: application.rejection_reason ?? null,
     tags: application.tags ?? [],
+    interview_scheduled_at: application.interview_scheduled_at ?? null,
+    recruiter_opinion: application.recruiter_opinion ?? null,
+    professional_summary: application.professional_summary ?? null,
+    skills: application.skills ?? [],
+    education: application.education ?? [],
+    experiences: application.experiences ?? [],
     company: companies ?? undefined,
     job: jobs ?? undefined,
   };
@@ -645,6 +657,12 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
     approved_positions: values.approved_positions ?? 0,
     process_status: values.process_status ?? (values.status === 'closed' ? 'completed' : 'in_progress'),
     internal_notes: values.internal_notes ?? null,
+    billing_amount: values.billing_amount ?? null,
+    billing_type: values.billing_type ?? 'fixed',
+    billing_status: values.billing_status ?? 'not_started',
+    billing_due_date: values.billing_due_date ?? null,
+    finance_responsible: values.finance_responsible ?? null,
+    franchise_commission: values.franchise_commission ?? null,
   };
 
   if (hasSupabaseConfig && supabase) {
@@ -713,6 +731,12 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
     approved_positions: normalizedValues.approved_positions,
     process_status: normalizedValues.process_status,
     internal_notes: normalizedValues.internal_notes,
+    billing_amount: normalizedValues.billing_amount,
+    billing_type: normalizedValues.billing_type,
+    billing_status: normalizedValues.billing_status,
+    billing_due_date: normalizedValues.billing_due_date,
+    finance_responsible: normalizedValues.finance_responsible,
+    franchise_commission: normalizedValues.franchise_commission,
     created_by: values.created_by ?? null,
     created_at: values.created_at ?? timestamp,
     updated_at: timestamp,
@@ -841,6 +865,12 @@ export async function createApplication(
       is_new: true,
       rejection_reason: null,
       tags: [],
+      interview_scheduled_at: null,
+      recruiter_opinion: null,
+      professional_summary: null,
+      skills: [],
+      education: [],
+      experiences: [],
       created_at: timestamp,
       updated_at: timestamp,
     } as Application;
@@ -867,6 +897,12 @@ export async function createApplication(
     is_new: true,
     rejection_reason: null,
     tags: [],
+    interview_scheduled_at: null,
+    recruiter_opinion: null,
+    professional_summary: null,
+    skills: [],
+    education: [],
+    experiences: [],
     created_at: timestamp,
     updated_at: timestamp,
     job,
@@ -876,6 +912,98 @@ export async function createApplication(
   store.applications.unshift(application);
   setLocalStore(store);
   return application;
+}
+
+export async function createManualApplication(values: {
+  job: Job;
+  candidate_name: string;
+  candidate_email: string;
+  candidate_phone: string;
+  candidate_city?: string | null;
+}) {
+  const timestamp = new Date().toISOString();
+  const payload = {
+    job_id: values.job.id,
+    company_id: values.job.company_id,
+    franchise_id: values.job.franchise_id,
+    candidate_name: values.candidate_name.trim(),
+    candidate_email: values.candidate_email.trim(),
+    candidate_phone: values.candidate_phone.trim(),
+    candidate_city: values.candidate_city?.trim() || null,
+    linkedin_url: null,
+    portfolio_url: null,
+    salary_expectation: null,
+    availability: null,
+    message: 'Candidato adicionado manualmente pela equipe de recrutamento.',
+    resume_file_path: '',
+    status: 'novo' as const,
+    stage: 'qualificacao' as const,
+    kanban_order: 0,
+    match_score: null,
+    adhesion_score: null,
+    is_new: true,
+    rejection_reason: null,
+    tags: ['Adicionado manualmente'],
+    interview_scheduled_at: null,
+    recruiter_opinion: null,
+    professional_summary: null,
+    skills: [],
+    education: [],
+    experiences: [],
+    lgpd_consent: false,
+    source: 'manual',
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase.from('applications').insert(payload).select('*').single();
+    if (error) throw error;
+    return normalizeApplication(data as ApplicationRow);
+  }
+
+  const store = getLocalStore();
+  const application: Application = {
+    id: makeId(),
+    ...payload,
+    job: values.job,
+    company: store.companies.find((company) => company.id === values.job.company_id),
+  };
+  store.applications.unshift(application);
+  setLocalStore(store);
+  return application;
+}
+
+export async function updateApplicationDetails(
+  id: string,
+  values: Partial<
+    Pick<
+      Application,
+      | 'interview_scheduled_at'
+      | 'recruiter_opinion'
+      | 'professional_summary'
+      | 'skills'
+      | 'education'
+      | 'experiences'
+      | 'tags'
+      | 'rejection_reason'
+    >
+  >,
+) {
+  const payload = { ...values, updated_at: new Date().toISOString() };
+
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase.from('applications').update(payload).eq('id', id).select('*').single();
+    if (error) throw error;
+    return normalizeApplication(data as ApplicationRow);
+  }
+
+  const store = getLocalStore();
+  const index = store.applications.findIndex((application) => application.id === id);
+  if (index < 0) throw new Error('Candidatura não encontrada.');
+  store.applications[index] = { ...store.applications[index], ...payload };
+  setLocalStore(store);
+  return store.applications[index];
 }
 
 export async function getJobDistribution(

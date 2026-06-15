@@ -59,6 +59,12 @@ const jobSchema = z
     approved_positions: z.number().int().min(0),
     process_status: z.enum(['draft', 'in_progress', 'paused', 'completed', 'cancelled']),
     internal_notes: z.string().optional(),
+    billing_amount: z.string().optional(),
+    billing_type: z.enum(['fixed', 'success_fee', 'monthly', 'other']),
+    billing_status: z.enum(['not_started', 'pending', 'invoiced', 'paid', 'overdue', 'cancelled']),
+    billing_due_date: z.string().optional(),
+    finance_responsible: z.string().optional(),
+    franchise_commission: z.string().optional(),
   })
   .superRefine((values, context) => {
     const salaryMin = values.salary_min ? Number(values.salary_min) : null;
@@ -203,6 +209,12 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
       approved_positions: job?.approved_positions ?? 0,
       process_status: job?.process_status ?? 'in_progress',
       internal_notes: job?.internal_notes ?? '',
+      billing_amount: job?.billing_amount?.toString() ?? '',
+      billing_type: job?.billing_type ?? 'fixed',
+      billing_status: job?.billing_status ?? 'not_started',
+      billing_due_date: job?.billing_due_date ?? '',
+      finance_responsible: job?.finance_responsible ?? '',
+      franchise_commission: job?.franchise_commission?.toString() ?? '',
     },
   });
 
@@ -346,6 +358,48 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
         placeholder="Visível apenas no painel administrativo."
         {...register('internal_notes')}
       />
+
+      <section className="grid gap-4 rounded-xl border border-surface-200 bg-surface-50 p-4">
+        <div>
+          <h2 className="text-lg font-black text-ink-900">Faturamento</h2>
+          <p className="mt-1 text-sm text-ink-500">Dados comerciais e financeiros vinculados ao processo.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input label="Valor da vaga" type="number" min="0" step="0.01" {...register('billing_amount')} />
+          <Select
+            label="Tipo de cobrança"
+            {...register('billing_type')}
+            options={[
+              { label: 'Valor fixo', value: 'fixed' },
+              { label: 'Success fee', value: 'success_fee' },
+              { label: 'Mensalidade', value: 'monthly' },
+              { label: 'Outro', value: 'other' },
+            ]}
+          />
+          <Select
+            label="Status do faturamento"
+            {...register('billing_status')}
+            options={[
+              { label: 'Não iniciado', value: 'not_started' },
+              { label: 'Pendente', value: 'pending' },
+              { label: 'Faturado', value: 'invoiced' },
+              { label: 'Pago', value: 'paid' },
+              { label: 'Em atraso', value: 'overdue' },
+              { label: 'Cancelado', value: 'cancelled' },
+            ]}
+          />
+          <Input label="Data prevista" type="date" {...register('billing_due_date')} />
+          <Input label="Responsável financeiro" {...register('finance_responsible')} />
+          <Input
+            label="Comissão do franqueado (%)"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            {...register('franchise_commission')}
+          />
+        </div>
+      </section>
 
       <section className="grid gap-4 rounded-xl border border-surface-200 bg-surface-50 p-4">
         <div>

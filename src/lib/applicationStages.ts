@@ -27,3 +27,13 @@ export function resolveApplicationStage(
 ): ApplicationStage {
   return application.stage ?? stageByStatus[application.status];
 }
+
+export function getNextApplicationStage(stage: ApplicationStage) {
+  const index = activeApplicationStages.indexOf(stage);
+  return index >= 0 ? activeApplicationStages[index + 1] ?? null : null;
+}
+
+export function getPreviousApplicationStage(stage: ApplicationStage) {
+  const index = activeApplicationStages.indexOf(stage);
+  return index > 0 ? activeApplicationStages[index - 1] : null;
+}
