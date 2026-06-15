@@ -1,4 +1,5 @@
 import { formatISO, startOfMonth, subDays } from 'date-fns';
+import { resolveApplicationStage } from './applicationStages';
 import { getCurrentLocalProfileId, getLocalStore, makeId, setLocalStore } from './localDb';
 import { hasSupabaseConfig, supabase } from './supabase';
 import type {
@@ -155,19 +156,7 @@ function normalizeApplication(row: ApplicationRow): Application {
   const { companies, jobs, ...application } = row;
   return {
     ...application,
-    stage:
-      application.stage ??
-      (application.status === 'reprovado'
-        ? 'desclassificados'
-        : application.status === 'contratado'
-          ? 'contratacao'
-          : application.status === 'aprovado'
-            ? 'finalistas'
-            : application.status === 'entrevista'
-              ? 'entrevista'
-              : application.status === 'teste'
-                ? 'testes'
-                : 'qualificacao'),
+    stage: resolveApplicationStage(application),
     kanban_order: application.kanban_order ?? 0,
     match_score: application.match_score ?? null,
     adhesion_score: application.adhesion_score ?? null,

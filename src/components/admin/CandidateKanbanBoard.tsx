@@ -9,10 +9,9 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useEffect, useState } from 'react';
+import { activeApplicationStages, resolveApplicationStage } from '../../lib/applicationStages';
 import type { Application, ApplicationStage } from '../../types';
 import { CandidateKanbanColumn } from './CandidateKanbanColumn';
-
-const stages: ApplicationStage[] = ['qualificacao', 'testes', 'entrevista', 'finalistas', 'contratacao'];
 
 type CandidateKanbanBoardProps = {
   applications: Application[];
@@ -30,14 +29,23 @@ export function CandidateKanbanBoard({
   onOpenCandidate,
   onMoveCandidate,
 }: CandidateKanbanBoardProps) {
-  const [items, setItems] = useState(applications);
+  const normalizedApplications = applications.map((application) => ({
+    ...application,
+    stage: resolveApplicationStage(application),
+  }));
+  const [items, setItems] = useState(normalizedApplications);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   useEffect(() => {
-    setItems(applications);
+    setItems(
+      applications.map((application) => ({
+        ...application,
+        stage: resolveApplicationStage(application),
+      })),
+    );
   }, [applications]);
 
   function handleDragEnd(event: DragEndEvent) {
@@ -47,7 +55,7 @@ export function CandidateKanbanBoard({
     const activeApplication = items.find((application) => application.id === active.id);
     if (!activeApplication) return;
 
-    const targetStage = stages.includes(over.id as ApplicationStage)
+    const targetStage = activeApplicationStages.includes(over.id as ApplicationStage)
       ? (over.id as ApplicationStage)
       : items.find((application) => application.id === over.id)?.stage;
     if (!targetStage) return;
@@ -90,20 +98,33 @@ export function CandidateKanbanBoard({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-      <div className="overflow-x-auto pb-3">
-        <div className="flex min-w-max gap-4">
-          {stages.map((stage) => (
-            <CandidateKanbanColumn
-              key={stage}
-              stage={stage}
-              applications={items
-                .filter((application) => application.stage === stage)
-                .sort((a, b) => a.kanban_order - b.kanban_order)}
-              onOpenCandidate={onOpenCandidate}
-            />
-          ))}
+      <section className="min-w-0 max-w-full overflow-hidden rounded-xl border border-surface-200 bg-white shadow-card">
+        <div className="flex flex-col justify-between gap-2 border-b border-surface-200 px-3 py-3 sm:flex-row sm:items-center sm:px-4">
+          <div>
+            <h2 className="font-black text-ink-900">Funil de seleção</h2>
+            <p className="mt-1 text-xs font-semibold text-ink-500">
+              Arraste os cards entre as colunas. Deslize para o lado para ver todas as etapas.
+            </p>
+          </div>
+          <span className="w-fit rounded-full bg-surface-100 px-3 py-1 text-xs font-black text-ink-500">
+            {items.length} candidatos ativos
+          </span>
         </div>
-      </div>
+        <div className="kanban-scroll w-full max-w-full overflow-x-auto overscroll-x-contain p-3 sm:p-4">
+          <div className="flex w-max min-w-full items-start gap-3 sm:gap-4">
+            {activeApplicationStages.map((stage) => (
+              <CandidateKanbanColumn
+                key={stage}
+                stage={stage}
+                applications={items
+                  .filter((application) => application.stage === stage)
+                  .sort((a, b) => a.kanban_order - b.kanban_order)}
+                onOpenCandidate={onOpenCandidate}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
     </DndContext>
   );
 }

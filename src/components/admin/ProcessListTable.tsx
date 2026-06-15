@@ -1,5 +1,6 @@
-import { ArrowRight, CalendarDays, MoreHorizontal } from 'lucide-react';
+import { ArrowRight, CalendarDays, Columns3, MoreHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { resolveApplicationStage } from '../../lib/applicationStages';
 import { contractTypeLabels, formatDate, processStatusLabels } from '../../lib/formatters';
 import type { Application, Job } from '../../types';
 import { Badge } from '../ui/Badge';
@@ -23,7 +24,7 @@ export function ProcessListTable({
   return (
     <div className="overflow-hidden rounded-xl border border-surface-200 bg-white shadow-card">
       <div className="overflow-x-auto">
-        <table className="min-w-[1050px] w-full divide-y divide-surface-200 text-sm">
+        <table className="min-w-[1180px] w-full divide-y divide-surface-200 text-sm">
           <thead className="bg-surface-50">
             <tr className="text-left text-xs font-black uppercase tracking-[0.08em] text-ink-500">
               <th className="px-4 py-3">Processo seletivo</th>
@@ -39,7 +40,9 @@ export function ProcessListTable({
           <tbody className="divide-y divide-surface-200">
             {jobs.map((job) => {
               const candidates = applications.filter((application) => application.job_id === job.id);
-              const hired = candidates.filter((application) => application.stage === 'contratacao').length;
+              const hired = candidates.filter(
+                (application) => resolveApplicationStage(application) === 'contratacao',
+              ).length;
               const target = Math.max(job.open_positions, 1);
               const progress = Math.min(100, Math.round((Math.max(hired, job.approved_positions) / target) * 100));
 
@@ -84,6 +87,12 @@ export function ProcessListTable({
                           <MoreHorizontal size={17} />
                         </Button>
                       ) : null}
+                      <Link to={`${detailBasePath}/${job.id}?tab=selecao`}>
+                        <Button variant="secondary" size="sm">
+                          <Columns3 size={15} />
+                          Ver Kanban
+                        </Button>
+                      </Link>
                       <Link to={`${detailBasePath}/${job.id}`}>
                         <Button size="sm">
                           Abrir

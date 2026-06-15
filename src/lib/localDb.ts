@@ -7,6 +7,7 @@ import {
   mockProfiles,
   mockSiteContents,
 } from './mockData';
+import { resolveApplicationStage } from './applicationStages';
 import type {
   Application,
   ApplicationNote,
@@ -35,7 +36,7 @@ type StoreShape = {
   siteContents: SiteContent[];
 };
 
-const STORE_KEY = 'people_jobs_mvp_store_v4';
+const STORE_KEY = 'people_jobs_mvp_store_v5';
 const SESSION_KEY = 'people_jobs_current_profile_id';
 
 const seed: StoreShape = {
@@ -124,19 +125,7 @@ function normalizeStore(store: StoreShape): StoreShape {
         application.franchise_id ??
         (store.jobs ?? []).find((job) => job.id === application.job_id)?.franchise_id ??
         null,
-      stage:
-        application.stage ??
-        (application.status === 'reprovado'
-          ? 'desclassificados'
-          : application.status === 'contratado'
-            ? 'contratacao'
-            : application.status === 'aprovado'
-              ? 'finalistas'
-              : application.status === 'entrevista'
-                ? 'entrevista'
-                : application.status === 'teste'
-                  ? 'testes'
-                  : 'qualificacao'),
+      stage: resolveApplicationStage(application),
       kanban_order: application.kanban_order ?? 0,
       match_score: application.match_score ?? null,
       adhesion_score: application.adhesion_score ?? null,

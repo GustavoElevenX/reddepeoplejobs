@@ -50,6 +50,35 @@ select {
   box-shadow: 0 0 0 3px rgba(131, 0, 234, 0.22);
 }
 
+.kanban-scroll {
+  scrollbar-color: #b7b7c2 #f3f3f6;
+  scrollbar-width: thin;
+}
+
+.kanban-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.kanban-scroll::-webkit-scrollbar-track {
+  background: #f3f3f6;
+  border-radius: 999px;
+}
+
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: #b7b7c2;
+  border: 2px solid #f3f3f6;
+  border-radius: 999px;
+}
+
+.kanban-scroll::-webkit-scrollbar-thumb:hover {
+  background: #8300ea;
+}
+
+.kanban-column-scroll {
+  scrollbar-color: #d2d2da transparent;
+  scrollbar-width: thin;
+}
+
 /* Esteira infinita de logos */
 @keyframes marquee {
   0% { transform: translateX(0%); }

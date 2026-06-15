@@ -8,18 +8,20 @@ import {
   Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { CandidateKanbanBoard } from '../../components/admin/CandidateKanbanBoard';
 import { CandidateProfileDrawer } from '../../components/admin/CandidateProfileDrawer';
 import { CommentComposer } from '../../components/admin/CommentComposer';
 import { HistoryTimeline } from '../../components/admin/HistoryTimeline';
 import { ProcessHeader } from '../../components/admin/ProcessHeader';
-import { ProcessTabs, type ProcessTab } from '../../components/admin/ProcessTabs';
+import { ProcessTabs } from '../../components/admin/ProcessTabs';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import { getCompanyAccessForCurrentUser } from '../../lib/auth';
+import { activeApplicationStages, resolveApplicationStage } from '../../lib/applicationStages';
+import { isProcessTab, type ProcessTab } from '../../lib/processTabs';
 import {
   addProcessComment,
   getJobById,
@@ -81,12 +83,12 @@ function CandidateMiniCard({ application, onClick }: { application: Application;
 
 export function ProcessDetail({ scope }: ProcessDetailProps) {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const profile = useAdminProfile();
   const [job, setJob] = useState<Job | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [comments, setComments] = useState<ProcessComment[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Application | null>(null);
-  const [activeTab, setActiveTab] = useState<ProcessTab>('requisicao');
   const [sideTab, setSideTab] = useState<'comments' | 'files' | 'history' | 'emails'>('comments');
   const [canDownload, setCanDownload] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -133,18 +135,47 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
     void load();
   }, [load]);
 
+  const tabParam = searchParams.get('tab');
+  const activeTab: ProcessTab = isProcessTab(tabParam) ? tabParam : 'requisicao';
+
   const activeApplications = useMemo(
-    () => applications.filter((application) => application.stage !== 'desclassificados'),
+    () =>
+      applications
+        .map((application) => ({ ...application, stage: resolveApplicationStage(application) }))
+        .filter((application) => activeApplicationStages.includes(application.stage)),
     [applications],
   );
   const disqualified = useMemo(
-    () => applications.filter((application) => application.stage === 'desclassificados'),
+    () => applications.filter((application) => resolveApplicationStage(application) === 'desclassificados'),
     [applications],
   );
   const screening = useMemo(
-    () => applications.filter((application) => application.stage === 'qualificacao'),
+    () => applications.filter((application) => resolveApplicationStage(application) === 'qualificacao'),
     [applications],
   );
+  const tabCounts = useMemo<Partial<Record<ProcessTab, number>>>(
+    () => ({
+      hunting: applications.filter((application) => application.status === 'banco_talentos').length,
+      triagem: screening.length,
+      selecao: activeApplications.length,
+      desclassificados: disqualified.length,
+      faturamento: applications.filter(
+        (application) => resolveApplicationStage(application) === 'contratacao',
+      ).length,
+    }),
+    [activeApplications.length, applications, disqualified.length, screening.length],
+  );
+
+  function changeTab(tab: ProcessTab) {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('tab', tab);
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
   async function moveCandidate(
     application: Application,
@@ -167,14 +198,14 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
   if (!job) return <EmptyState title="Processo seletivo não encontrado." />;
 
   return (
-    <div className="grid gap-5">
+    <div className="grid min-w-0 max-w-full gap-5">
       <Link to={listPaths[scope]} className="inline-flex w-fit items-center gap-2 text-sm font-bold text-ink-500 hover:text-redde-700">
         <ArrowLeft size={16} />
         Voltar aos processos
       </Link>
 
       <ProcessHeader job={job} applications={applications} />
-      <ProcessTabs activeTab={activeTab} onChange={setActiveTab} />
+      <ProcessTabs activeTab={activeTab} counts={tabCounts} onChange={changeTab} />
 
       {activeTab === 'requisicao' ? (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -339,7 +370,12 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
       ) : null}
 
       {activeTab === 'selecao' ? (
-        activeApplications.length ? (
+        <div className="grid min-w-0 max-w-full gap-4">
+          {!activeApplications.length ? (
+            <div className="rounded-xl border border-redde-100 bg-redde-50 px-4 py-3 text-sm font-semibold text-redde-700">
+              Ainda não há candidatos ativos neste processo.
+            </div>
+          ) : null}
           <CandidateKanbanBoard
             applications={activeApplications}
             onOpenCandidate={setSelectedCandidate}
@@ -347,9 +383,7 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
               moveCandidate(application, stage, order, positions)
             }
           />
-        ) : (
-          <EmptyState title="Ainda não há candidatos ativos neste processo." />
-        )
+        </div>
       ) : null}
 
       {activeTab === 'desclassificados' ? (
