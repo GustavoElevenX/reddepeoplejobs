@@ -57,6 +57,10 @@ function cloneSeed(): StoreShape {
   return JSON.parse(JSON.stringify(seed)) as StoreShape;
 }
 
+export function getSeedStore(): StoreShape {
+  return cloneSeed();
+}
+
 function normalizeCompany(company: Company): Company {
   return {
     ...company,

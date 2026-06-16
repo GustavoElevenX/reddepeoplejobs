@@ -1,6 +1,6 @@
 import { formatISO, startOfMonth, subDays } from 'date-fns';
 import { resolveApplicationStage } from './applicationStages';
-import { getCurrentLocalProfileId, getLocalStore, makeId, setLocalStore } from './localDb';
+import { getCurrentLocalProfileId, getLocalStore, getSeedStore, makeId, setLocalStore } from './localDb';
 import { hasSupabaseConfig, supabase } from './supabase';
 import type {
   Application,
@@ -194,8 +194,7 @@ function withCompany(job: Job, companies: Company[]): Job {
   };
 }
 
-function filterCompanies(companies: Company[], filters: CompanyFilters = {}) {
-  const franchises = getLocalStore().franchises;
+function filterCompanies(companies: Company[], filters: CompanyFilters = {}, franchises = getLocalStore().franchises) {
   const search = filters.search?.trim().toLowerCase();
 
   return companies
@@ -223,8 +222,7 @@ function filterCompanies(companies: Company[], filters: CompanyFilters = {}) {
     .sort((a, b) => Number(b.is_featured) - Number(a.is_featured) || a.name.localeCompare(b.name));
 }
 
-function filterJobs(jobs: Job[], filters: JobFilters = {}) {
-  const store = getLocalStore();
+function filterJobs(jobs: Job[], filters: JobFilters = {}, store = getLocalStore()) {
   const search = filters.search?.trim().toLowerCase();
 
   return jobs
@@ -263,6 +261,44 @@ function filterJobs(jobs: Job[], filters: JobFilters = {}) {
     })
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, filters.limit ?? Number.POSITIVE_INFINITY);
+}
+
+function getFallbackStore(useSeed = false) {
+  return useSeed ? getSeedStore() : getLocalStore();
+}
+
+function listLocalCompanies(filters: CompanyFilters = {}, useSeed = false) {
+  const store = getFallbackStore(useSeed);
+  return filterCompanies(store.companies, filters, store.franchises);
+}
+
+function getLocalCompanyBySlug(slug: string, publishedOnly = true, useSeed = false) {
+  const store = getFallbackStore(useSeed);
+  return (
+    store.companies.find(
+      (company) =>
+        company.slug === slug &&
+        (!publishedOnly ||
+          (company.page_status === 'published' &&
+            store.franchises.some(
+              (franchise) => franchise.id === company.franchise_id && franchise.status === 'active',
+            ))),
+    ) ?? null
+  );
+}
+
+function listLocalJobs(filters: JobFilters = {}, useSeed = false) {
+  const store = getFallbackStore(useSeed);
+  return filterJobs(store.jobs, filters, store);
+}
+
+function getLocalJobByCompanyAndSlug(companySlug: string, jobSlug: string, useSeed = false) {
+  const store = getFallbackStore(useSeed);
+  const company = getLocalCompanyBySlug(companySlug, true, useSeed);
+  if (!company) return null;
+
+  const job = store.jobs.find((item) => item.company_id === company.id && item.slug === jobSlug && item.status === 'open');
+  return job ? withCompany(job, store.companies) : null;
 }
 
 export async function listFranchises(filters: { status?: FranchiseStatus | 'all'; search?: string } = {}) {
@@ -354,10 +390,12 @@ export async function listCompanies(filters: CompanyFilters = {}) {
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data as CompanyRow[]).map(normalizeCompany);
+    const companies = (data as CompanyRow[]).map(normalizeCompany);
+    if (!companies.length && filters.publishedOnly) return listLocalCompanies(filters, true);
+    return companies;
   }
 
-  return filterCompanies(getLocalStore().companies, filters);
+  return listLocalCompanies(filters);
 }
 
 export async function getCompanyBySlug(slug: string, publishedOnly = true) {
@@ -368,23 +406,14 @@ export async function getCompanyBySlug(slug: string, publishedOnly = true) {
       .eq('slug', slug);
     if (publishedOnly) query = query.eq('page_status', 'published');
 
-    const { data, error } = await query.single();
+    const { data, error } = await query.maybeSingle();
     if (error) throw error;
-    return normalizeCompany(data as Company);
+    if (data) return normalizeCompany(data as CompanyRow);
+    if (publishedOnly) return getLocalCompanyBySlug(slug, publishedOnly, true);
+    return null;
   }
 
-  const store = getLocalStore();
-  return (
-    store.companies.find(
-      (company) =>
-        company.slug === slug &&
-        (!publishedOnly ||
-          (company.page_status === 'published' &&
-            store.franchises.some(
-              (franchise) => franchise.id === company.franchise_id && franchise.status === 'active',
-            ))),
-    ) ?? null
-  );
+  return getLocalCompanyBySlug(slug, publishedOnly);
 }
 
 export async function getCompanyById(id: string) {
@@ -538,10 +567,12 @@ export async function listJobs(filters: JobFilters = {}) {
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data as JobRow[]).map(normalizeJob);
+    const jobs = (data as JobRow[]).map(normalizeJob);
+    if (!jobs.length && (filters.openOnly || filters.companyId)) return listLocalJobs(filters, true);
+    return jobs;
   }
 
-  return filterJobs(getLocalStore().jobs, filters);
+  return listLocalJobs(filters);
 }
 
 export async function getJobById(jobId: string) {
@@ -608,24 +639,14 @@ export async function getJobByCompanyAndSlug(companySlug: string, jobSlug: strin
       .eq('company_id', company.id)
       .eq('slug', jobSlug)
       .eq('status', 'open')
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
-    return normalizeJob(data as JobRow);
+    if (data) return normalizeJob(data as JobRow);
+    return getLocalJobByCompanyAndSlug(companySlug, jobSlug, true);
   }
 
-  const store = getLocalStore();
-  const company = store.companies.find(
-    (item) =>
-      item.slug === companySlug &&
-      item.page_status === 'published' &&
-      store.franchises.some(
-        (franchise) => franchise.id === item.franchise_id && franchise.status === 'active',
-      ),
-  );
-  if (!company) return null;
-  const job = store.jobs.find((item) => item.company_id === company.id && item.slug === jobSlug && item.status === 'open');
-  return job ? withCompany(job, store.companies) : null;
+  return getLocalJobByCompanyAndSlug(companySlug, jobSlug);
 }
 
 export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 'title' | 'slug' | 'description'>) {
