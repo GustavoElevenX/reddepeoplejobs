@@ -89,11 +89,18 @@ type ApplicationFilters = {
   status?: ApplicationStatus | 'all';
 };
 
+function replaceText(value: string, search: string, replacement: string) {
+  return value.split(search).join(replacement);
+}
+
 function normalizeBrandText(value: string | null) {
-  return value
-    ?.replaceAll('Redde People Jobs', 'People Jobs')
-    .replaceAll('Redde People', 'People Jobs')
-    .replaceAll('reddepeople.com.br', 'peoplejobs.com.br') ?? null;
+  if (!value) return null;
+
+  return [
+    ['Redde People Jobs', 'People Jobs'],
+    ['Redde People', 'People Jobs'],
+    ['reddepeople.com.br', 'peoplejobs.com.br'],
+  ].reduce((text, [search, replacement]) => replaceText(text, search, replacement), value);
 }
 
 function normalizeSiteContent(content: SiteContent | null): SiteContent | null {

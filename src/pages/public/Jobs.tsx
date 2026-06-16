@@ -18,13 +18,25 @@ export function Jobs() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function load() {
       setLoading(true);
-      setJobs(await listJobs({ openOnly: true }));
-      setLoading(false);
+      try {
+        const jobData = await listJobs({ openOnly: true });
+        if (isMounted) setJobs(jobData);
+      } catch (error) {
+        console.error('Erro ao carregar vagas:', error);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
 
     void load();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const filtered = useMemo(() => {

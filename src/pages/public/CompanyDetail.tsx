@@ -18,16 +18,35 @@ export function CompanyDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function load() {
-      if (!slug) return;
+      if (!slug) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
-      const companyData = await getCompanyBySlug(slug, true);
-      setCompany(companyData);
-      if (companyData) setJobs(await listJobs({ companyId: companyData.id, openOnly: true }));
-      setLoading(false);
+      try {
+        const companyData = await getCompanyBySlug(slug, true);
+        if (!isMounted) return;
+
+        setCompany(companyData);
+        if (companyData) {
+          const jobData = await listJobs({ companyId: companyData.id, openOnly: true });
+          if (isMounted) setJobs(jobData);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar empresa:', error);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
 
     void load();
+
+    return () => {
+      isMounted = false;
+    };
   }, [slug]);
 
   if (loading) {

@@ -100,6 +100,13 @@ function getTopCities(jobs: Job[]) {
     .map(([city, count]) => ({ city, count }));
 }
 
+function settle<T>(promise: Promise<T>) {
+  return promise.then(
+    (value) => ({ status: 'fulfilled' as const, value }),
+    (reason: unknown) => ({ status: 'rejected' as const, reason }),
+  );
+}
+
 export function Home() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -107,20 +114,44 @@ export function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function load() {
       setLoading(true);
       const [companyData, jobData, ctaData] = await Promise.all([
-        listCompanies({ publishedOnly: true }),
-        listJobs({ openOnly: true }),
-        getSiteContent('home_company_cta'),
+        settle(listCompanies({ publishedOnly: true })),
+        settle(listJobs({ openOnly: true })),
+        settle(getSiteContent('home_company_cta')),
       ]);
-      setCompanies(companyData);
-      setJobs(jobData);
-      setCta(ctaData);
+
+      if (!isMounted) return;
+
+      if (companyData.status === 'fulfilled') {
+        setCompanies(companyData.value);
+      } else {
+        console.error('Erro ao carregar empresas da home:', companyData.reason);
+      }
+
+      if (jobData.status === 'fulfilled') {
+        setJobs(jobData.value);
+      } else {
+        console.error('Erro ao carregar vagas da home:', jobData.reason);
+      }
+
+      if (ctaData.status === 'fulfilled') {
+        setCta(ctaData.value);
+      } else {
+        console.error('Erro ao carregar CTA da home:', ctaData.reason);
+      }
+
       setLoading(false);
     }
 
     void load();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const jobsByCompany = useMemo(() => countJobsByCompany(jobs), [jobs]);

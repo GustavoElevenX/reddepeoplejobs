@@ -46,14 +46,29 @@ export function JobDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function load() {
-      if (!companySlug || !jobSlug) return;
+      if (!companySlug || !jobSlug) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
-      setJob(await getJobByCompanyAndSlug(companySlug, jobSlug));
-      setLoading(false);
+      try {
+        const jobData = await getJobByCompanyAndSlug(companySlug, jobSlug);
+        if (isMounted) setJob(jobData);
+      } catch (error) {
+        console.error('Erro ao carregar vaga:', error);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
 
     void load();
+
+    return () => {
+      isMounted = false;
+    };
   }, [companySlug, jobSlug]);
 
   if (loading) {

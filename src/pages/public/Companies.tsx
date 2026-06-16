@@ -14,13 +14,25 @@ export function Companies() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function load() {
       setLoading(true);
-      setCompanies(await listCompanies({ publishedOnly: true }));
-      setLoading(false);
+      try {
+        const companyData = await listCompanies({ publishedOnly: true });
+        if (isMounted) setCompanies(companyData);
+      } catch (error) {
+        console.error('Erro ao carregar empresas:', error);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
 
     void load();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const filtered = useMemo(() => {
