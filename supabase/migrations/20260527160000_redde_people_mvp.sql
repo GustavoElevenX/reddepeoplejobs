@@ -1,51 +1,81 @@
 ﻿create extension if not exists pgcrypto;
 
-create type public.app_role as enum (
-  'redde_super_admin',
-  'redde_admin',
-  'company_admin',
-  'company_recruiter'
-);
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'app_role' and typnamespace = 'public'::regnamespace) then
+    create type public.app_role as enum (
+      'redde_super_admin',
+      'redde_admin',
+      'company_admin',
+      'company_recruiter'
+    );
+  end if;
+end $$;
 
-create type public.company_page_status as enum (
-  'draft',
-  'published',
-  'archived'
-);
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'company_page_status' and typnamespace = 'public'::regnamespace) then
+    create type public.company_page_status as enum (
+      'draft',
+      'published',
+      'archived'
+    );
+  end if;
+end $$;
 
-create type public.job_status as enum (
-  'draft',
-  'open',
-  'paused',
-  'closed',
-  'archived'
-);
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'job_status' and typnamespace = 'public'::regnamespace) then
+    create type public.job_status as enum (
+      'draft',
+      'open',
+      'paused',
+      'closed',
+      'archived'
+    );
+  end if;
+end $$;
 
-create type public.job_modality as enum (
-  'presencial',
-  'hibrido',
-  'remoto'
-);
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'job_modality' and typnamespace = 'public'::regnamespace) then
+    create type public.job_modality as enum (
+      'presencial',
+      'hibrido',
+      'remoto'
+    );
+  end if;
+end $$;
 
-create type public.job_contract_type as enum (
-  'clt',
-  'pj',
-  'estagio',
-  'temporario',
-  'freelancer',
-  'outro'
-);
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'job_contract_type' and typnamespace = 'public'::regnamespace) then
+    create type public.job_contract_type as enum (
+      'clt',
+      'pj',
+      'estagio',
+      'temporario',
+      'freelancer',
+      'outro'
+    );
+  end if;
+end $$;
 
-create type public.application_status as enum (
-  'novo',
-  'em_analise',
-  'selecionado',
-  'entrevista',
-  'reprovado',
-  'contratado'
-);
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'application_status' and typnamespace = 'public'::regnamespace) then
+    create type public.application_status as enum (
+      'novo',
+      'em_analise',
+      'selecionado',
+      'entrevista',
+      'reprovado',
+      'contratado'
+    );
+  end if;
+end $$;
 
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null,
   email text not null unique,
@@ -56,7 +86,7 @@ create table public.profiles (
   updated_at timestamptz not null default now()
 );
 
-create table public.companies (
+create table if not exists public.companies (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   slug text not null unique,
@@ -80,7 +110,7 @@ create table public.companies (
   updated_at timestamptz not null default now()
 );
 
-create table public.company_user_access (
+create table if not exists public.company_user_access (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   company_id uuid not null references public.companies(id) on delete cascade,
@@ -93,7 +123,7 @@ create table public.company_user_access (
   unique(user_id, company_id)
 );
 
-create table public.jobs (
+create table if not exists public.jobs (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
   title text not null,
@@ -118,7 +148,7 @@ create table public.jobs (
   unique(company_id, slug)
 );
 
-create table public.applications (
+create table if not exists public.applications (
   id uuid primary key default gen_random_uuid(),
   job_id uuid not null references public.jobs(id) on delete cascade,
   company_id uuid not null references public.companies(id) on delete cascade,
@@ -139,7 +169,7 @@ create table public.applications (
   updated_at timestamptz not null default now()
 );
 
-create table public.application_notes (
+create table if not exists public.application_notes (
   id uuid primary key default gen_random_uuid(),
   application_id uuid not null references public.applications(id) on delete cascade,
   note text not null,
@@ -147,7 +177,7 @@ create table public.application_notes (
   created_at timestamptz not null default now()
 );
 
-create table public.site_contents (
+create table if not exists public.site_contents (
   id uuid primary key default gen_random_uuid(),
   key text not null unique,
   title text,
@@ -161,7 +191,7 @@ create table public.site_contents (
   updated_at timestamptz not null default now()
 );
 
-create table public.audit_logs (
+create table if not exists public.audit_logs (
   id uuid primary key default gen_random_uuid(),
   actor_id uuid references public.profiles(id),
   action text not null,
@@ -171,12 +201,12 @@ create table public.audit_logs (
   created_at timestamptz not null default now()
 );
 
-create index companies_slug_idx on public.companies(slug);
-create index companies_public_idx on public.companies(page_status, is_featured);
-create index jobs_company_status_idx on public.jobs(company_id, status);
-create index jobs_slug_idx on public.jobs(company_id, slug);
-create index applications_company_status_idx on public.applications(company_id, status);
-create index applications_job_idx on public.applications(job_id);
+create index if not exists companies_slug_idx on public.companies(slug);
+create index if not exists companies_public_idx on public.companies(page_status, is_featured);
+create index if not exists jobs_company_status_idx on public.jobs(company_id, status);
+create index if not exists jobs_slug_idx on public.jobs(company_id, slug);
+create index if not exists applications_company_status_idx on public.applications(company_id, status);
+create index if not exists applications_job_idx on public.applications(job_id);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -188,18 +218,23 @@ begin
 end;
 $$;
 
+drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at before update on public.profiles
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_companies_updated_at on public.companies;
 create trigger set_companies_updated_at before update on public.companies
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_jobs_updated_at on public.jobs;
 create trigger set_jobs_updated_at before update on public.jobs
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_applications_updated_at on public.applications;
 create trigger set_applications_updated_at before update on public.applications
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_site_contents_updated_at on public.site_contents;
 create trigger set_site_contents_updated_at before update on public.site_contents
 for each row execute function public.set_updated_at();
 
@@ -273,28 +308,34 @@ alter table public.application_notes enable row level security;
 alter table public.site_contents enable row level security;
 alter table public.audit_logs enable row level security;
 
+drop policy if exists "Users can read their own profile" on public.profiles;
 create policy "Users can read their own profile"
 on public.profiles for select
 using (id = auth.uid());
 
+drop policy if exists "People Jobs admins can manage all profiles" on public.profiles;
 create policy "People Jobs admins can manage all profiles"
 on public.profiles for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "Public can read published companies" on public.companies;
 create policy "Public can read published companies"
 on public.companies for select
 using (page_status = 'published');
 
+drop policy if exists "People Jobs admins can manage all companies" on public.companies;
 create policy "People Jobs admins can manage all companies"
 on public.companies for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "Company users can read their own company" on public.companies;
 create policy "Company users can read their own company"
 on public.companies for select
 using (public.has_company_access(id));
 
+drop policy if exists "Company admins can update their own company when allowed" on public.companies;
 create policy "Company admins can update their own company when allowed"
 on public.companies for update
 using (
@@ -322,15 +363,18 @@ with check (
   )
 );
 
+drop policy if exists "People Jobs admins can manage company access" on public.company_user_access;
 create policy "People Jobs admins can manage company access"
 on public.company_user_access for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "Company users can read own access" on public.company_user_access;
 create policy "Company users can read own access"
 on public.company_user_access for select
 using (user_id = auth.uid());
 
+drop policy if exists "Public can read open jobs from published companies" on public.jobs;
 create policy "Public can read open jobs from published companies"
 on public.jobs for select
 using (
@@ -342,15 +386,18 @@ using (
   )
 );
 
+drop policy if exists "People Jobs admins can manage all jobs" on public.jobs;
 create policy "People Jobs admins can manage all jobs"
 on public.jobs for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "Company users can read own jobs" on public.jobs;
 create policy "Company users can read own jobs"
 on public.jobs for select
 using (public.has_company_access(company_id));
 
+drop policy if exists "Company users can manage own jobs when allowed" on public.jobs;
 create policy "Company users can manage own jobs when allowed"
 on public.jobs for all
 using (
@@ -372,6 +419,7 @@ with check (
   )
 );
 
+drop policy if exists "Public can insert applications" on public.applications;
 create policy "Public can insert applications"
 on public.applications for insert
 with check (
@@ -385,15 +433,18 @@ with check (
   )
 );
 
+drop policy if exists "People Jobs admins can read all applications" on public.applications;
 create policy "People Jobs admins can read all applications"
 on public.applications for select
 using (public.is_redde_admin());
 
+drop policy if exists "People Jobs admins can update all applications" on public.applications;
 create policy "People Jobs admins can update all applications"
 on public.applications for update
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "Company users can read own applications" on public.applications;
 create policy "Company users can read own applications"
 on public.applications for select
 using (
@@ -407,6 +458,7 @@ using (
   )
 );
 
+drop policy if exists "Company users can update own applications" on public.applications;
 create policy "Company users can update own applications"
 on public.applications for update
 using (
@@ -421,11 +473,13 @@ using (
 )
 with check (public.has_company_access(company_id));
 
+drop policy if exists "People Jobs admins can manage application notes" on public.application_notes;
 create policy "People Jobs admins can manage application notes"
 on public.application_notes for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "Company users can read notes for own applications" on public.application_notes;
 create policy "Company users can read notes for own applications"
 on public.application_notes for select
 using (
@@ -437,6 +491,7 @@ using (
   )
 );
 
+drop policy if exists "Company users can insert notes for own applications" on public.application_notes;
 create policy "Company users can insert notes for own applications"
 on public.application_notes for insert
 with check (
@@ -448,19 +503,23 @@ with check (
   )
 );
 
+drop policy if exists "Public can read active site contents" on public.site_contents;
 create policy "Public can read active site contents"
 on public.site_contents for select
 using (is_active = true);
 
+drop policy if exists "People Jobs admins can manage site contents" on public.site_contents;
 create policy "People Jobs admins can manage site contents"
 on public.site_contents for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "People Jobs admins can read audit logs" on public.audit_logs;
 create policy "People Jobs admins can read audit logs"
 on public.audit_logs for select
 using (public.is_redde_admin());
 
+drop policy if exists "People Jobs admins can insert audit logs" on public.audit_logs;
 create policy "People Jobs admins can insert audit logs"
 on public.audit_logs for insert
 with check (public.is_redde_admin());
@@ -471,15 +530,18 @@ values
   ('resumes', 'resumes', false)
 on conflict (id) do update set public = excluded.public;
 
+drop policy if exists "Company assets are public" on storage.objects;
 create policy "Company assets are public"
 on storage.objects for select
 using (bucket_id = 'company-assets');
 
+drop policy if exists "People Jobs admins can manage company assets" on storage.objects;
 create policy "People Jobs admins can manage company assets"
 on storage.objects for all
 using (bucket_id = 'company-assets' and public.is_redde_admin())
 with check (bucket_id = 'company-assets' and public.is_redde_admin());
 
+drop policy if exists "Company users can manage own company assets" on storage.objects;
 create policy "Company users can manage own company assets"
 on storage.objects for all
 using (
@@ -515,10 +577,12 @@ with check (
   )
 );
 
+drop policy if exists "Public can upload resumes" on storage.objects;
 create policy "Public can upload resumes"
 on storage.objects for insert
 with check (bucket_id = 'resumes');
 
+drop policy if exists "Authorized users can read resumes" on storage.objects;
 create policy "Authorized users can read resumes"
 on storage.objects for select
 using (
@@ -553,14 +617,14 @@ insert into public.companies (
     'Aba Kids',
     'aba-kids',
     '/imagens/clientes/aba-kids.png',
-    'EducaÃ§Ã£o e desenvolvimento infantil',
+    'Educação infantil e desenvolvimento',
     'SÃ£o LuÃ­s',
     'MA',
     '51-200',
-    'Empresa parceira do People Jobs com oportunidades em atendimento, apoio pedagÃ³gico e operaÃ§Ã£o.',
-    'A Aba Kids atua com serviÃ§os voltados ao desenvolvimento infantil, combinando atendimento cuidadoso, rotina organizada e equipes preparadas.',
-    'Ambiente de crescimento, clareza de funÃ§Ã£o e processo seletivo organizado com apoio do People Jobs.',
-    'Cultura voltada para responsabilidade, cuidado, atendimento e desenvolvimento.',
+    'Centro de educação infantil com oportunidades em atendimento, apoio pedagógico, recreação e rotinas da unidade.',
+    'A Aba Kids atua no cuidado e desenvolvimento de crianças, integrando acolhimento às famílias, apoio pedagógico e organização de rotinas educativas.',
+    'Ambiente orientado por cuidado, aprendizado e desenvolvimento infantil, com funções claras e contato próximo com famílias.',
+    'Cultura de acolhimento, responsabilidade, colaboração e atenção ao desenvolvimento das crianças.',
     'published',
     true
   ),
@@ -568,14 +632,14 @@ insert into public.companies (
     'Aquarela',
     'aquarela',
     '/imagens/clientes/aquarela.png',
-    'ServiÃ§os educacionais',
+    'Educação e atividades criativas',
     'SÃ£o LuÃ­s',
     'MA',
     '11-50',
-    'Empresa parceira com vagas abertas para Ã¡reas administrativas, atendimento e operaÃ§Ã£o.',
-    'A Aquarela Ã© uma empresa parceira com rotinas estruturadas, foco em atendimento e desenvolvimento de pessoas.',
-    'Processo seletivo estruturado com apoio do People Jobs.',
-    'Cultura focada em entrega, colaboraÃ§Ã£o e melhoria contÃ­nua.',
+    'Empresa de serviços educacionais com oportunidades em atendimento, apoio administrativo e suporte à rotina pedagógica.',
+    'A Aquarela atua no segmento educacional, unindo organização, criatividade e atendimento próximo para apoiar alunos, famílias e equipe pedagógica.',
+    'Processo seletivo estruturado, rotina organizada e espaço para profissionais que gostam de educação e relacionamento com famílias.',
+    'Cultura de cuidado, criatividade, colaboração e melhoria contínua.',
     'published',
     true
   ),
@@ -583,29 +647,29 @@ insert into public.companies (
     'Conceito',
     'conceito',
     '/imagens/clientes/conceito.png',
-    'ServiÃ§os',
+    'Engenharia civil e elétrica',
     'SÃ£o LuÃ­s',
     'MA',
     '201-500',
-    'Empresa parceira com oportunidades em atendimento, rotinas comerciais e gestÃ£o operacional.',
-    'A Conceito atua em serviÃ§os com foco em experiÃªncia do cliente, organizaÃ§Ã£o de processos e melhoria contÃ­nua.',
-    'Rotina clara, lideranÃ§a prÃ³xima e oportunidades para perfis comerciais, administrativos e operacionais.',
-    'Ambiente colaborativo, orientado por qualidade, Ã©tica e melhoria contÃ­nua.',
+    'Empresa de engenharia civil e elétrica com oportunidades em obras, projetos, manutenção, administrativo e apoio técnico.',
+    'A Conceito atua com soluções de engenharia civil e elétrica, apoiando projetos, instalações, manutenções e acompanhamento técnico com foco em qualidade e segurança.',
+    'Rotina técnica estruturada, contato com projetos reais e oportunidades para perfis de campo, escritório e suporte operacional.',
+    'Cultura de segurança, precisão, colaboração e compromisso com a qualidade das entregas.',
     'published',
     true
   ),
   (
-    'Darma Center',
-    'darma-center',
-    '/imagens/clientes/darma-center.png',
-    'SaÃºde e bem-estar',
+    'Farma Center',
+    'farma-center',
+    '/imagens/clientes/farma-center.png',
+    'Farmácia de manipulação e drogaria',
     'SÃ£o LuÃ­s',
     'MA',
     '101-200',
-    'Centro parceiro com oportunidades em atendimento, recepÃ§Ã£o, operaÃ§Ã£o e suporte administrativo.',
-    'O Darma Center reÃºne serviÃ§os com foco em bem-estar, atendimento humanizado e organizaÃ§Ã£o da experiÃªncia do cliente.',
-    'Processos bem definidos, rotina acolhedora e oportunidades para perfis de atendimento e suporte.',
-    'Cultura de cuidado, pontualidade, acolhimento e responsabilidade.',
+    'Farmácia de manipulação e drogaria com oportunidades em atendimento, laboratório, dispensação, estoque e suporte administrativo.',
+    'A Farma Center atua no varejo farmacêutico e em manipulação, conectando cuidado, orientação ao cliente, preparo de fórmulas e rotina operacional organizada.',
+    'Ambiente voltado à saúde, com processos definidos e oportunidades para quem valoriza precisão, cuidado e atendimento responsável.',
+    'Cultura de responsabilidade sanitária, atenção ao cliente, ética e cuidado.',
     'published',
     true
   ),
@@ -613,14 +677,14 @@ insert into public.companies (
     'KarolÃ­cias',
     'karolicias',
     '/imagens/clientes/karolicias.png',
-    'Alimentos',
+    'Alimentos e confeitaria',
     'SÃ£o LuÃ­s',
     'MA',
     '51-200',
-    'Marca parceira com oportunidades em produÃ§Ã£o, atendimento, vendas e rotinas operacionais.',
-    'A KarolÃ­cias atua no segmento de alimentos com foco em qualidade, apresentaÃ§Ã£o, atendimento e ritmo operacional.',
-    'Ambiente prÃ¡tico, rotina clara e oportunidades para quem gosta de atendimento e produÃ§Ã£o com capricho.',
-    'Cultura orientada por qualidade, cuidado, colaboraÃ§Ã£o e melhoria diÃ¡ria.',
+    'Marca de alimentos e confeitaria com oportunidades em produção, atendimento, vendas e rotinas operacionais.',
+    'A Karolícias atua no segmento de alimentos, com foco em produtos bem apresentados, atendimento acolhedor e operação cuidadosa do preparo à entrega.',
+    'Ambiente prático, rotina clara e oportunidades para quem gosta de atendimento, produção artesanal e cuidado com detalhes.',
+    'Cultura orientada por qualidade, capricho, colaboração e melhoria diária.',
     'published',
     true
   ),
@@ -628,14 +692,14 @@ insert into public.companies (
     'Levive',
     'levive',
     '/imagens/clientes/levive.png',
-    'SaÃºde e estÃ©tica',
+    'Saúde, estética e bem-estar',
     'SÃ£o LuÃ­s',
     'MA',
     '201-500',
-    'Empresa parceira com oportunidades em atendimento, comercial e suporte Ã  operaÃ§Ã£o.',
-    'A Levive atua com foco em experiÃªncia do cliente, atendimento consultivo e serviÃ§os de saÃºde e estÃ©tica.',
-    'Plano de crescimento por Ã¡rea, lideranÃ§a prÃ³xima e rotinas de treinamento.',
-    'Ambiente disciplinado, acolhedor e orientado por qualidade.',
+    'Empresa de saúde, estética e bem-estar com oportunidades em atendimento, comercial, procedimentos e suporte à operação.',
+    'A Levive atua com serviços voltados à saúde, estética e bem-estar, combinando atendimento consultivo, cuidado com o cliente e rotinas de qualidade.',
+    'Plano de crescimento por área, liderança próxima e rotinas de treinamento para profissionais de atendimento, vendas e operação.',
+    'Ambiente acolhedor, disciplinado e orientado por cuidado, qualidade e evolução profissional.',
     'published',
     true
   )
@@ -691,12 +755,12 @@ from c where slug = 'karolicias'
 union all
 select id, 'Recepcionista', 'recepcionista',
   'RecepÃ§Ã£o de clientes, organizaÃ§Ã£o de agenda e suporte Ã  rotina de atendimento.',
-  'Recepcionar clientes do Darma Center, organizar agenda, registrar informaÃ§Ãµes e apoiar o fluxo de atendimento.',
+  'Recepcionar clientes da Farma Center, organizar agenda, registrar informações e apoiar o fluxo de atendimento.',
   'Recepcionar clientes; organizar agenda; confirmar horÃ¡rios; apoiar rotinas administrativas.',
   'Ensino mÃ©dio completo; boa comunicaÃ§Ã£o; experiÃªncia com recepÃ§Ã£o serÃ¡ diferencial.',
   'Vale-transporte; bonificaÃ§Ã£o; treinamento interno.',
   'R$ 1.600 a R$ 2.000', 'SÃ£o LuÃ­s', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, false
-from c where slug = 'darma-center'
+from c where slug = 'farma-center'
 on conflict (company_id, slug) do nothing;
 
 insert into public.site_contents (key, title, subtitle, body, button_label, button_url)
