@@ -618,7 +618,7 @@ insert into public.companies (
     'aba-kids',
     '/imagens/clientes/aba-kids.png',
     'Educação infantil e desenvolvimento',
-    'SÃ£o LuÃ­s',
+    'São Luís',
     'MA',
     '51-200',
     'Centro de educação infantil com oportunidades em atendimento, apoio pedagógico, recreação e rotinas da unidade.',
@@ -633,7 +633,7 @@ insert into public.companies (
     'aquarela',
     '/imagens/clientes/aquarela.png',
     'Educação e atividades criativas',
-    'SÃ£o LuÃ­s',
+    'São Luís',
     'MA',
     '11-50',
     'Empresa de serviços educacionais com oportunidades em atendimento, apoio administrativo e suporte à rotina pedagógica.',
@@ -648,7 +648,7 @@ insert into public.companies (
     'conceito',
     '/imagens/clientes/conceito.png',
     'Engenharia civil e elétrica',
-    'SÃ£o LuÃ­s',
+    'São Luís',
     'MA',
     '201-500',
     'Empresa de engenharia civil e elétrica com oportunidades em obras, projetos, manutenção, administrativo e apoio técnico.',
@@ -663,7 +663,7 @@ insert into public.companies (
     'farma-center',
     '/imagens/clientes/farma-center.png',
     'Farmácia de manipulação e drogaria',
-    'SÃ£o LuÃ­s',
+    'São Luís',
     'MA',
     '101-200',
     'Farmácia de manipulação e drogaria com oportunidades em atendimento, laboratório, dispensação, estoque e suporte administrativo.',
@@ -674,11 +674,11 @@ insert into public.companies (
     true
   ),
   (
-    'KarolÃ­cias',
+    'Karolícias',
     'karolicias',
     '/imagens/clientes/karolicias.png',
     'Alimentos e confeitaria',
-    'SÃ£o LuÃ­s',
+    'São Luís',
     'MA',
     '51-200',
     'Marca de alimentos e confeitaria com oportunidades em produção, atendimento, vendas e rotinas operacionais.',
@@ -693,7 +693,7 @@ insert into public.companies (
     'levive',
     '/imagens/clientes/levive.png',
     'Saúde, estética e bem-estar',
-    'SÃ£o LuÃ­s',
+    'São Luís',
     'MA',
     '201-500',
     'Empresa de saúde, estética e bem-estar com oportunidades em atendimento, comercial, procedimentos e suporte à operação.',
@@ -727,39 +727,39 @@ insert into public.jobs (
   is_featured
 )
 select id, 'Assistente de Atendimento Infantil', 'assistente-de-atendimento-infantil',
-  'Atendimento a famÃ­lias, organizaÃ§Ã£o de demandas e suporte Ã  rotina da unidade.',
-  'Atuar no atendimento a famÃ­lias, registrar solicitaÃ§Ãµes, organizar informaÃ§Ãµes e apoiar a lideranÃ§a em rotinas operacionais.',
-  'Atender famÃ­lias; registrar solicitaÃ§Ãµes; acompanhar prazos; apoiar relatÃ³rios operacionais.',
-  'Ensino mÃ©dio completo; boa comunicaÃ§Ã£o; experiÃªncia com atendimento ou educaÃ§Ã£o serÃ¡ diferencial.',
-  'Vale-transporte; vale-alimentaÃ§Ã£o; plano de desenvolvimento interno.',
-  'R$ 1.600 a R$ 1.900', 'SÃ£o LuÃ­s', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'JÃºnior', 'open'::public.job_status, true
+  'Atendimento a famílias, organização de demandas e suporte à rotina da unidade.',
+  'Atuar no atendimento a famílias, registrar solicitações, organizar informações e apoiar a liderança em rotinas operacionais.',
+  'Atender famílias; registrar solicitações; acompanhar prazos; apoiar relatórios operacionais.',
+  'Ensino médio completo; boa comunicação; experiência com atendimento ou educação será diferencial.',
+  'Vale-transporte; vale-alimentação; plano de desenvolvimento interno.',
+  'R$ 1.600 a R$ 1.900', 'São Luís', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Júnior', 'open'::public.job_status, true
 from c where slug = 'aba-kids'
 union all
 select id, 'Assistente Administrativo', 'assistente-administrativo',
-  'Controle de documentos, indicadores e suporte Ã s rotinas financeiras.',
-  'Organizar documentos, acompanhar indicadores, apoiar processos financeiros e dar suporte Ã  gestÃ£o.',
-  'Organizar documentos; apoiar contas a pagar; acompanhar indicadores; preparar relatÃ³rios.',
-  'ExperiÃªncia administrativa; Excel intermediÃ¡rio; perfil organizado e analÃ­tico.',
-  'Vale-alimentaÃ§Ã£o; assistÃªncia mÃ©dica; bonificaÃ§Ã£o por desempenho.',
-  'R$ 2.200 a R$ 2.700', 'SÃ£o LuÃ­s', 'MA', 'hibrido'::public.job_modality, 'clt'::public.job_contract_type, 'Pleno', 'open'::public.job_status, true
+  'Controle de documentos, indicadores e suporte às rotinas financeiras.',
+  'Organizar documentos, acompanhar indicadores, apoiar processos financeiros e dar suporte à gestão.',
+  'Organizar documentos; apoiar contas a pagar; acompanhar indicadores; preparar relatórios.',
+  'Experiência administrativa; Excel intermediário; perfil organizado e analítico.',
+  'Vale-alimentação; assistência médica; bonificação por desempenho.',
+  'R$ 2.200 a R$ 2.700', 'São Luís', 'MA', 'hibrido'::public.job_modality, 'clt'::public.job_contract_type, 'Pleno', 'open'::public.job_status, true
 from c where slug = 'aquarela'
 union all
 select id, 'Atendente de Loja', 'atendente-de-loja',
-  'Atendimento ao cliente, organizaÃ§Ã£o de pedidos e apoio Ã  rotina comercial.',
-  'Atuar no atendimento aos clientes da KarolÃ­cias, apoiar pedidos, manter a organizaÃ§Ã£o do espaÃ§o e contribuir para uma experiÃªncia acolhedora.',
-  'Atender clientes; organizar pedidos; apoiar exposiÃ§Ã£o de produtos; manter o padrÃ£o de atendimento.',
-  'Boa comunicaÃ§Ã£o, organizaÃ§Ã£o, disponibilidade de horÃ¡rio e interesse pelo segmento de alimentos.',
-  'Vale-transporte; alimentaÃ§Ã£o no local; treinamento interno.',
-  'R$ 1.500 a R$ 1.900', 'SÃ£o LuÃ­s', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, true
+  'Atendimento ao cliente, organização de pedidos e apoio à rotina comercial.',
+  'Atuar no atendimento aos clientes da Karolícias, apoiar pedidos, manter a organização do espaço e contribuir para uma experiência acolhedora.',
+  'Atender clientes; organizar pedidos; apoiar exposição de produtos; manter o padrão de atendimento.',
+  'Boa comunicação, organização, disponibilidade de horário e interesse pelo segmento de alimentos.',
+  'Vale-transporte; alimentação no local; treinamento interno.',
+  'R$ 1.500 a R$ 1.900', 'São Luís', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, true
 from c where slug = 'karolicias'
 union all
 select id, 'Recepcionista', 'recepcionista',
-  'RecepÃ§Ã£o de clientes, organizaÃ§Ã£o de agenda e suporte Ã  rotina de atendimento.',
+  'Recepção de clientes, organização de agenda e suporte à rotina de atendimento.',
   'Recepcionar clientes da Farma Center, organizar agenda, registrar informações e apoiar o fluxo de atendimento.',
-  'Recepcionar clientes; organizar agenda; confirmar horÃ¡rios; apoiar rotinas administrativas.',
-  'Ensino mÃ©dio completo; boa comunicaÃ§Ã£o; experiÃªncia com recepÃ§Ã£o serÃ¡ diferencial.',
-  'Vale-transporte; bonificaÃ§Ã£o; treinamento interno.',
-  'R$ 1.600 a R$ 2.000', 'SÃ£o LuÃ­s', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, false
+  'Recepcionar clientes; organizar agenda; confirmar horários; apoiar rotinas administrativas.',
+  'Ensino médio completo; boa comunicação; experiência com recepção será diferencial.',
+  'Vale-transporte; bonificação; treinamento interno.',
+  'R$ 1.600 a R$ 2.000', 'São Luís', 'MA', 'presencial'::public.job_modality, 'clt'::public.job_contract_type, 'Operacional', 'open'::public.job_status, false
 from c where slug = 'farma-center'
 on conflict (company_id, slug) do nothing;
 
@@ -767,16 +767,16 @@ insert into public.site_contents (key, title, subtitle, body, button_label, butt
 values
   (
     'home_hero',
-    'Encontre oportunidades em empresas que contratam com mais critÃ©rio.',
-    'O People Jobs conecta candidatos a empresas parceiras com processos de seleÃ§Ã£o mais claros, organizados e profissionais.',
-    'Veja vagas abertas em empresas parceiras do People Jobs e envie seu currÃ­culo de forma simples, rÃ¡pida e segura.',
+    'Encontre oportunidades em empresas que contratam com mais critério.',
+    'O People Jobs conecta candidatos a empresas parceiras com processos de seleção mais claros, organizados e profissionais.',
+    'Veja vagas abertas em empresas parceiras do People Jobs e envie seu currículo de forma simples, rápida e segura.',
     'Buscar vagas',
     '/vagas'
   ),
   (
     'home_companies_section',
-    'Empresas parceiras estÃ£o contratando agora',
-    'ConheÃ§a empresas que estruturam seus processos seletivos com o People Jobs.',
+    'Empresas parceiras estão contratando agora',
+    'Conheça empresas que estruturam seus processos seletivos com o People Jobs.',
     null,
     'Ver mais empresas',
     '/empresas'
@@ -784,15 +784,15 @@ values
   (
     'home_jobs_section',
     'Vagas abertas recentemente',
-    'Veja as Ãºltimas oportunidades publicadas por empresas parceiras.',
+    'Veja as últimas oportunidades publicadas por empresas parceiras.',
     null,
     'Ver todas as vagas',
     '/vagas'
   ),
   (
     'home_company_cta',
-    'Sua empresa quer contratar com mais critÃ©rio?',
-    'O People Jobs estrutura processos de contrataÃ§Ã£o para reduzir improviso, rotatividade e decisÃµes baseadas apenas em currÃ­culo.',
+    'Sua empresa quer contratar com mais critério?',
+    'O People Jobs estrutura processos de contratação para reduzir improviso, rotatividade e decisões baseadas apenas em currículo.',
     null,
     'Falar com a People Jobs',
     'mailto:contato@peoplejobs.com.br'

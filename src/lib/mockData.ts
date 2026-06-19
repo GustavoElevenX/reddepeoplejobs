@@ -9,6 +9,7 @@ import type {
 } from '../types';
 
 const now = new Date().toISOString();
+const demoPublishedAt = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString();
 const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
 const companyDistributionDefaults = {
@@ -17,7 +18,7 @@ const companyDistributionDefaults = {
 };
 
 const jobDistributionDefaults = {
-  published_at: now,
+  published_at: demoPublishedAt,
   expires_at: expiresAt,
   distribution_google_enabled: true,
   distribution_indeed_enabled: false,

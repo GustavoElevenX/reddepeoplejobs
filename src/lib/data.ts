@@ -93,6 +93,23 @@ function replaceText(value: string, search: string, replacement: string) {
   return value.split(search).join(replacement);
 }
 
+function fixMojibake(value: string) {
+  if (!/[ÃÂ]/.test(value)) return value;
+
+  const bytes = new Uint8Array(value.length);
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code > 255) return value;
+    bytes[index] = code;
+  }
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return value;
+  }
+}
+
 function normalizeBrandText(value: string | null) {
   if (!value) return null;
 
@@ -100,7 +117,7 @@ function normalizeBrandText(value: string | null) {
     ['Redde People Jobs', 'People Jobs'],
     ['Redde People', 'People Jobs'],
     ['reddepeople.com.br', 'peoplejobs.com.br'],
-  ].reduce((text, [search, replacement]) => replaceText(text, search, replacement), value);
+  ].reduce((text, [search, replacement]) => replaceText(text, search, replacement), fixMojibake(value));
 }
 
 function normalizeSiteContent(content: SiteContent | null): SiteContent | null {
@@ -116,10 +133,42 @@ function normalizeSiteContent(content: SiteContent | null): SiteContent | null {
   };
 }
 
+function normalizeCompanySummary(company?: Job['company'] | null): Job['company'] | undefined {
+  if (!company) return undefined;
+
+  return {
+    ...company,
+    name: normalizeBrandText(company.name) ?? company.name,
+    segment: normalizeBrandText(company.segment),
+    city: normalizeBrandText(company.city),
+    state: normalizeBrandText(company.state),
+    about_text: normalizeBrandText(company.about_text),
+    legal_name: normalizeBrandText(company.legal_name),
+  };
+}
+
 function normalizeJob(row: JobRow): Job {
   const { companies, ...job } = row;
+  const company = normalizeCompanySummary(companies);
+
   return {
     ...job,
+    title: normalizeBrandText(job.title) ?? job.title,
+    short_description: normalizeBrandText(job.short_description),
+    description: normalizeBrandText(job.description) ?? job.description,
+    about_job: normalizeBrandText(job.about_job),
+    responsibilities: normalizeBrandText(job.responsibilities),
+    requirements: normalizeBrandText(job.requirements),
+    desirable_requirements: normalizeBrandText(job.desirable_requirements),
+    benefits: normalizeBrandText(job.benefits),
+    salary_range: normalizeBrandText(job.salary_range),
+    seniority: normalizeBrandText(job.seniority),
+    education_level: normalizeBrandText(job.education_level),
+    work_schedule: normalizeBrandText(job.work_schedule),
+    about_company: normalizeBrandText(job.about_company),
+    neighborhood: normalizeBrandText(job.neighborhood),
+    city: normalizeBrandText(job.city),
+    state: normalizeBrandText(job.state),
     franchise_id: job.franchise_id ?? companies?.franchise_id ?? null,
     published_at: job.published_at ?? (job.status === 'open' ? job.created_at : null),
     expires_at: job.expires_at ?? job.application_deadline ?? null,
@@ -149,7 +198,7 @@ function normalizeJob(row: JobRow): Job {
     billing_due_date: job.billing_due_date ?? null,
     finance_responsible: job.finance_responsible ?? null,
     franchise_commission: job.franchise_commission ?? null,
-    company: companies ?? undefined,
+    company,
   };
 }
 
@@ -157,9 +206,18 @@ function normalizeCompany(row: Company | CompanyRow): Company {
   const { franchises, ...company } = row as CompanyRow;
   return {
     ...company,
+    name: normalizeBrandText(company.name) ?? company.name,
+    segment: normalizeBrandText(company.segment),
+    city: normalizeBrandText(company.city),
+    state: normalizeBrandText(company.state),
+    employees_range: normalizeBrandText(company.employees_range),
+    short_description: normalizeBrandText(company.short_description),
+    about_text: normalizeBrandText(company.about_text),
+    why_work_here: normalizeBrandText(company.why_work_here),
+    culture_text: normalizeBrandText(company.culture_text),
     franchise_id: company.franchise_id ?? null,
     commercial_status: company.commercial_status ?? 'active_client',
-    legal_name: company.legal_name ?? null,
+    legal_name: normalizeBrandText(company.legal_name),
     same_as_url: company.same_as_url ?? null,
     franchise: franchises ?? ('franchise' in row ? row.franchise : undefined),
   };
@@ -188,10 +246,9 @@ function normalizeApplication(row: ApplicationRow): Application {
 }
 
 function withCompany(job: Job, companies: Company[]): Job {
-  return {
-    ...job,
-    company: companies.find((company) => company.id === job.company_id) ?? job.company,
-  };
+  const { company: existingCompany, ...jobFields } = job;
+  const company = companies.find((item) => item.id === job.company_id) ?? existingCompany ?? null;
+  return normalizeJob({ ...jobFields, companies: company });
 }
 
 function filterCompanies(companies: Company[], filters: CompanyFilters = {}, franchises = getLocalStore().franchises) {
@@ -259,7 +316,7 @@ function filterJobs(jobs: Job[], filters: JobFilters = {}, store = getLocalStore
         job.short_description?.toLowerCase().includes(search)
       );
     })
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .sort((a, b) => (b.published_at ?? b.created_at).localeCompare(a.published_at ?? a.created_at))
     .slice(0, filters.limit ?? Number.POSITIVE_INFINITY);
 }
 
@@ -551,6 +608,7 @@ export async function listJobs(filters: JobFilters = {}) {
           )
         `,
       )
+      .order('published_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
 
     if (filters.openOnly) query = query.eq('status', 'open');

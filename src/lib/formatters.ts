@@ -1,4 +1,4 @@
-import { format, formatDistanceToNowStrict, parseISO } from 'date-fns';
+import { differenceInCalendarDays, format, formatDistanceToNowStrict, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type {
   ApplicationStage,
@@ -105,6 +105,19 @@ export function formatDate(value?: string | null) {
 export function formatRelativeDate(value?: string | null) {
   if (!value) return '-';
   return `há ${formatDistanceToNowStrict(parseISO(value), { locale: ptBR })}`;
+}
+
+export function formatPublicRelativeDate(value?: string | null) {
+  if (!value) return '-';
+
+  const publishedDate = parseISO(value);
+  const days = differenceInCalendarDays(new Date(), publishedDate);
+
+  if (days <= 0) return 'hoje';
+  if (days === 1) return 'ontem';
+  if (days < 45) return `há ${days} dias`;
+
+  return `em ${formatDate(value)}`;
 }
 
 export function formatLocation(city?: string | null, state?: string | null, neighborhood?: string | null) {

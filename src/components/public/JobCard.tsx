@@ -1,7 +1,7 @@
 import { ArrowRight, Building2, CalendarDays, MapPin } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { contractTypeLabels, formatLocation, formatRelativeDate, formatSalaryRange, modalityLabels } from '../../lib/formatters';
+import { contractTypeLabels, formatLocation, formatPublicRelativeDate, formatSalaryRange, modalityLabels } from '../../lib/formatters';
 import type { Job } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -53,7 +53,7 @@ export function JobCard({ job }: JobCardProps) {
         </span>
         <span className="flex items-center gap-2">
           <CalendarDays size={15} />
-          Publicada {formatRelativeDate(job.created_at)}
+          Publicada {formatPublicRelativeDate(job.published_at ?? job.created_at)}
         </span>
       </div>
       <Link to={`/empresa/${companySlug}/vagas/${job.slug}`} className="mt-5">
