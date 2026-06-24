@@ -89,6 +89,34 @@ type ApplicationFilters = {
   status?: ApplicationStatus | 'all';
 };
 
+const OPTIONAL_JOB_BILLING_COLUMNS = [
+  'billing_amount',
+  'billing_type',
+  'billing_status',
+  'billing_due_date',
+  'finance_responsible',
+  'franchise_commission',
+] as const;
+
+function isMissingOptionalJobBillingColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') return false;
+
+  const { code, message } = error as { code?: string; message?: string };
+  return (
+    code === 'PGRST204' &&
+    Boolean(message?.includes("column of 'jobs'")) &&
+    OPTIONAL_JOB_BILLING_COLUMNS.some((column) => message?.includes(`'${column}'`))
+  );
+}
+
+function withoutOptionalJobBillingColumns<T extends Record<string, unknown>>(payload: T) {
+  const nextPayload: Record<string, unknown> = { ...payload };
+  OPTIONAL_JOB_BILLING_COLUMNS.forEach((column) => {
+    delete nextPayload[column];
+  });
+  return nextPayload;
+}
+
 function replaceText(value: string, search: string, replacement: string) {
   return value.split(search).join(replacement);
 }
@@ -752,16 +780,26 @@ export async function upsertJob(values: Partial<Job> & Pick<Job, 'company_id' | 
   };
 
   if (hasSupabaseConfig && supabase) {
+    const client = supabase;
     const payload = {
       ...normalizedValues,
       updated_at: timestamp,
     };
-    const { data, error } = values.id
-      ? await supabase.from('jobs').update(payload).eq('id', values.id).select('*').single()
-      : await supabase.from('jobs').insert(payload).select('*').single();
+    const saveJob = (nextPayload: Record<string, unknown>) =>
+      values.id
+        ? client.from('jobs').update(nextPayload).eq('id', values.id).select('*').single()
+        : client.from('jobs').insert(nextPayload).select('*').single();
+
+    let result = await saveJob(payload);
+
+    if (result.error && isMissingOptionalJobBillingColumnError(result.error)) {
+      result = await saveJob(withoutOptionalJobBillingColumns(payload));
+    }
+
+    const { data, error } = result;
 
     if (error) throw error;
-    return data as Job;
+    return normalizeJob(data as JobRow);
   }
 
   const store = getLocalStore();
