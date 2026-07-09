@@ -36,7 +36,7 @@ export function CandidateConfirmation() {
     if (!token) return;
     setError('');
     try {
-      confirmCandidatePresence(token);
+      await confirmCandidatePresence(token);
       setConfirmed(true);
       await load();
     } catch (confirmError) {

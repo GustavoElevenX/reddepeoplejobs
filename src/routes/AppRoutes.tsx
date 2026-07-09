@@ -6,6 +6,7 @@ import { CompanyDashboard } from '../pages/admin/CompanyDashboard';
 import { CompanyProfileEditor } from '../pages/admin/CompanyProfileEditor';
 import { FranchiseCompanies } from '../pages/admin/FranchiseCompanies';
 import { FranchiseDashboard } from '../pages/admin/FranchiseDashboard';
+import { FranchiseProjectDetail } from '../pages/admin/FranchiseProjectDetail';
 import { FranchiseWorkspace } from '../pages/admin/FranchiseWorkspace';
 import { MasterFranchises } from '../pages/admin/MasterFranchises';
 import { AdminRouter } from '../pages/admin/AdminRouter';
@@ -129,12 +130,11 @@ export function AppRoutes() {
         <Route path="/admin/franqueado" element={<FranchiseWorkspace />} />
         <Route path="/admin/franqueado/legado" element={<FranchiseDashboard />} />
         <Route path="/admin/franqueado/empresas" element={<FranchiseCompanies />} />
+        <Route path="/admin/franqueado/projetos/:projectId" element={<FranchiseProjectDetail />} />
         <Route path="/admin/franqueado/:moduleKey" element={<FranchiseWorkspace />} />
         <Route path="/franqueado/processos" element={<Processes scope="franchise" />} />
         <Route path="/franqueado/processos/:id" element={<ProcessDetail scope="franchise" />} />
         <Route path="/admin/franqueado/processos" element={<Navigate to="/franqueado/processos" replace />} />
-        <Route path="/admin/franqueado/vagas" element={<Navigate to="/franqueado/processos" replace />} />
-        <Route path="/admin/franqueado/candidatos" element={<Navigate to="/franqueado/processos" replace />} />
       </Route>
 
       <Route element={<ProtectedRoute roles={['empresa_cliente', 'company_admin', 'company_recruiter']} />}>

@@ -19,14 +19,28 @@ export function PublicBriefing() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    let isMounted = true;
     if (!token) {
       setLoading(false);
       return;
     }
-    const data = getPublicBriefing(token);
-    setBriefing(data);
-    setForm(data?.payload ?? null);
-    setLoading(false);
+    async function load() {
+      try {
+        const data = await getPublicBriefing(token!);
+        if (!isMounted) return;
+        setBriefing(data);
+        setForm(data?.payload ?? null);
+      } catch (loadError) {
+        if (isMounted) setError(loadError instanceof Error ? loadError.message : 'Não foi possível carregar.');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      isMounted = false;
+    };
   }, [token]);
 
   if (loading) return <LoadingState label="Carregando briefing..." />;
@@ -37,7 +51,7 @@ export function PublicBriefing() {
   async function submit(approve: boolean) {
     setError('');
     try {
-      const updated = saveBriefing(token!, form!, approve ? 'filled' : 'in_progress', 'client');
+      const updated = await saveBriefing(token!, form!, approve ? 'filled' : 'in_progress', 'client');
       setBriefing(updated);
       setSaved(true);
     } catch (submitError) {

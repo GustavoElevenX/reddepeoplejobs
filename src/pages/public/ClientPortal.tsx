@@ -162,14 +162,34 @@ export function ClientPortal() {
           </form>
         </Card>
 
-        {selected ? <ScheduleForm finalist={selected} onSubmit={(fn) => action(fn, 'Entrevista agendada. O candidato já pode confirmar presença pelo link gerado.')} /> : null}
-        {decisionSelected ? <DecisionForm finalist={decisionSelected} onSubmit={(fn) => action(fn, 'Decisão registrada com sucesso.')} /> : null}
+        {selected ? (
+          <ScheduleForm
+            portalToken={token!}
+            finalist={selected}
+            onSubmit={(fn) => action(fn, 'Entrevista agendada. O candidato já pode confirmar presença pelo link gerado.')}
+          />
+        ) : null}
+        {decisionSelected ? (
+          <DecisionForm
+            portalToken={token!}
+            finalist={decisionSelected}
+            onSubmit={(fn) => action(fn, 'Decisão registrada com sucesso.')}
+          />
+        ) : null}
       </div>
     </main>
   );
 }
 
-function ScheduleForm({ finalist, onSubmit }: { finalist: FinalistRecord; onSubmit: (fn: () => unknown) => void }) {
+function ScheduleForm({
+  finalist,
+  portalToken,
+  onSubmit,
+}: {
+  finalist: FinalistRecord;
+  portalToken: string;
+  onSubmit: (fn: () => unknown) => void;
+}) {
   return (
     <Card className="p-5">
       <h2 className="text-xl font-black text-ink-900">Agendar entrevista</h2>
@@ -179,14 +199,18 @@ function ScheduleForm({ finalist, onSubmit }: { finalist: FinalistRecord; onSubm
           event.preventDefault();
           const form = new FormData(event.currentTarget);
           onSubmit(() =>
-            scheduleInterview(finalist.id, {
-              date: String(form.get('date') || ''),
-              time: String(form.get('time') || ''),
-              duration_minutes: Number(form.get('duration') || 45),
-              format: String(form.get('format') || 'online') as 'presencial' | 'online' | 'telefone',
-              location_or_link: String(form.get('location') || ''),
-              notes: String(form.get('notes') || ''),
-            }),
+            scheduleInterview(
+              finalist.id,
+              {
+                date: String(form.get('date') || ''),
+                time: String(form.get('time') || ''),
+                duration_minutes: Number(form.get('duration') || 45),
+                format: String(form.get('format') || 'online') as 'presencial' | 'online' | 'telefone',
+                location_or_link: String(form.get('location') || ''),
+                notes: String(form.get('notes') || ''),
+              },
+              portalToken,
+            ),
           );
         }}
       >
@@ -215,7 +239,15 @@ function ScheduleForm({ finalist, onSubmit }: { finalist: FinalistRecord; onSubm
   );
 }
 
-function DecisionForm({ finalist, onSubmit }: { finalist: FinalistRecord; onSubmit: (fn: () => Promise<unknown>) => void }) {
+function DecisionForm({
+  finalist,
+  portalToken,
+  onSubmit,
+}: {
+  finalist: FinalistRecord;
+  portalToken: string;
+  onSubmit: (fn: () => Promise<unknown>) => void;
+}) {
   const [decision, setDecision] = useState<'approved' | 'rejected' | 'undecided'>('approved');
   return (
     <Card className="p-5">
@@ -226,16 +258,20 @@ function DecisionForm({ finalist, onSubmit }: { finalist: FinalistRecord; onSubm
           event.preventDefault();
           const form = new FormData(event.currentTarget);
           onSubmit(() =>
-            saveHiringDecision(finalist.id, {
-              decision,
-              start_date: String(form.get('start_date') || '') || null,
-              internal_responsible_name: String(form.get('responsible_name') || ''),
-              internal_responsible_email: String(form.get('responsible_email') || ''),
-              internal_responsible_phone: String(form.get('responsible_phone') || ''),
-              admission_notes: String(form.get('admission_notes') || ''),
-              required_documents: String(form.get('required_documents') || ''),
-              rejection_reason: String(form.get('rejection_reason') || ''),
-            }),
+            saveHiringDecision(
+              finalist.id,
+              {
+                decision,
+                start_date: String(form.get('start_date') || '') || null,
+                internal_responsible_name: String(form.get('responsible_name') || ''),
+                internal_responsible_email: String(form.get('responsible_email') || ''),
+                internal_responsible_phone: String(form.get('responsible_phone') || ''),
+                admission_notes: String(form.get('admission_notes') || ''),
+                required_documents: String(form.get('required_documents') || ''),
+                rejection_reason: String(form.get('rejection_reason') || ''),
+              },
+              portalToken,
+            ),
           );
         }}
       >

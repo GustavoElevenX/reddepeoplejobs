@@ -617,6 +617,11 @@ export function FranchiseWorkspace() {
                     <FileCheck2 size={16} />
                     Briefing
                   </Button>
+                  <Link to={`/admin/franqueado/projetos/${project.id}`}>
+                    <Button variant="secondary">
+                      Detalhe
+                    </Button>
+                  </Link>
                   <Button onClick={() => safeAction(() => generateJobDescription(project.id))}>
                     <Sparkles size={16} />
                     Gerar descrição

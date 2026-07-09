@@ -487,6 +487,54 @@ function writeStore(store: FranchiseOpsStore) {
   window.localStorage.setItem(STORE_KEY, JSON.stringify(store));
 }
 
+function useRemoteOps() {
+  return Boolean(hasSupabaseConfig && supabase);
+}
+
+function asArray<T>(data: T[] | null | undefined) {
+  return data ?? [];
+}
+
+async function selectByFranchise<T>(table: string, franchiseId: string) {
+  if (!supabase) return [] as T[];
+  const { data, error } = await supabase.from(table).select('*').eq('franchise_id', franchiseId);
+  if (error) throw error;
+  return asArray(data) as T[];
+}
+
+function normalizeBriefing(row: JobBriefing): JobBriefing {
+  return {
+    ...row,
+    payload: row.payload ?? ({} as BriefingPayload),
+  };
+}
+
+function normalizeDescription(row: JobDescriptionDraft): JobDescriptionDraft {
+  return {
+    ...row,
+    content: row.content ?? ({} as GeneratedJobDescription),
+  };
+}
+
+async function insertRemote<T>(table: string, payload: Record<string, unknown>) {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const { data, error } = await supabase.from(table).insert(payload).select('*').single();
+  if (error) throw error;
+  return data as T;
+}
+
+async function updateRemote<T>(table: string, id: string, patch: Record<string, unknown>) {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const { data, error } = await supabase
+    .from(table)
+    .update({ ...patch, updated_at: todayIso() })
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as T;
+}
+
 function todayIso() {
   return new Date().toISOString();
 }
@@ -552,6 +600,91 @@ export function getDefaultBriefingPayload(opportunity: SalesOpportunity, project
 }
 
 export async function listFranchiseWorkspace(franchiseId: string): Promise<FranchiseWorkspaceData> {
+  if (useRemoteOps()) {
+    const [
+      companies,
+      jobs,
+      applications,
+      opportunities,
+      projects,
+      briefings,
+      jobDescriptions,
+      contracts,
+      serviceOrders,
+      accountsReceivable,
+      accountsPayable,
+      invoices,
+      tasks,
+      finalists,
+      schedules,
+      hiringDecisions,
+      npsResponses,
+      postSaleTasks,
+      documents,
+      conversations,
+    ] = await Promise.all([
+      listCompanies({ franchiseId }),
+      listJobs({ franchiseId }),
+      listApplications({ franchiseId }),
+      selectByFranchise<SalesOpportunity>('sales_opportunities', franchiseId),
+      selectByFranchise<FranchiseProject>('projects', franchiseId),
+      selectByFranchise<JobBriefing>('job_briefings', franchiseId),
+      selectByFranchise<JobDescriptionDraft>('job_descriptions', franchiseId),
+      selectByFranchise<ContractRecord>('contracts', franchiseId),
+      selectByFranchise<ServiceOrder>('service_orders', franchiseId),
+      selectByFranchise<AccountReceivable>('accounts_receivable', franchiseId),
+      selectByFranchise<AccountPayable>('accounts_payable', franchiseId),
+      selectByFranchise<InvoiceRecord>('invoices', franchiseId),
+      selectByFranchise<NotificationTask>('notification_tasks', franchiseId),
+      selectByFranchise<FinalistRecord>('finalists', franchiseId),
+      selectByFranchise<ClientInterviewSchedule>('client_interview_schedules', franchiseId),
+      selectByFranchise<HiringDecision>('hiring_decisions', franchiseId),
+      selectByFranchise<NpsResponse>('nps_responses', franchiseId),
+      selectByFranchise<PostSaleTask>('post_sale_tasks', franchiseId),
+      selectByFranchise<DocumentRecord>('documents', franchiseId),
+      selectByFranchise<ChatConversation>('chat_conversations', franchiseId),
+    ]);
+    const conversationIds = conversations.map((item) => item.id);
+    const messages = conversationIds.length
+      ? (((await supabase!
+          .from('chat_messages')
+          .select('*')
+          .in('conversation_id', conversationIds)).data ?? []) as ChatMessage[])
+      : [];
+
+    return {
+      opportunities,
+      projects,
+      briefings: briefings.map(normalizeBriefing),
+      jobDescriptions: jobDescriptions.map(normalizeDescription),
+      contracts,
+      serviceOrders,
+      accountsReceivable,
+      accountsPayable,
+      invoices,
+      tasks,
+      finalists,
+      schedules,
+      hiringDecisions,
+      npsResponses,
+      postSaleTasks,
+      documents,
+      conversations,
+      messages,
+      companies,
+      jobs,
+      applications: applications.map((application) => {
+        const ranking = createApplicationRanking(application, jobs.find((job) => job.id === application.job_id));
+        return {
+          ...application,
+          match_score: application.match_score ?? ranking.score,
+          adhesion_score: application.adhesion_score ?? ranking.score,
+          professional_summary: application.professional_summary ?? ranking.summary,
+        };
+      }),
+    };
+  }
+
   const store = readStore();
   const [companies, jobs, applications] = await Promise.all([
     listCompanies({ franchiseId }),
@@ -597,7 +730,6 @@ export function createSalesOpportunity(
   input: Partial<SalesOpportunity> &
     Pick<SalesOpportunity, 'company_name' | 'contact_name' | 'contact_phone' | 'contact_email' | 'service_name'>,
 ) {
-  const store = readStore();
   const timestamp = todayIso();
   const opportunity: SalesOpportunity = {
     id: makeId(),
@@ -629,12 +761,17 @@ export function createSalesOpportunity(
     created_at: timestamp,
     updated_at: timestamp,
   };
+  if (useRemoteOps()) return insertRemote<SalesOpportunity>('sales_opportunities', opportunity);
+
+  const store = readStore();
   store.opportunities.unshift(opportunity);
   writeStore(store);
   return opportunity;
 }
 
 export function updateSalesOpportunity(id: string, patch: Partial<SalesOpportunity>) {
+  if (useRemoteOps()) return updateRemote<SalesOpportunity>('sales_opportunities', id, patch as Record<string, unknown>);
+
   const store = readStore();
   const index = store.opportunities.findIndex((item) => item.id === id);
   if (index < 0) throw new Error('Oportunidade nao encontrada.');
@@ -667,13 +804,27 @@ export function getConversionMissingFields(opportunity: SalesOpportunity) {
 }
 
 export async function convertOpportunityToProject(opportunityId: string) {
-  const store = readStore();
-  const opportunity = store.opportunities.find((item) => item.id === opportunityId);
+  let store = readStore();
+  let opportunity = store.opportunities.find((item) => item.id === opportunityId) ?? null;
+  if (useRemoteOps()) {
+    const { data, error } = await supabase!
+      .from('sales_opportunities')
+      .select('*')
+      .eq('id', opportunityId)
+      .single();
+    if (error) throw error;
+    opportunity = data as SalesOpportunity;
+  }
   if (!opportunity) throw new Error('Oportunidade nao encontrada.');
 
   const missing = getConversionMissingFields(opportunity);
   if (missing.length) {
     throw new Error(`Preencha antes de converter: ${missing.join(', ')}.`);
+  }
+  if (opportunity.contract_status !== 'signed' || !['paid', 'waived'].includes(opportunity.initial_payment_status)) {
+    throw new Error(
+      'Para iniciar o projeto, o contrato precisa estar assinado e a entrada registrada como paga ou dispensada.',
+    );
   }
 
   const companies = await listCompanies({ franchiseId: opportunity.franchise_id });
@@ -785,6 +936,23 @@ export async function convertOpportunityToProject(opportunityId: string) {
     updated_at: timestamp,
   };
 
+  if (useRemoteOps()) {
+    await Promise.all([
+      insertRemote<FranchiseProject>('projects', project),
+      insertRemote<ServiceOrder>('service_orders', serviceOrder),
+      insertRemote<AccountReceivable>('accounts_receivable', receivable),
+      insertRemote<JobBriefing>('job_briefings', briefing),
+      insertRemote<ContractRecord>('contracts', contract),
+      insertRemote<NotificationTask>('notification_tasks', task),
+    ]);
+    await updateRemote<SalesOpportunity>('sales_opportunities', opportunity.id, {
+      client_id: company.id,
+      stage: 'won',
+      converted_project_id: project.id,
+    });
+    return { project, company, briefing, serviceOrder, receivable, contract };
+  }
+
   store.projects.unshift(project);
   store.serviceOrders.unshift(serviceOrder);
   store.accountsReceivable.unshift(receivable);
@@ -807,6 +975,47 @@ export function saveBriefing(
   status: BriefingStatus = 'filled',
   filledBy: JobBriefing['filled_by'] = 'franchise',
 ) {
+  if (useRemoteOps()) {
+    if (filledBy === 'client') {
+      return (async () => {
+        const { data, error } = await supabase!.rpc('save_public_briefing', {
+          access_token: briefingIdOrToken,
+          next_payload: payload,
+        });
+        if (error) throw error;
+        return normalizeBriefing(data as JobBriefing);
+      })();
+    }
+
+    return (async () => {
+      const { data: briefing, error } = await supabase!
+        .from('job_briefings')
+        .select('*')
+        .or(`id.eq.${briefingIdOrToken},secure_token.eq.${briefingIdOrToken}`)
+        .single();
+      if (error) throw error;
+      const current = normalizeBriefing(briefing as JobBriefing);
+      const timestamp = todayIso();
+      const updated = await updateRemote<JobBriefing>('job_briefings', current.id, {
+        payload,
+        status,
+        filled_by: filledBy,
+        filled_at: status === 'filled' || status === 'approved' ? timestamp : current.filled_at,
+        approved_at: status === 'approved' ? timestamp : current.approved_at,
+      });
+      await updateRemote<FranchiseProject>('projects', current.project_id, {
+        ...(status === 'approved' ? { stage: 'briefing_received' } : {}),
+        next_step:
+          status === 'approved'
+            ? 'Gerar descricao da vaga'
+            : status === 'filled'
+              ? 'Franqueado revisar briefing'
+              : undefined,
+      });
+      return normalizeBriefing(updated);
+    })();
+  }
+
   const store = readStore();
   const index = store.briefings.findIndex(
     (item) => item.id === briefingIdOrToken || item.secure_token === briefingIdOrToken,
@@ -827,7 +1036,12 @@ export function saveBriefing(
       ? {
           ...project,
           stage: status === 'approved' ? 'briefing_received' : project.stage,
-          next_step: status === 'approved' ? 'Gerar descricao da vaga' : project.next_step,
+          next_step:
+            status === 'approved'
+              ? 'Gerar descricao da vaga'
+              : status === 'filled'
+                ? 'Franqueado revisar briefing'
+                : project.next_step,
           updated_at: timestamp,
         }
       : project,
@@ -873,9 +1087,22 @@ function fallbackJobDescription(briefing: JobBriefing): GeneratedJobDescription 
 
 export async function generateJobDescription(projectId: string) {
   const store = readStore();
-  const project = store.projects.find((item) => item.id === projectId);
-  const briefing = store.briefings.find((item) => item.project_id === projectId);
+  let project = store.projects.find((item) => item.id === projectId) ?? null;
+  let briefing = store.briefings.find((item) => item.project_id === projectId) ?? null;
+  if (useRemoteOps()) {
+    const [{ data: projectData, error: projectError }, { data: briefingData, error: briefingError }] = await Promise.all([
+      supabase!.from('projects').select('*').eq('id', projectId).single(),
+      supabase!.from('job_briefings').select('*').eq('project_id', projectId).single(),
+    ]);
+    if (projectError) throw projectError;
+    if (briefingError) throw briefingError;
+    project = projectData as FranchiseProject;
+    briefing = normalizeBriefing(briefingData as JobBriefing);
+  }
   if (!project || !briefing) throw new Error('Projeto ou briefing nao encontrado.');
+  if (briefing.status !== 'approved') {
+    throw new Error('A descrição da vaga só pode ser gerada depois que o briefing for aprovado pelo franqueado.');
+  }
 
   let content = fallbackJobDescription(briefing);
   let provider: JobDescriptionDraft['ai_provider'] = 'local';
@@ -896,18 +1123,54 @@ export async function generateJobDescription(projectId: string) {
 
   const timestamp = todayIso();
   const existingIndex = store.jobDescriptions.findIndex((item) => item.project_id === projectId);
+  let existingRemote: JobDescriptionDraft | null = null;
+  if (useRemoteOps()) {
+    const { data } = await supabase!
+      .from('job_descriptions')
+      .select('*')
+      .eq('project_id', projectId)
+      .maybeSingle();
+    existingRemote = data ? normalizeDescription(data as JobDescriptionDraft) : null;
+  }
   const draft: JobDescriptionDraft = {
-    id: existingIndex >= 0 ? store.jobDescriptions[existingIndex].id : makeId(),
+    id: existingRemote?.id ?? (existingIndex >= 0 ? store.jobDescriptions[existingIndex].id : makeId()),
     franchise_id: project.franchise_id,
     project_id: project.id,
     briefing_id: briefing.id,
     status: 'generated',
     content,
-    job_id: existingIndex >= 0 ? store.jobDescriptions[existingIndex].job_id : null,
+    job_id: existingRemote?.job_id ?? (existingIndex >= 0 ? store.jobDescriptions[existingIndex].job_id : null),
     ai_provider: provider,
-    created_at: existingIndex >= 0 ? store.jobDescriptions[existingIndex].created_at : timestamp,
+    created_at: existingRemote?.created_at ?? (existingIndex >= 0 ? store.jobDescriptions[existingIndex].created_at : timestamp),
     updated_at: timestamp,
   };
+
+  if (useRemoteOps()) {
+    const saved = existingRemote
+      ? await updateRemote<JobDescriptionDraft>('job_descriptions', draft.id, {
+          status: draft.status,
+          content: draft.content,
+          ai_provider: draft.ai_provider,
+        })
+      : await insertRemote<JobDescriptionDraft>('job_descriptions', draft);
+    await updateRemote<FranchiseProject>('projects', projectId, {
+      stage: 'description_review',
+      next_step: 'Revisar e aprovar descricao da vaga',
+    });
+    await insertRemote<NotificationTask>('notification_tasks', {
+      id: makeId(),
+      franchise_id: project.franchise_id,
+      project_id: project.id,
+      opportunity_id: project.opportunity_id,
+      title: `Descricao de ${content.title} aguardando aprovacao`,
+      type: 'job_description_review',
+      due_at: dateOnly(addDays(new Date(), 1)),
+      status: 'open',
+      created_at: timestamp,
+      updated_at: timestamp,
+    });
+    return normalizeDescription(saved);
+  }
 
   if (existingIndex >= 0) store.jobDescriptions[existingIndex] = draft;
   else store.jobDescriptions.unshift(draft);
@@ -934,10 +1197,25 @@ export async function generateJobDescription(projectId: string) {
 
 export async function approveJobDescriptionAndPublish(descriptionId: string, content: GeneratedJobDescription) {
   const store = readStore();
-  const draft = store.jobDescriptions.find((item) => item.id === descriptionId);
+  let draft = store.jobDescriptions.find((item) => item.id === descriptionId) ?? null;
+  if (useRemoteOps()) {
+    const { data, error } = await supabase!.from('job_descriptions').select('*').eq('id', descriptionId).single();
+    if (error) throw error;
+    draft = normalizeDescription(data as JobDescriptionDraft);
+  }
   if (!draft) throw new Error('Descricao nao encontrada.');
-  const project = store.projects.find((item) => item.id === draft.project_id);
-  const briefing = store.briefings.find((item) => item.id === draft.briefing_id);
+  let project = store.projects.find((item) => item.id === draft.project_id) ?? null;
+  let briefing = store.briefings.find((item) => item.id === draft.briefing_id) ?? null;
+  if (useRemoteOps()) {
+    const [{ data: projectData, error: projectError }, { data: briefingData, error: briefingError }] = await Promise.all([
+      supabase!.from('projects').select('*').eq('id', draft.project_id).single(),
+      supabase!.from('job_briefings').select('*').eq('id', draft.briefing_id).single(),
+    ]);
+    if (projectError) throw projectError;
+    if (briefingError) throw briefingError;
+    project = projectData as FranchiseProject;
+    briefing = normalizeBriefing(briefingData as JobBriefing);
+  }
   if (!project || !briefing) throw new Error('Projeto ou briefing nao encontrado.');
 
   const company = await getCompanyForProject(project);
@@ -972,12 +1250,32 @@ export async function approveJobDescriptionAndPublish(descriptionId: string, con
     process_status: 'in_progress',
     direct_apply: true,
     open_positions: Number(briefing.payload.positions || 1),
-    billing_amount: store.serviceOrders.find((item) => item.project_id === project.id)?.amount ?? null,
+    billing_amount: useRemoteOps()
+      ? (((await supabase!
+          .from('service_orders')
+          .select('amount')
+          .eq('project_id', project.id)
+          .maybeSingle()).data?.amount as number | null | undefined) ?? null)
+      : store.serviceOrders.find((item) => item.project_id === project.id)?.amount ?? null,
     billing_status: 'pending',
     published_at: todayIso(),
   });
 
   const timestamp = todayIso();
+  if (useRemoteOps()) {
+    await updateRemote<JobDescriptionDraft>('job_descriptions', descriptionId, {
+      content,
+      status: 'approved',
+      job_id: job.id,
+    });
+    await updateRemote<FranchiseProject>('projects', project.id, {
+      job_id: job.id,
+      stage: 'job_published',
+      next_step: 'Acompanhar candidaturas e ranking',
+    });
+    return job;
+  }
+
   store.jobDescriptions = store.jobDescriptions.map((item) =>
     item.id === descriptionId ? { ...item, content, status: 'approved', job_id: job.id, updated_at: timestamp } : item,
   );
@@ -996,15 +1294,19 @@ async function getCompanyForProject(project: FranchiseProject) {
 }
 
 export function createAccountPayable(franchiseId: string, input: Omit<AccountPayable, 'id' | 'franchise_id' | 'created_at' | 'updated_at'>) {
-  const store = readStore();
   const timestamp = todayIso();
   const item: AccountPayable = { id: makeId(), franchise_id: franchiseId, ...input, created_at: timestamp, updated_at: timestamp };
+  if (useRemoteOps()) return insertRemote<AccountPayable>('accounts_payable', item);
+
+  const store = readStore();
   store.accountsPayable.unshift(item);
   writeStore(store);
   return item;
 }
 
 export function updateReceivable(id: string, patch: Partial<AccountReceivable>) {
+  if (useRemoteOps()) return updateRemote<AccountReceivable>('accounts_receivable', id, patch as Record<string, unknown>);
+
   const store = readStore();
   const index = store.accountsReceivable.findIndex((item) => item.id === id);
   if (index < 0) throw new Error('Conta a receber nao encontrada.');
@@ -1014,6 +1316,8 @@ export function updateReceivable(id: string, patch: Partial<AccountReceivable>) 
 }
 
 export function updateContract(id: string, patch: Partial<ContractRecord>) {
+  if (useRemoteOps()) return updateRemote<ContractRecord>('contracts', id, patch as Record<string, unknown>);
+
   const store = readStore();
   const index = store.contracts.findIndex((item) => item.id === id);
   if (index < 0) throw new Error('Contrato nao encontrado.');
@@ -1023,6 +1327,8 @@ export function updateContract(id: string, patch: Partial<ContractRecord>) {
 }
 
 export function updateInvoice(id: string, patch: Partial<InvoiceRecord>) {
+  if (useRemoteOps()) return updateRemote<InvoiceRecord>('invoices', id, patch as Record<string, unknown>);
+
   const store = readStore();
   const index = store.invoices.findIndex((item) => item.id === id);
   if (index < 0) throw new Error('Nota fiscal nao encontrada.');
@@ -1033,9 +1339,16 @@ export function updateInvoice(id: string, patch: Partial<InvoiceRecord>) {
 
 export async function selectFinalist(projectId: string, applicationId: string, franchiseOpinion = '') {
   const store = readStore();
-  const project = store.projects.find((item) => item.id === projectId);
+  let project = store.projects.find((item) => item.id === projectId) ?? null;
+  if (useRemoteOps()) {
+    const { data, error } = await supabase!.from('projects').select('*').eq('id', projectId).single();
+    if (error) throw error;
+    project = data as FranchiseProject;
+  }
   if (!project) throw new Error('Projeto nao encontrado.');
-  const projectFinalists = store.finalists.filter((item) => item.project_id === projectId);
+  const projectFinalists = useRemoteOps()
+    ? (((await supabase!.from('finalists').select('*').eq('project_id', projectId)).data ?? []) as FinalistRecord[])
+    : store.finalists.filter((item) => item.project_id === projectId);
   if (projectFinalists.length >= 3 && !projectFinalists.some((item) => item.application_id === applicationId)) {
     throw new Error('Cada processo pode ter ate 3 finalistas.');
   }
@@ -1061,6 +1374,16 @@ export async function selectFinalist(projectId: string, applicationId: string, f
     created_at: timestamp,
     updated_at: timestamp,
   };
+  if (useRemoteOps()) {
+    const saved = await insertRemote<FinalistRecord>('finalists', finalist);
+    await updateRemote<FranchiseProject>('projects', projectId, {
+      stage: 'finalists_selected',
+      next_step: 'Liberar finalistas ao cliente',
+    });
+    await updateApplicationStatus(applicationId, 'selecionado');
+    return saved;
+  }
+
   store.finalists.unshift(finalist);
   store.projects = store.projects.map((item) =>
     item.id === projectId ? { ...item, stage: 'finalists_selected', next_step: 'Liberar finalistas ao cliente', updated_at: timestamp } : item,
@@ -1071,6 +1394,36 @@ export async function selectFinalist(projectId: string, applicationId: string, f
 }
 
 export function releaseFinalistsToClient(projectId: string) {
+  if (useRemoteOps()) {
+    return (async () => {
+      const { data: project, error } = await supabase!.from('projects').select('*').eq('id', projectId).single();
+      if (error) throw error;
+      const currentProject = project as FranchiseProject;
+      await supabase!
+        .from('finalists')
+        .update({ status: 'released_to_client', updated_at: todayIso() })
+        .eq('project_id', projectId)
+        .eq('status', 'approved_by_franchise');
+      await updateRemote<FranchiseProject>('projects', projectId, {
+        stage: 'waiting_client',
+        next_step: 'Cliente analisar finalistas e agendar entrevistas',
+      });
+      await insertRemote<NotificationTask>('notification_tasks', {
+        id: makeId(),
+        franchise_id: currentProject.franchise_id,
+        project_id: currentProject.id,
+        opportunity_id: currentProject.opportunity_id,
+        title: 'Finalistas liberados no portal do cliente',
+        type: 'client_finalists_released',
+        due_at: dateOnly(addDays(new Date(), 2)),
+        status: 'open',
+        created_at: todayIso(),
+        updated_at: todayIso(),
+      });
+      return currentProject.client_access_token;
+    })();
+  }
+
   const store = readStore();
   const project = store.projects.find((item) => item.id === projectId);
   if (!project) throw new Error('Projeto nao encontrado.');
@@ -1111,9 +1464,54 @@ export function scheduleInterview(
     | 'candidate_confirmation_token'
     | 'candidate_confirmed_at'
     | 'created_at'
-    | 'updated_at'
+      | 'updated_at'
   >,
+  portalToken?: string,
 ) {
+  if (useRemoteOps()) {
+    return (async () => {
+      if (portalToken) {
+        const { data, error } = await supabase!.rpc('schedule_client_interview', {
+          access_token: portalToken,
+          finalist_uuid: finalistId,
+          schedule_payload: input,
+        });
+        if (error) throw error;
+        return data as ClientInterviewSchedule;
+      }
+      const { data: finalist, error } = await supabase!.from('finalists').select('*').eq('id', finalistId).single();
+      if (error) throw error;
+      const currentFinalist = finalist as FinalistRecord;
+      const { data: conflict } = await supabase!
+        .from('client_interview_schedules')
+        .select('id')
+        .eq('project_id', currentFinalist.project_id)
+        .eq('date', input.date)
+        .eq('time', input.time)
+        .maybeSingle();
+      if (conflict) throw new Error('Ja existe entrevista neste horario para o projeto.');
+      const timestamp = todayIso();
+      const schedule = await insertRemote<ClientInterviewSchedule>('client_interview_schedules', {
+        id: makeId(),
+        franchise_id: currentFinalist.franchise_id,
+        project_id: currentFinalist.project_id,
+        finalist_id: currentFinalist.id,
+        application_id: currentFinalist.application_id,
+        candidate_confirmation_token: makeId(),
+        candidate_confirmed_at: null,
+        ...input,
+        created_at: timestamp,
+        updated_at: timestamp,
+      });
+      await updateRemote<FinalistRecord>('finalists', finalistId, { status: 'interview_scheduled' });
+      await updateRemote<FranchiseProject>('projects', currentFinalist.project_id, {
+        stage: 'client_interviews',
+        next_step: 'Aguardar confirmacao do candidato',
+      });
+      return schedule;
+    })();
+  }
+
   const store = readStore();
   const finalist = store.finalists.find((item) => item.id === finalistId);
   if (!finalist) throw new Error('Finalista nao encontrado.');
@@ -1148,6 +1546,16 @@ export function scheduleInterview(
 }
 
 export function confirmCandidatePresence(token: string) {
+  if (useRemoteOps()) {
+    return (async () => {
+      const { data: schedule, error } = await supabase!.rpc('confirm_candidate_presence', {
+        access_token: token,
+      });
+      if (error) throw error;
+      return schedule as ClientInterviewSchedule;
+    })();
+  }
+
   const store = readStore();
   const index = store.schedules.findIndex((item) => item.candidate_confirmation_token === token);
   if (index < 0) throw new Error('Entrevista nao encontrada.');
@@ -1172,6 +1580,7 @@ export function confirmCandidatePresence(token: string) {
 export async function saveHiringDecision(
   finalistId: string,
   input: Omit<HiringDecision, 'id' | 'franchise_id' | 'project_id' | 'application_id' | 'finalist_id' | 'created_at' | 'updated_at'>,
+  portalToken?: string,
 ) {
   if (input.decision === 'approved') {
     const required = [
@@ -1185,10 +1594,30 @@ export async function saveHiringDecision(
     }
   }
 
+  if (useRemoteOps() && portalToken) {
+    const { data, error } = await supabase!.rpc('save_portal_hiring_decision', {
+      access_token: portalToken,
+      finalist_uuid: finalistId,
+      decision_payload: input,
+    });
+    if (error) throw error;
+    return data as HiringDecision;
+  }
+
   const store = readStore();
-  const finalist = store.finalists.find((item) => item.id === finalistId);
+  let finalist = store.finalists.find((item) => item.id === finalistId) ?? null;
+  if (useRemoteOps()) {
+    const { data, error } = await supabase!.from('finalists').select('*').eq('id', finalistId).single();
+    if (error) throw error;
+    finalist = data as FinalistRecord;
+  }
   if (!finalist) throw new Error('Finalista nao encontrado.');
-  const project = store.projects.find((item) => item.id === finalist.project_id);
+  let project = store.projects.find((item) => item.id === finalist.project_id) ?? null;
+  if (useRemoteOps()) {
+    const { data, error } = await supabase!.from('projects').select('*').eq('id', finalist.project_id).single();
+    if (error) throw error;
+    project = data as FranchiseProject;
+  }
   if (!project) throw new Error('Projeto nao encontrado.');
   const timestamp = todayIso();
   const decision: HiringDecision = {
@@ -1201,6 +1630,74 @@ export async function saveHiringDecision(
     created_at: timestamp,
     updated_at: timestamp,
   };
+
+  if (useRemoteOps()) {
+    const saved = await insertRemote<HiringDecision>('hiring_decisions', decision);
+    await updateRemote<FinalistRecord>('finalists', finalistId, { status: 'client_decided' });
+
+    if (input.decision === 'approved') {
+      await updateRemote<FranchiseProject>('projects', finalist.project_id, {
+        stage: 'candidate_approved',
+        next_step: 'Enviar NPS e iniciar pos-venda',
+      });
+      const { data: serviceOrder } = await supabase!
+        .from('service_orders')
+        .select('*')
+        .eq('project_id', finalist.project_id)
+        .maybeSingle();
+      const { data: existingInvoice } = await supabase!
+        .from('invoices')
+        .select('id')
+        .eq('project_id', finalist.project_id)
+        .maybeSingle();
+      if (serviceOrder && !existingInvoice) {
+        await insertRemote<InvoiceRecord>('invoices', {
+          id: makeId(),
+          franchise_id: finalist.franchise_id,
+          client_id: project.client_id,
+          project_id: project.id,
+          service_order_id: serviceOrder.id,
+          amount: serviceOrder.amount,
+          status: 'ready_to_issue',
+          expected_date: dateOnly(addDays(new Date(), 1)),
+          issued_at: null,
+          number: '',
+          file_url: '',
+          notes: 'NFS-e preparada ao final do servico.',
+          created_at: timestamp,
+          updated_at: timestamp,
+        });
+      }
+      [30, 60, 90].forEach((days) => {
+        void insertRemote<PostSaleTask>('post_sale_tasks', {
+          id: makeId(),
+          franchise_id: finalist.franchise_id,
+          project_id: finalist.project_id,
+          client_id: project.client_id,
+          application_id: finalist.application_id,
+          title: `Fazer pos-venda de ${days} dias`,
+          due_date: dateOnly(addDays(input.start_date ? parseISO(input.start_date) : new Date(), days)),
+          contact_date: null,
+          responsible: input.internal_responsible_name,
+          candidate_status: '',
+          client_satisfaction: '',
+          replacement_risk: 'baixo',
+          new_position_identified: false,
+          referral_received: false,
+          notes: '',
+          next_action: '',
+          status: 'open',
+          created_at: timestamp,
+          updated_at: timestamp,
+        });
+      });
+      await updateApplicationStatus(finalist.application_id, 'aprovado');
+    } else if (input.decision === 'rejected') {
+      await updateApplicationStatus(finalist.application_id, 'reprovado');
+    }
+
+    return saved;
+  }
 
   store.hiringDecisions = store.hiringDecisions.filter((item) => item.finalist_id !== finalistId);
   store.hiringDecisions.unshift(decision);
@@ -1266,6 +1763,17 @@ export async function saveHiringDecision(
 }
 
 export function saveNps(projectTokenOrId: string, input: Omit<NpsResponse, 'id' | 'franchise_id' | 'project_id' | 'client_id' | 'created_at'>) {
+  if (useRemoteOps()) {
+    return (async () => {
+      const { data, error } = await supabase!.rpc('save_public_nps', {
+        access_token: projectTokenOrId,
+        nps_payload: input,
+      });
+      if (error) throw error;
+      return data as NpsResponse;
+    })();
+  }
+
   const store = readStore();
   const project = store.projects.find((item) => item.id === projectTokenOrId || item.client_access_token === projectTokenOrId);
   if (!project) throw new Error('Projeto nao encontrado.');
@@ -1287,6 +1795,8 @@ export function saveNps(projectTokenOrId: string, input: Omit<NpsResponse, 'id' 
 }
 
 export function updatePostSaleTask(id: string, patch: Partial<PostSaleTask>) {
+  if (useRemoteOps()) return updateRemote<PostSaleTask>('post_sale_tasks', id, patch as Record<string, unknown>);
+
   const store = readStore();
   const index = store.postSaleTasks.findIndex((item) => item.id === id);
   if (index < 0) throw new Error('Tarefa de pos-venda nao encontrada.');
@@ -1296,14 +1806,46 @@ export function updatePostSaleTask(id: string, patch: Partial<PostSaleTask>) {
 }
 
 export function addDocument(franchiseId: string, input: Omit<DocumentRecord, 'id' | 'franchise_id' | 'created_at'>) {
-  const store = readStore();
   const document: DocumentRecord = { id: makeId(), franchise_id: franchiseId, ...input, created_at: todayIso() };
+  if (useRemoteOps()) return insertRemote<DocumentRecord>('documents', document);
+
+  const store = readStore();
   store.documents.unshift(document);
   writeStore(store);
   return document;
 }
 
 export function addChatMessage(franchiseId: string, conversationId: string | null, body: string, title = 'Conversa interna') {
+  if (useRemoteOps()) {
+    return (async () => {
+      const timestamp = todayIso();
+      let currentConversationId = conversationId;
+      if (!currentConversationId) {
+        const conversation = await insertRemote<ChatConversation>('chat_conversations', {
+          id: makeId(),
+          franchise_id: franchiseId,
+          client_id: null,
+          application_id: null,
+          title,
+          channel: 'internal',
+          status: 'open',
+          tags: [],
+          responsible: '',
+          created_at: timestamp,
+          updated_at: timestamp,
+        });
+        currentConversationId = conversation.id;
+      }
+      return insertRemote<ChatMessage>('chat_messages', {
+        id: makeId(),
+        conversation_id: currentConversationId,
+        sender: 'franchise',
+        body,
+        created_at: timestamp,
+      });
+    })();
+  }
+
   const store = readStore();
   const timestamp = todayIso();
   let currentConversationId = conversationId;
@@ -1337,17 +1879,45 @@ export function addChatMessage(franchiseId: string, conversationId: string | nul
 }
 
 export function markTaskDone(id: string) {
+  if (useRemoteOps()) return updateRemote<NotificationTask>('notification_tasks', id, { status: 'done' });
+
   const store = readStore();
   store.tasks = store.tasks.map((item) => (item.id === id ? { ...item, status: 'done', updated_at: todayIso() } : item));
   writeStore(store);
 }
 
-export function getPublicBriefing(token: string) {
+export async function getPublicBriefing(token: string) {
+  if (useRemoteOps()) {
+    const { data, error } = await supabase!.rpc('get_public_briefing', {
+      access_token: token,
+    });
+    if (error) throw error;
+    return data ? normalizeBriefing(data as JobBriefing) : null;
+  }
+
   const store = readStore();
   return store.briefings.find((item) => item.secure_token === token) ?? null;
 }
 
 export async function getClientPortal(token: string) {
+  if (useRemoteOps()) {
+    const { data, error } = await supabase!.rpc('get_client_portal', {
+      access_token: token,
+    });
+    if (error) throw error;
+    if (!data?.project) return null;
+    return data as {
+      project: FranchiseProject;
+      company: Company | null;
+      job: Job | null;
+      finalists: FinalistRecord[];
+      schedules: ClientInterviewSchedule[];
+      decisions: HiringDecision[];
+      nps: NpsResponse | null;
+      applications: Application[];
+    };
+  }
+
   const store = readStore();
   const project = store.projects.find((item) => item.client_access_token === token);
   if (!project) return null;
@@ -1369,6 +1939,21 @@ export async function getClientPortal(token: string) {
 }
 
 export async function getCandidateConfirmation(token: string) {
+  if (useRemoteOps()) {
+    const { data, error } = await supabase!.rpc('get_candidate_confirmation', {
+      access_token: token,
+    });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row?.schedule) return null;
+    return {
+      schedule: row.schedule as ClientInterviewSchedule,
+      application: (row.application as Application | null) ?? null,
+      project: (row.project as FranchiseProject | null) ?? null,
+      company: (row.company as Company | null) ?? null,
+    };
+  }
+
   const store = readStore();
   const schedule = store.schedules.find((item) => item.candidate_confirmation_token === token);
   if (!schedule) return null;
