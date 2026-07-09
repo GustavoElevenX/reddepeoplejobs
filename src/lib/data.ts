@@ -1,6 +1,7 @@
 import { formatISO, startOfMonth, subDays } from 'date-fns';
 import { resolveApplicationStage } from './applicationStages';
 import { getCurrentLocalProfileId, getLocalStore, getSeedStore, makeId, setLocalStore } from './localDb';
+import { createApplicationRanking } from './ranking';
 import { hasSupabaseConfig, supabase } from './supabase';
 import type {
   Application,
@@ -974,11 +975,9 @@ export async function createApplication(
         : null) ??
       null,
   };
-
-  if (hasSupabaseConfig && supabase) {
-    const { error } = await supabase.from('applications').insert(payload);
-    if (error) throw error;
-    return {
+  const localJobForRanking = !hasSupabaseConfig ? getLocalStore().jobs.find((job) => job.id === values.job_id) : null;
+  const ranking = createApplicationRanking(
+    {
       id: '',
       ...payload,
       status: 'novo',
@@ -992,6 +991,37 @@ export async function createApplication(
       interview_scheduled_at: null,
       recruiter_opinion: null,
       professional_summary: null,
+      skills: [],
+      education: [],
+      experiences: [],
+      created_at: timestamp,
+      updated_at: timestamp,
+    } as Application,
+    localJobForRanking,
+  );
+
+  if (hasSupabaseConfig && supabase) {
+    const { error } = await supabase.from('applications').insert({
+      ...payload,
+      match_score: ranking.score,
+      adhesion_score: ranking.score,
+      professional_summary: ranking.summary,
+    });
+    if (error) throw error;
+    return {
+      id: '',
+      ...payload,
+      status: 'novo',
+      stage: 'qualificacao',
+      kanban_order: 0,
+      match_score: ranking.score,
+      adhesion_score: ranking.score,
+      is_new: true,
+      rejection_reason: null,
+      tags: [],
+      interview_scheduled_at: null,
+      recruiter_opinion: null,
+      professional_summary: ranking.summary,
       skills: [],
       education: [],
       experiences: [],
@@ -1016,14 +1046,14 @@ export async function createApplication(
     status: 'novo',
     stage: 'qualificacao',
     kanban_order: 0,
-    match_score: null,
-    adhesion_score: null,
+    match_score: ranking.score,
+    adhesion_score: ranking.score,
     is_new: true,
     rejection_reason: null,
     tags: [],
     interview_scheduled_at: null,
     recruiter_opinion: null,
-    professional_summary: null,
+    professional_summary: ranking.summary,
     skills: [],
     education: [],
     experiences: [],
@@ -1432,6 +1462,32 @@ export async function listProfiles() {
   }
 
   return getLocalStore().profiles;
+}
+
+export async function updateProfileFranchise(userId: string, franchiseId: string | null) {
+  const timestamp = new Date().toISOString();
+
+  if (hasSupabaseConfig && supabase) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ franchise_id: franchiseId, updated_at: timestamp })
+      .eq('id', userId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as Profile;
+  }
+
+  const store = getLocalStore();
+  const index = store.profiles.findIndex((profile) => profile.id === userId);
+  if (index < 0) throw new Error('Usuário não encontrado.');
+  store.profiles[index] = {
+    ...store.profiles[index],
+    franchise_id: franchiseId,
+    updated_at: timestamp,
+  };
+  setLocalStore(store);
+  return store.profiles[index];
 }
 
 export async function listCompanyAccess() {

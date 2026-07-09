@@ -106,6 +106,8 @@ serve(async (req) => {
 
   const password = payload.password ?? crypto.randomUUID();
 
+  let createdUserId = '';
+  let temporaryPassword: string | undefined = payload.password ? undefined : password;
   const { data: created, error: createError } = await adminClient.auth.admin.createUser({
     email: payload.email,
     password,
@@ -114,26 +116,42 @@ serve(async (req) => {
   });
 
   if (createError || !created.user) {
-    return Response.json({ error: createError?.message ?? 'Could not create user.' }, { status: 400, headers: corsHeaders });
+    if (!createError?.message?.toLowerCase().includes('already')) {
+      return Response.json({ error: createError?.message ?? 'Could not create user.' }, { status: 400, headers: corsHeaders });
+    }
+
+    const { data: existingUsers, error: listError } = await adminClient.auth.admin.listUsers();
+    const existingUser = existingUsers?.users.find((item) => item.email?.toLowerCase() === payload.email.toLowerCase());
+    if (listError || !existingUser) {
+      return Response.json({ error: 'User already exists in Auth, but could not be loaded.' }, { status: 400, headers: corsHeaders });
+    }
+    createdUserId = existingUser.id;
+    temporaryPassword = undefined;
+  } else {
+    createdUserId = created.user.id;
   }
 
-  const { error: profileError } = await adminClient.from('profiles').insert({
-    id: created.user.id,
+  const { error: profileError } = await adminClient.from('profiles').upsert({
+    id: createdUserId,
     full_name: payload.fullName,
     email: payload.email,
     role: payload.role,
     franchise_id: payload.franchiseId ?? null,
     created_by: callerProfile.id,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+  }, {
+    onConflict: 'id',
   });
 
   if (profileError) {
-    await adminClient.auth.admin.deleteUser(created.user.id);
+    if (created?.user) await adminClient.auth.admin.deleteUser(created.user.id);
     return Response.json({ error: profileError.message }, { status: 400, headers: corsHeaders });
   }
 
   if (payload.companyId && ['empresa_cliente', 'company_admin', 'company_recruiter'].includes(payload.role)) {
     const { error: accessError } = await adminClient.from('company_user_access').insert({
-      user_id: created.user.id,
+      user_id: createdUserId,
       company_id: payload.companyId,
       can_edit_company_page: payload.permissions?.can_edit_company_page ?? payload.role === 'company_admin',
       can_manage_jobs: payload.permissions?.can_manage_jobs ?? true,
@@ -143,16 +161,16 @@ serve(async (req) => {
     });
 
     if (accessError) {
-      await adminClient.auth.admin.deleteUser(created.user.id);
+      if (created?.user) await adminClient.auth.admin.deleteUser(created.user.id);
       return Response.json({ error: accessError.message }, { status: 400, headers: corsHeaders });
     }
   }
 
   return Response.json(
     {
-      userId: created.user.id,
+      userId: createdUserId,
       email: payload.email,
-      temporaryPassword: payload.password ? undefined : password,
+      temporaryPassword,
     },
     { headers: corsHeaders },
   );

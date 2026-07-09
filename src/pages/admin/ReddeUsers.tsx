@@ -16,6 +16,7 @@ import {
   listCompanyAccess,
   listFranchises,
   listProfiles,
+  updateProfileFranchise,
   updateCompanyAccess,
   type UserPermissionInput,
 } from '../../lib/data';
@@ -74,6 +75,7 @@ export function ReddeUsers() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [franchises, setFranchises] = useState<Franchise[]>([]);
   const [permissionDrafts, setPermissionDrafts] = useState<Record<string, UserPermissionInput>>({});
+  const [franchiseDrafts, setFranchiseDrafts] = useState<Record<string, string>>({});
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<CreateUserForm>(initialCreateForm);
   const [assignForm, setAssignForm] = useState<AssignForm>(initialAssignForm);
@@ -106,6 +108,13 @@ export function ReddeUsers() {
             can_download_resumes: item.can_download_resumes,
           },
         ]),
+      ),
+    );
+    setFranchiseDrafts(
+      Object.fromEntries(
+        profileData
+          .filter((profile) => profile.role === 'franqueado')
+          .map((profile) => [profile.id, profile.franchise_id ?? '']),
       ),
     );
     setLoading(false);
@@ -229,6 +238,28 @@ export function ReddeUsers() {
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível atualizar permissões.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSaveFranchise(profile: Profile) {
+    setError('');
+    setFeedback('');
+
+    const franchiseId = franchiseDrafts[profile.id] || '';
+    if (!franchiseId) {
+      setError('Selecione uma franquia para este usuário franqueado.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await updateProfileFranchise(profile.id, franchiseId);
+      setFeedback('Franquia do usuário atualizada.');
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Não foi possível atualizar a franquia do usuário.');
     } finally {
       setSubmitting(false);
     }
@@ -379,6 +410,34 @@ export function ReddeUsers() {
                     )}
                   </div>
                 </div>
+
+                {profile.role === 'franqueado' ? (
+                  <div className="mt-4 grid gap-3 rounded-lg bg-surface-50 p-3 md:grid-cols-[1fr_auto] md:items-end">
+                    <Select
+                      label="Franquia vinculada"
+                      value={franchiseDrafts[profile.id] ?? ''}
+                      onChange={(event) =>
+                        setFranchiseDrafts((current) => ({ ...current, [profile.id]: event.target.value }))
+                      }
+                      options={[
+                        { label: 'Selecione uma franquia', value: '' },
+                        ...franchises.map((franchise) => ({
+                          label: `${franchise.name} (${franchise.status === 'active' ? 'Ativa' : 'Inativa'})`,
+                          value: franchise.id,
+                        })),
+                      ]}
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => void handleSaveFranchise(profile)}
+                      disabled={submitting || (franchiseDrafts[profile.id] ?? '') === (profile.franchise_id ?? '')}
+                    >
+                      <Save size={15} />
+                      Salvar franquia
+                    </Button>
+                  </div>
+                ) : null}
 
                 {links.length ? (
                   <div className="mt-4 grid gap-3">

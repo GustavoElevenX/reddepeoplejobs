@@ -6,6 +6,7 @@ import { CompanyDashboard } from '../pages/admin/CompanyDashboard';
 import { CompanyProfileEditor } from '../pages/admin/CompanyProfileEditor';
 import { FranchiseCompanies } from '../pages/admin/FranchiseCompanies';
 import { FranchiseDashboard } from '../pages/admin/FranchiseDashboard';
+import { FranchiseWorkspace } from '../pages/admin/FranchiseWorkspace';
 import { MasterFranchises } from '../pages/admin/MasterFranchises';
 import { AdminRouter } from '../pages/admin/AdminRouter';
 import { Login } from '../pages/admin/Login';
@@ -16,11 +17,14 @@ import { ReddeUsers } from '../pages/admin/ReddeUsers';
 import { ProcessDetail } from '../pages/admin/ProcessDetail';
 import { Processes } from '../pages/admin/Processes';
 import { ApplicationSuccess } from '../pages/public/ApplicationSuccess';
+import { CandidateConfirmation } from '../pages/public/CandidateConfirmation';
+import { ClientPortal } from '../pages/public/ClientPortal';
 import { Companies } from '../pages/public/Companies';
 import { CompanyDetail } from '../pages/public/CompanyDetail';
 import { Home } from '../pages/public/Home';
 import { JobDetail } from '../pages/public/JobDetail';
 import { Jobs } from '../pages/public/Jobs';
+import { PublicBriefing } from '../pages/public/PublicBriefing';
 import { ProtectedRoute } from './ProtectedRoute';
 
 function PublicLayout() {
@@ -84,6 +88,9 @@ export function AppRoutes() {
         <Route path="/vagas" element={<Jobs />} />
         <Route path="/empresa/:companySlug/vagas/:jobSlug" element={<JobDetail />} />
         <Route path="/candidatura/sucesso" element={<ApplicationSuccess />} />
+        <Route path="/briefing/:token" element={<PublicBriefing />} />
+        <Route path="/portal-cliente/:token" element={<ClientPortal />} />
+        <Route path="/confirmar-presenca/:token" element={<CandidateConfirmation />} />
       </Route>
 
       <Route path="/admin/login" element={<Login />} />
@@ -119,8 +126,10 @@ export function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute roles={['franqueado']} />}>
-        <Route path="/admin/franqueado" element={<FranchiseDashboard />} />
+        <Route path="/admin/franqueado" element={<FranchiseWorkspace />} />
+        <Route path="/admin/franqueado/legado" element={<FranchiseDashboard />} />
         <Route path="/admin/franqueado/empresas" element={<FranchiseCompanies />} />
+        <Route path="/admin/franqueado/:moduleKey" element={<FranchiseWorkspace />} />
         <Route path="/franqueado/processos" element={<Processes scope="franchise" />} />
         <Route path="/franqueado/processos/:id" element={<ProcessDetail scope="franchise" />} />
         <Route path="/admin/franqueado/processos" element={<Navigate to="/franqueado/processos" replace />} />

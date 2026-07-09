@@ -2,17 +2,23 @@ import { getLocalStore, setCurrentLocalProfileId } from './localDb';
 import { hasSupabaseConfig, supabase } from './supabase';
 import type { Profile } from '../types';
 
-async function hasActiveFranchise(profile: Profile) {
-  if (profile.role !== 'franqueado') return true;
-  if (!profile.franchise_id || !supabase) return false;
+async function getFranchiseAccessIssue(profile: Profile) {
+  if (profile.role !== 'franqueado') return null;
+  if (!profile.franchise_id) {
+    return 'Este usuário de franqueado ainda não está vinculado a uma unidade. Entre como Admin Master, vá em Usuários e vincule o usuário a uma franquia ativa.';
+  }
+  if (!supabase) return 'Supabase não configurado.';
 
   const { data, error } = await supabase
     .from('franchises')
-    .select('id')
+    .select('id, name, status')
     .eq('id', profile.franchise_id)
-    .eq('status', 'active')
     .maybeSingle();
-  return !error && Boolean(data);
+
+  if (error) return 'Não foi possível validar a unidade vinculada a este usuário.';
+  if (!data) return 'A unidade vinculada a este usuário não foi encontrada.';
+  if (data.status !== 'active') return `A unidade ${data.name} está inativa. Ative a unidade no Admin Master.`;
+  return null;
 }
 
 export async function signIn(email: string, password: string) {
@@ -35,10 +41,13 @@ export async function signIn(email: string, password: string) {
       await supabase.auth.signOut();
       throw new Error('Este acesso está inativo. Fale com o Admin Master.');
     }
-    if (!(await hasActiveFranchise(currentProfile))) {
+
+    const franchiseIssue = await getFranchiseAccessIssue(currentProfile);
+    if (franchiseIssue) {
       await supabase.auth.signOut();
-      throw new Error('Esta unidade está inativa. Fale com o Admin Master.');
+      throw new Error(franchiseIssue);
     }
+
     return currentProfile;
   }
 
@@ -63,7 +72,7 @@ export async function getCurrentProfile() {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (error) return null;
     const profile = data as Profile;
-    if (!profile.is_active || !(await hasActiveFranchise(profile))) {
+    if (!profile.is_active || (await getFranchiseAccessIssue(profile))) {
       await supabase.auth.signOut();
       return null;
     }

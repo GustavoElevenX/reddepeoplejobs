@@ -1,8 +1,16 @@
 import {
+  BadgeDollarSign,
   Building2,
+  CalendarDays,
+  FileText,
   LayoutDashboard,
+  MessageSquareText,
   Network,
+  ReceiptText,
+  Settings,
+  Star,
   Users,
+  UsersRound,
   Workflow,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
@@ -26,9 +34,21 @@ export function Sidebar({ profile }: SidebarProps) {
       ]
     : franchisee
       ? [
-          { label: 'Minha operação', to: '/admin/franqueado', icon: LayoutDashboard },
-          { label: 'Empresas clientes', to: '/admin/franqueado/empresas', icon: Building2 },
-          { label: 'Processos seletivos', to: '/franqueado/processos', icon: Workflow },
+          { label: 'Dashboard', to: '/admin/franqueado', icon: LayoutDashboard },
+          { label: 'CRM de vendas', to: '/admin/franqueado/crm', icon: Workflow },
+          { label: 'Clientes', to: '/admin/franqueado/clientes', icon: Building2 },
+          { label: 'Projetos', to: '/admin/franqueado/projetos', icon: Network },
+          { label: 'Vagas', to: '/admin/franqueado/vagas', icon: FileText },
+          { label: 'Candidatos', to: '/admin/franqueado/candidatos', icon: UsersRound },
+          { label: 'Agenda', to: '/admin/franqueado/agenda', icon: CalendarDays },
+          { label: 'Chat', to: '/admin/franqueado/chat', icon: MessageSquareText },
+          { label: 'Contratos', to: '/admin/franqueado/contratos', icon: FileText },
+          { label: 'Financeiro', to: '/admin/franqueado/financeiro', icon: BadgeDollarSign },
+          { label: 'Notas fiscais', to: '/admin/franqueado/notas-fiscais', icon: ReceiptText },
+          { label: 'Documentos', to: '/admin/franqueado/documentos', icon: FileText },
+          { label: 'Pós-venda', to: '/admin/franqueado/pos-venda', icon: Star },
+          { label: 'Relatórios', to: '/admin/franqueado/relatorios', icon: FileText },
+          { label: 'Configurações', to: '/admin/franqueado/configuracoes', icon: Settings },
         ]
       : [
           { label: 'Painel', to: '/admin/empresa', icon: LayoutDashboard },
