@@ -71,6 +71,8 @@ export type SalesOpportunity = {
   payment_terms: string;
   contract_status: ContractStatus;
   initial_payment_status: InitialPaymentStatus;
+  signed_contract_url: string;
+  payment_link: string;
   stage: SalesStage;
   next_follow_up: string | null;
   notes: string;
@@ -188,7 +190,10 @@ export type ContractRecord = {
   project_id: string;
   status: ContractStatus;
   provider: string | null;
+  provider_document_id: string | null;
+  signing_url: string | null;
   signed_file_url: string | null;
+  signed_at: string | null;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -389,6 +394,15 @@ export type ChatMessage = {
   created_at: string;
 };
 
+export type FranchiseWorkflowSettings = {
+  id: string;
+  franchise_id: string;
+  post_sale_days: number[];
+  interview_default_duration: number;
+  created_at: string;
+  updated_at: string;
+};
+
 type FranchiseOpsStore = {
   opportunities: SalesOpportunity[];
   projects: FranchiseProject[];
@@ -408,6 +422,7 @@ type FranchiseOpsStore = {
   documents: DocumentRecord[];
   conversations: ChatConversation[];
   messages: ChatMessage[];
+  workflowSettings: FranchiseWorkflowSettings[];
 };
 
 export type FranchiseWorkspaceData = FranchiseOpsStore & {
@@ -467,6 +482,7 @@ function emptyStore(): FranchiseOpsStore {
     documents: [],
     conversations: [],
     messages: [],
+    workflowSettings: [],
   };
 }
 
@@ -516,6 +532,125 @@ function normalizeDescription(row: JobDescriptionDraft): JobDescriptionDraft {
   };
 }
 
+function defaultWorkflowSettings(franchiseId: string): FranchiseWorkflowSettings {
+  const timestamp = todayIso();
+  return {
+    id: makeId(),
+    franchise_id: franchiseId,
+    post_sale_days: [30, 60, 90],
+    interview_default_duration: 45,
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+}
+
+async function getWorkflowSettings(franchiseId: string) {
+  if (useRemoteOps()) {
+    const { data, error } = await supabase!
+      .from('franchise_workflow_settings')
+      .select('*')
+      .eq('franchise_id', franchiseId)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return data as FranchiseWorkflowSettings;
+    return insertRemote<FranchiseWorkflowSettings>('franchise_workflow_settings', defaultWorkflowSettings(franchiseId));
+  }
+
+  const store = readStore();
+  const existing = store.workflowSettings.find((item) => item.franchise_id === franchiseId);
+  if (existing) return existing;
+  const created = defaultWorkflowSettings(franchiseId);
+  store.workflowSettings.unshift(created);
+  writeStore(store);
+  return created;
+}
+
+export async function updateWorkflowSettings(
+  franchiseId: string,
+  patch: Partial<Pick<FranchiseWorkflowSettings, 'post_sale_days' | 'interview_default_duration'>>,
+) {
+  const current = await getWorkflowSettings(franchiseId);
+  if (useRemoteOps()) {
+    return updateRemote<FranchiseWorkflowSettings>('franchise_workflow_settings', current.id, patch as Record<string, unknown>);
+  }
+
+  const store = readStore();
+  store.workflowSettings = store.workflowSettings.map((item) =>
+    item.id === current.id ? { ...item, ...patch, updated_at: todayIso() } : item,
+  );
+  writeStore(store);
+  return store.workflowSettings.find((item) => item.id === current.id)!;
+}
+
+async function sendWorkflowEmail(payload: {
+  to?: string | null;
+  subject: string;
+  template: string;
+  data: Record<string, unknown>;
+  franchiseId?: string | null;
+  projectId?: string | null;
+}) {
+  if (!useRemoteOps() || !payload.to) return;
+  try {
+    await supabase!.functions.invoke('send-workflow-email', {
+      body: {
+        to: payload.to,
+        subject: payload.subject,
+        template: payload.template,
+        data: payload.data,
+        franchiseId: payload.franchiseId,
+        projectId: payload.projectId,
+      },
+    });
+  } catch {
+    // E-mail não deve bloquear a operação principal; email_logs registra falhas no backend quando possível.
+  }
+}
+
+async function sendHiringApprovalEmails(
+  decision: HiringDecision,
+  project: FranchiseProject | null,
+  application: Application | null | undefined,
+  input: Omit<HiringDecision, 'id' | 'franchise_id' | 'project_id' | 'application_id' | 'finalist_id' | 'created_at' | 'updated_at'>,
+) {
+  if (input.decision !== 'approved') return;
+  await Promise.all([
+    sendWorkflowEmail({
+      to: application?.candidate_email,
+      subject: 'Aprovacao no processo seletivo',
+      template: 'hiring_approved_candidate',
+      franchiseId: decision.franchise_id,
+      projectId: decision.project_id,
+      data: {
+        candidato: application?.candidate_name,
+        projeto: project?.title,
+        inicio: input.start_date,
+        responsavel: input.internal_responsible_name,
+        telefone: input.internal_responsible_phone,
+        observacoes: input.admission_notes,
+        documentos: input.required_documents,
+      },
+    }),
+    sendWorkflowEmail({
+      to: input.internal_responsible_email,
+      subject: 'Novo candidato aprovado para admissao',
+      template: 'hiring_approved_internal',
+      franchiseId: decision.franchise_id,
+      projectId: decision.project_id,
+      data: {
+        candidato: application?.candidate_name,
+        email: application?.candidate_email,
+        telefone: application?.candidate_phone,
+        projeto: project?.title,
+        inicio: input.start_date,
+        responsavel: input.internal_responsible_name,
+        observacoes: input.admission_notes,
+        documentos: input.required_documents,
+      },
+    }),
+  ]);
+}
+
 async function insertRemote<T>(table: string, payload: Record<string, unknown>) {
   if (!supabase) throw new Error('Supabase não configurado.');
   const { data, error } = await supabase.from(table).insert(payload).select('*').single();
@@ -537,6 +672,11 @@ async function updateRemote<T>(table: string, id: string, patch: Record<string, 
 
 function todayIso() {
   return new Date().toISOString();
+}
+
+function appOrigin() {
+  if (typeof window !== 'undefined') return window.location.origin;
+  return '';
 }
 
 function dateOnly(date: Date) {
@@ -670,6 +810,7 @@ export async function listFranchiseWorkspace(franchiseId: string): Promise<Franc
       postSaleTasks,
       documents,
       conversations,
+      workflowSettings: [await getWorkflowSettings(franchiseId)],
       messages,
       companies,
       jobs,
@@ -711,6 +852,7 @@ export async function listFranchiseWorkspace(franchiseId: string): Promise<Franc
     documents: store.documents.filter((item) => item.franchise_id === franchiseId),
     conversations: store.conversations.filter((item) => item.franchise_id === franchiseId),
     messages: store.messages,
+    workflowSettings: store.workflowSettings.filter((item) => item.franchise_id === franchiseId),
     companies,
     jobs,
     applications: applications.map((application) => {
@@ -753,6 +895,8 @@ export function createSalesOpportunity(
     payment_terms: input.payment_terms || '50_50',
     contract_status: input.contract_status || 'not_generated',
     initial_payment_status: input.initial_payment_status || 'pending',
+    signed_contract_url: input.signed_contract_url?.trim() || '',
+    payment_link: input.payment_link?.trim() || '',
     stage: input.stage || 'new_lead',
     next_follow_up: input.next_follow_up || dateOnly(addDays(new Date(), 2)),
     notes: input.notes?.trim() || '',
@@ -888,7 +1032,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
     remaining_amount: entry.remaining,
     due_date: dateOnly(addDays(new Date(), 7)),
     payment_terms: opportunity.payment_terms,
-    payment_link: '',
+    payment_link: opportunity.payment_link,
     status: opportunity.initial_payment_status === 'paid' ? 'received' : 'pending',
     created_at: timestamp,
     updated_at: timestamp,
@@ -917,7 +1061,10 @@ export async function convertOpportunityToProject(opportunityId: string) {
     project_id: project.id,
     status: opportunity.contract_status,
     provider: null,
-    signed_file_url: '',
+    provider_document_id: null,
+    signing_url: null,
+    signed_file_url: opportunity.signed_contract_url,
+    signed_at: opportunity.contract_status === 'signed' ? timestamp : null,
     notes: '',
     created_at: timestamp,
     updated_at: timestamp,
@@ -949,6 +1096,18 @@ export async function convertOpportunityToProject(opportunityId: string) {
       client_id: company.id,
       stage: 'won',
       converted_project_id: project.id,
+    });
+    await sendWorkflowEmail({
+      to: opportunity.contact_email,
+      subject: 'Briefing da vaga disponível',
+      template: 'briefing_link',
+      franchiseId: opportunity.franchise_id,
+      projectId: project.id,
+      data: {
+        cliente: opportunity.company_name,
+        projeto: project.title,
+        url: `${appOrigin()}/briefing/${briefing.secure_token}`,
+      },
     });
     return { project, company, briefing, serviceOrder, receivable, contract };
   }
@@ -1420,6 +1579,25 @@ export function releaseFinalistsToClient(projectId: string) {
         created_at: todayIso(),
         updated_at: todayIso(),
       });
+      const companies = await listCompanies({ franchiseId: currentProject.franchise_id });
+      const company = companies.find((item) => item.id === currentProject.client_id);
+      const { data: opportunity } = await supabase!
+        .from('sales_opportunities')
+        .select('contact_email')
+        .eq('id', currentProject.opportunity_id)
+        .maybeSingle();
+      await sendWorkflowEmail({
+        to: (opportunity as { contact_email?: string } | null)?.contact_email ?? null,
+        subject: 'Finalistas disponíveis para análise',
+        template: 'finalists_link',
+        franchiseId: currentProject.franchise_id,
+        projectId: currentProject.id,
+        data: {
+          cliente: company?.name ?? 'Cliente',
+          projeto: currentProject.title,
+          url: `${appOrigin()}/portal-cliente/${currentProject.client_access_token}`,
+        },
+      });
       return currentProject.client_access_token;
     })();
   }
@@ -1464,7 +1642,7 @@ export function scheduleInterview(
     | 'candidate_confirmation_token'
     | 'candidate_confirmed_at'
     | 'created_at'
-      | 'updated_at'
+    | 'updated_at'
   >,
   portalToken?: string,
 ) {
@@ -1477,7 +1655,25 @@ export function scheduleInterview(
           schedule_payload: input,
         });
         if (error) throw error;
-        return data as ClientInterviewSchedule;
+        const schedule = data as ClientInterviewSchedule;
+        const portal = await getClientPortal(portalToken).catch(() => null);
+        const application = portal?.applications.find((item) => item.id === schedule.application_id);
+        await sendWorkflowEmail({
+          to: application?.candidate_email,
+          subject: 'Confirme sua presença na entrevista',
+          template: 'candidate_confirmation',
+          franchiseId: schedule.franchise_id,
+          projectId: schedule.project_id,
+          data: {
+            candidato: application?.candidate_name,
+            data: schedule.date,
+            horario: schedule.time,
+            formato: schedule.format,
+            local: schedule.location_or_link,
+            url: `${appOrigin()}/confirmar-presenca/${schedule.candidate_confirmation_token}`,
+          },
+        });
+        return schedule;
       }
       const { data: finalist, error } = await supabase!.from('finalists').select('*').eq('id', finalistId).single();
       if (error) throw error;
@@ -1507,6 +1703,23 @@ export function scheduleInterview(
       await updateRemote<FranchiseProject>('projects', currentFinalist.project_id, {
         stage: 'client_interviews',
         next_step: 'Aguardar confirmacao do candidato',
+      });
+      const applications = await listApplications({ franchiseId: schedule.franchise_id });
+      const application = applications.find((item) => item.id === schedule.application_id);
+      await sendWorkflowEmail({
+        to: application?.candidate_email,
+        subject: 'Confirme sua presença na entrevista',
+        template: 'candidate_confirmation',
+        franchiseId: schedule.franchise_id,
+        projectId: schedule.project_id,
+        data: {
+          candidato: application?.candidate_name,
+          data: schedule.date,
+          horario: schedule.time,
+          formato: schedule.format,
+          local: schedule.location_or_link,
+          url: `${appOrigin()}/confirmar-presenca/${schedule.candidate_confirmation_token}`,
+        },
       });
       return schedule;
     })();
@@ -1548,11 +1761,30 @@ export function scheduleInterview(
 export function confirmCandidatePresence(token: string) {
   if (useRemoteOps()) {
     return (async () => {
+      const context = await getCandidateConfirmation(token).catch(() => null);
       const { data: schedule, error } = await supabase!.rpc('confirm_candidate_presence', {
         access_token: token,
       });
       if (error) throw error;
-      return schedule as ClientInterviewSchedule;
+      const savedSchedule = schedule as ClientInterviewSchedule;
+      await sendWorkflowEmail({
+        to: context?.application?.candidate_email,
+        subject: 'Orientacoes para sua entrevista',
+        template: 'interview_guidelines',
+        franchiseId: savedSchedule.franchise_id,
+        projectId: savedSchedule.project_id,
+        data: {
+          candidato: context?.application?.candidate_name,
+          empresa: context?.company?.name,
+          projeto: context?.project?.title,
+          data: savedSchedule.date,
+          horario: savedSchedule.time,
+          formato: savedSchedule.format,
+          local: savedSchedule.location_or_link,
+          orientacoes: savedSchedule.notes,
+        },
+      });
+      return savedSchedule;
     })();
   }
 
@@ -1601,7 +1833,11 @@ export async function saveHiringDecision(
       decision_payload: input,
     });
     if (error) throw error;
-    return data as HiringDecision;
+    const decision = data as HiringDecision;
+    const portal = await getClientPortal(portalToken).catch(() => null);
+    const application = portal?.applications.find((item) => item.id === decision.application_id);
+    await sendHiringApprovalEmails(decision, portal?.project ?? null, application, input);
+    return decision;
   }
 
   const store = readStore();
@@ -1668,7 +1904,8 @@ export async function saveHiringDecision(
           updated_at: timestamp,
         });
       }
-      [30, 60, 90].forEach((days) => {
+      const settings = await getWorkflowSettings(finalist.franchise_id);
+      settings.post_sale_days.forEach((days) => {
         void insertRemote<PostSaleTask>('post_sale_tasks', {
           id: makeId(),
           franchise_id: finalist.franchise_id,
@@ -1692,6 +1929,9 @@ export async function saveHiringDecision(
         });
       });
       await updateApplicationStatus(finalist.application_id, 'aprovado');
+      const applications = await listApplications({ franchiseId: finalist.franchise_id });
+      const application = applications.find((item) => item.id === finalist.application_id);
+      await sendHiringApprovalEmails(saved, project, application, input);
     } else if (input.decision === 'rejected') {
       await updateApplicationStatus(finalist.application_id, 'reprovado');
     }
@@ -1730,7 +1970,8 @@ export async function saveHiringDecision(
         updated_at: timestamp,
       });
     }
-    [30, 60, 90].forEach((days) => {
+    const settings = await getWorkflowSettings(finalist.franchise_id);
+    settings.post_sale_days.forEach((days) => {
       store.postSaleTasks.unshift({
         id: makeId(),
         franchise_id: finalist.franchise_id,
@@ -1926,15 +2167,17 @@ export async function getClientPortal(token: string) {
     listJobs({ franchiseId: project.franchise_id }),
     listApplications({ franchiseId: project.franchise_id }),
   ]);
+  const projectFinalists = store.finalists.filter((item) => item.project_id === project.id);
+  const finalistApplicationIds = new Set(projectFinalists.map((item) => item.application_id));
   return {
     project,
     company: companies.find((item) => item.id === project.client_id) ?? null,
     job: jobs.find((item) => item.id === project.job_id) ?? null,
-    finalists: store.finalists.filter((item) => item.project_id === project.id),
+    finalists: projectFinalists,
     schedules: store.schedules.filter((item) => item.project_id === project.id),
     decisions: store.hiringDecisions.filter((item) => item.project_id === project.id),
     nps: store.npsResponses.find((item) => item.project_id === project.id) ?? null,
-    applications,
+    applications: applications.filter((item) => finalistApplicationIds.has(item.id)),
   };
 }
 
@@ -1971,6 +2214,22 @@ export async function getCandidateConfirmation(token: string) {
 
 export function getWorkspaceAlerts(data: FranchiseWorkspaceData) {
   const now = new Date();
+  const inactiveSince = addDays(now, -180);
+  const inactiveClients = data.companies
+    .map((company) => {
+      const projectDates = data.projects
+        .filter((project) => project.client_id === company.id)
+        .map((project) => project.updated_at || project.created_at);
+      const decisionDates = data.hiringDecisions
+        .filter((decision) => data.projects.some((project) => project.id === decision.project_id && project.client_id === company.id))
+        .map((decision) => decision.updated_at || decision.created_at);
+      const lastActivity = [...projectDates, ...decisionDates]
+        .filter(Boolean)
+        .sort()
+        .at(-1);
+      return { company, lastActivity };
+    })
+    .filter((item) => item.lastActivity && isBefore(parseISO(item.lastActivity), inactiveSince));
   return [
     ...data.opportunities
       .filter((item) => item.stage !== 'won' && item.stage !== 'lost' && item.next_follow_up && isBefore(parseISO(item.next_follow_up), now))
@@ -1990,6 +2249,11 @@ export function getWorkspaceAlerts(data: FranchiseWorkspaceData) {
     ...data.accountsReceivable
       .filter((item) => item.status === 'pending' && isBefore(parseISO(item.due_date), now))
       .map((item) => ({ id: item.id, title: `Conta a receber vencida: ${item.description}`, type: 'receivable' })),
+    ...inactiveClients.map(({ company }) => ({
+      id: company.id,
+      title: `Cliente sem nova contratacao ha 6 meses: ${company.name}`,
+      type: 'client_inactive',
+    })),
   ];
 }
 

@@ -94,6 +94,7 @@ Rode todas as migrations, incluindo:
 supabase/migrations/20260612170000_add_multi_franchise_core.sql
 supabase/migrations/20260615120000_add_recruitment_process_flow.sql
 supabase/migrations/20260709120000_add_franchise_operations_suite.sql
+supabase/migrations/20260709133000_finalize_franchise_workflow.sql
 ```
 
 Publique as Edge Functions:
@@ -102,6 +103,7 @@ Publique as Edge Functions:
 supabase functions deploy create-company-user
 supabase functions deploy delete-user
 supabase functions deploy generate-job-description
+supabase functions deploy send-workflow-email
 supabase functions deploy job-sitemap --no-verify-jwt
 supabase functions deploy indeed-feed --no-verify-jwt
 ```
@@ -110,6 +112,8 @@ Configure no ambiente da função:
 
 ```env
 OPENAI_API_KEY=
+RESEND_API_KEY=
+EMAIL_FROM=People Jobs <no-reply@seudominio.com.br>
 ```
 
 Nunca use `VITE_OPENAI_API_KEY`; a chave OpenAI deve ficar somente no backend.

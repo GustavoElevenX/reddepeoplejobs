@@ -20,6 +20,8 @@ create table if not exists public.sales_opportunities (
   payment_terms text,
   contract_status text default 'not_generated',
   initial_payment_status text default 'pending',
+  signed_contract_url text,
+  payment_link text,
   stage text default 'new_lead',
   next_follow_up date,
   notes text,
@@ -88,10 +90,43 @@ create table if not exists public.contracts (
   project_id uuid references public.projects(id) on delete cascade,
   status text not null default 'not_generated',
   provider text,
+  provider_document_id text,
+  signing_url text,
   signed_file_url text,
+  signed_at timestamptz,
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+alter table public.contracts
+  add column if not exists provider_document_id text,
+  add column if not exists signing_url text,
+  add column if not exists signed_at timestamptz;
+
+create table if not exists public.franchise_workflow_settings (
+  id uuid primary key default gen_random_uuid(),
+  franchise_id uuid not null references public.franchises(id) on delete cascade,
+  post_sale_days integer[] not null default array[30,60,90],
+  interview_default_duration integer not null default 45,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(franchise_id)
+);
+
+create table if not exists public.email_logs (
+  id uuid primary key default gen_random_uuid(),
+  franchise_id uuid references public.franchises(id) on delete set null,
+  project_id uuid references public.projects(id) on delete set null,
+  recipient text not null,
+  subject text not null,
+  template text not null,
+  payload jsonb not null default '{}'::jsonb,
+  status text not null default 'pending',
+  provider_message_id text,
+  error_message text,
+  sent_at timestamptz,
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.service_orders (
@@ -324,6 +359,8 @@ alter table public.chat_conversations enable row level security;
 alter table public.chat_messages enable row level security;
 alter table public.notification_tasks enable row level security;
 alter table public.ai_logs enable row level security;
+alter table public.franchise_workflow_settings enable row level security;
+alter table public.email_logs enable row level security;
 
 create policy "Admin master can manage sales opportunities"
 on public.sales_opportunities for all
@@ -523,6 +560,25 @@ create policy "Franchisees can read own ai logs"
 on public.ai_logs for select
 using (franchise_id = public.current_user_franchise_id());
 
+create policy "Admin master can manage workflow settings"
+on public.franchise_workflow_settings for all
+using (public.is_admin_master())
+with check (public.is_admin_master());
+
+create policy "Franchisees can manage own workflow settings"
+on public.franchise_workflow_settings for all
+using (franchise_id = public.current_user_franchise_id())
+with check (franchise_id = public.current_user_franchise_id());
+
+create policy "Admin master can manage email logs"
+on public.email_logs for all
+using (public.is_admin_master())
+with check (public.is_admin_master());
+
+create policy "Franchisees can read own email logs"
+on public.email_logs for select
+using (franchise_id = public.current_user_franchise_id());
+
 create or replace function public.get_public_briefing(access_token text)
 returns public.job_briefings
 language sql
@@ -648,7 +704,8 @@ as $$
     'applications', coalesce((
       select jsonb_agg(to_jsonb(a.*))
       from public.applications a
-      where a.franchise_id = p.franchise_id
+      join public.finalists f on f.application_id = a.id
+      where f.project_id = p.id
     ), '[]'::jsonb)
   )
   from selected_project p
@@ -884,7 +941,10 @@ begin
       coalesce(decision_payload->>'internal_responsible_name', ''),
       'baixo',
       'open'
-    from unnest(array[30, 60, 90]) as days;
+    from unnest(coalesce(
+      (select s.post_sale_days from public.franchise_workflow_settings s where s.franchise_id = current_project.franchise_id limit 1),
+      array[30, 60, 90]
+    )) as days;
   elsif decision_payload->>'decision' = 'rejected' then
     update public.applications set status = 'reprovado', updated_at = now() where id = current_finalist.application_id;
   end if;

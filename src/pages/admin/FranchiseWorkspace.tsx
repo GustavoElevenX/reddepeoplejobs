@@ -19,7 +19,7 @@ import {
   Sparkles,
   UsersRound,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AdminStatCard } from '../../components/admin/AdminStatCard';
 import { EmptyState } from '../../components/public/EmptyState';
@@ -50,6 +50,7 @@ import {
   salesStageLabels,
   saveBriefing,
   selectFinalist,
+  updateWorkflowSettings,
   updateContract,
   updatePostSaleTask,
   updateReceivable,
@@ -129,6 +130,8 @@ const blankOpportunity = {
   payment_terms: '50_50',
   contract_status: 'not_generated',
   initial_payment_status: 'pending',
+  signed_contract_url: '',
+  payment_link: '',
   stage: 'new_lead' as SalesStage,
   next_follow_up: '',
   notes: '',
@@ -167,6 +170,13 @@ function statusBadge(status: string) {
   if (['overdue', 'cancelled', 'rejected'].includes(status)) return 'danger';
   return 'neutral';
 }
+
+const invoiceStatusLabels: Record<string, string> = {
+  ready_to_issue: 'Pronta para emissao',
+  pending: 'Pendente',
+  issued: 'Emitida/registrada',
+  cancelled: 'Cancelada',
+};
 
 function LeadModal({
   open,
@@ -242,6 +252,8 @@ function LeadModal({
             ]}
             {...field(form, 'initial_payment_status', setForm)}
           />
+          <Input label="Link do contrato assinado" {...field(form, 'signed_contract_url', setForm)} />
+          <Input label="Link de pagamento" {...field(form, 'payment_link', setForm)} />
           <Input label="Próximo follow-up" type="date" {...field(form, 'next_follow_up', setForm)} />
         </div>
         <Textarea label="Necessidade da empresa" rows={3} {...field(form, 'need', setForm)} />
@@ -249,6 +261,116 @@ function LeadModal({
         <Button type="submit">
           <Plus size={18} />
           Criar oportunidade
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+
+function FormalizationModal({
+  opportunity,
+  open,
+  onClose,
+  onConfirm,
+}: {
+  opportunity: SalesOpportunity | null;
+  open: boolean;
+  onClose: () => void;
+  onConfirm: (values: Partial<SalesOpportunity>) => void;
+}) {
+  const [form, setForm] = useState<Partial<SalesOpportunity>>({});
+
+  useEffect(() => {
+    setForm(opportunity ?? {});
+  }, [opportunity]);
+
+  if (!opportunity) return null;
+
+  const update = (key: keyof SalesOpportunity, value: string | number) => setForm((current) => ({ ...current, [key]: value }));
+  const missing = getConversionMissingFields({ ...opportunity, ...form } as SalesOpportunity);
+  const formalizationMissing = [
+    ...(missing.length ? missing : []),
+    form.contract_status !== 'signed' ? 'contrato comercial assinado' : '',
+    !['paid', 'waived'].includes(String(form.initial_payment_status)) ? 'entrada paga ou dispensada' : '',
+  ].filter(Boolean);
+
+  return (
+    <Modal
+      open={open}
+      title="Marcar ganho e iniciar projeto"
+      description="Formalize contrato e entrada antes de criar projeto, OS, financeiro, contrato e briefing."
+      onClose={onClose}
+    >
+      <form
+        className="grid gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onConfirm(form);
+        }}
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input label="Nome fantasia" value={form.company_name ?? ''} onChange={(event) => update('company_name', event.target.value)} required />
+          <Input label="Razão social" value={form.legal_name ?? ''} onChange={(event) => update('legal_name', event.target.value)} />
+          <Input label="CNPJ" value={form.document ?? ''} onChange={(event) => update('document', event.target.value)} required />
+          <Input label="Responsável principal" value={form.contact_name ?? ''} onChange={(event) => update('contact_name', event.target.value)} required />
+          <Input label="E-mail" type="email" value={form.contact_email ?? ''} onChange={(event) => update('contact_email', event.target.value)} required />
+          <Input label="WhatsApp" value={form.contact_phone ?? ''} onChange={(event) => update('contact_phone', event.target.value)} required />
+          <Input label="Serviço contratado" value={form.service_name ?? ''} onChange={(event) => update('service_name', event.target.value)} required />
+          <Input
+            label="Valor negociado"
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.negotiated_value ?? 0}
+            onChange={(event) => update('negotiated_value', Number(event.target.value))}
+            required
+          />
+          <Select
+            label="Condição de pagamento"
+            value={form.payment_terms ?? '50_50'}
+            onChange={(event) => update('payment_terms', event.target.value)}
+            options={[
+              { label: '50% de entrada e 50% ao final', value: '50_50' },
+              { label: '3 vezes no cartão', value: 'cartao_3x' },
+              { label: 'Pagamento à vista', value: 'avista' },
+              { label: 'Condição personalizada', value: 'personalizada' },
+            ]}
+          />
+          <Select
+            label="Status do contrato"
+            value={form.contract_status ?? 'not_generated'}
+            onChange={(event) => update('contract_status', event.target.value)}
+            options={[
+              { label: 'Não gerado', value: 'not_generated' },
+              { label: 'Gerado', value: 'generated' },
+              { label: 'Enviado', value: 'sent' },
+              { label: 'Assinado', value: 'signed' },
+              { label: 'Cancelado', value: 'cancelled' },
+            ]}
+          />
+          <Select
+            label="Status da entrada"
+            value={form.initial_payment_status ?? 'pending'}
+            onChange={(event) => update('initial_payment_status', event.target.value)}
+            options={[
+              { label: 'Pendente', value: 'pending' },
+              { label: 'Paga', value: 'paid' },
+              { label: 'Dispensada', value: 'waived' },
+              { label: 'Vencida', value: 'overdue' },
+            ]}
+          />
+          <Input label="Contrato assinado (link/anexo)" value={form.signed_contract_url ?? ''} onChange={(event) => update('signed_contract_url', event.target.value)} />
+          <Input label="Link de pagamento" value={form.payment_link ?? ''} onChange={(event) => update('payment_link', event.target.value)} />
+        </div>
+        <Textarea label="Observações comerciais" rows={3} value={form.notes ?? ''} onChange={(event) => update('notes', event.target.value)} />
+        {formalizationMissing.length ? (
+          <div className="rounded-lg bg-redde-50 p-3 text-sm font-semibold text-redde-700">
+            Pendências: {formalizationMissing.join(', ')}.
+          </div>
+        ) : null}
+        <Button type="submit" disabled={formalizationMissing.length > 0}>
+          <BriefcaseBusiness size={18} />
+          Marcar ganho e iniciar projeto
         </Button>
       </form>
     </Modal>
@@ -434,6 +556,7 @@ export function FranchiseWorkspace() {
   const [data, setData] = useState<FranchiseWorkspaceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [leadModalOpen, setLeadModalOpen] = useState(false);
+  const [formalizingOpportunityId, setFormalizingOpportunityId] = useState<string | null>(null);
   const [briefingProjectId, setBriefingProjectId] = useState<string | null>(null);
   const [descriptionId, setDescriptionId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -492,6 +615,7 @@ export function FranchiseWorkspace() {
   const selectedBriefing = data.briefings.find((item) => item.project_id === briefingProjectId);
   const selectedProject = data.projects.find((item) => item.id === briefingProjectId);
   const selectedOpportunity = selectedProject ? data.opportunities.find((item) => item.id === selectedProject.opportunity_id) : null;
+  const formalizingOpportunity = data.opportunities.find((item) => item.id === formalizingOpportunityId) ?? null;
   const selectedDescription = data.jobDescriptions.find((item) => item.id === descriptionId);
   const refresh = async () => load();
 
@@ -561,16 +685,23 @@ export function FranchiseWorkspace() {
                         <Select
                           aria-label="Etapa"
                           value={opportunity.stage}
-                          onChange={(event) => safeAction(() => updateSalesOpportunity(opportunity.id, { stage: event.target.value as SalesStage }))}
+                          onChange={(event) => {
+                            const nextStage = event.target.value as SalesStage;
+                            if (nextStage === 'won') {
+                              setFormalizingOpportunityId(opportunity.id);
+                              return;
+                            }
+                            void safeAction(() => updateSalesOpportunity(opportunity.id, { stage: nextStage }));
+                          }}
                           options={(Object.keys(salesStageLabels) as SalesStage[]).map((value) => ({ value, label: salesStageLabels[value] }))}
                         />
                         <Button
                           size="sm"
                           disabled={Boolean(opportunity.converted_project_id)}
-                          onClick={() => safeAction(() => convertOpportunityToProject(opportunity.id))}
+                          onClick={() => setFormalizingOpportunityId(opportunity.id)}
                         >
                           <BriefcaseBusiness size={15} />
-                          Converter
+                          Marcar ganho e iniciar projeto
                         </Button>
                         {missing.length ? <p className="text-xs font-semibold text-redde-700">Faltam: {missing.slice(0, 3).join(', ')}</p> : null}
                       </div>
@@ -850,6 +981,9 @@ export function FranchiseWorkspace() {
       return (
         <Card className="p-5">
           <h2 className="text-xl font-black text-ink-900">Conversas e templates</h2>
+          <p className="mt-2 text-sm text-ink-600">
+            Este modulo registra conversas internas e textos preparados para WhatsApp. O envio real por WhatsApp Business API ainda depende de integracao externa.
+          </p>
           <form
             className="mt-4 grid gap-3"
             onSubmit={(event) => {
@@ -867,7 +1001,11 @@ export function FranchiseWorkspace() {
           <div className="mt-5 grid gap-3">
             {data.conversations.map((conversation) => (
               <div key={conversation.id} className="rounded-lg border border-surface-200 p-3">
-                <p className="font-bold">{conversation.title}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-bold">{conversation.title}</p>
+                  <Badge>{conversation.channel === 'whatsapp_ready' ? 'Preparado para WhatsApp' : 'Interno'}</Badge>
+                  <Badge variant={conversation.status === 'closed' ? 'neutral' : 'warning'}>{conversation.status}</Badge>
+                </div>
                 {data.messages
                   .filter((message) => message.conversation_id === conversation.id)
                   .map((message) => <p key={message.id} className="mt-2 text-sm text-ink-500">{message.body}</p>)}
@@ -885,11 +1023,21 @@ export function FranchiseWorkspace() {
             <Card key={contract.id} className="flex flex-col justify-between gap-3 p-4 md:flex-row md:items-center">
               <div>
                 <p className="font-bold text-ink-900">{data.companies.find((item) => item.id === contract.client_id)?.name}</p>
-                <p className="text-sm text-ink-500">Preparado para Clicksign, Docusign, Autentique, ZapSign ou provedor futuro.</p>
+                <p className="text-sm text-ink-500">
+                  {contract.provider ? `Provedor: ${contract.provider}` : 'Preparado para Clicksign, Docusign, Autentique, ZapSign ou provedor futuro.'}
+                </p>
+                <p className="mt-1 text-xs text-ink-500">
+                  {contract.provider_document_id ? `Documento: ${contract.provider_document_id}` : 'Sem documento externo vinculado'} ·{' '}
+                  {contract.signed_at ? `Assinado em ${contract.signed_at.slice(0, 10)}` : 'Assinatura ainda nao registrada'}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-redde-700">
+                  {contract.signing_url ? <a href={contract.signing_url} target="_blank" rel="noreferrer">Link de assinatura</a> : null}
+                  {contract.signed_file_url ? <a href={contract.signed_file_url} target="_blank" rel="noreferrer">Arquivo assinado</a> : null}
+                </div>
               </div>
               <div className="flex gap-2">
                 <Badge variant={statusBadge(contract.status)}>{contract.status}</Badge>
-                <Button size="sm" onClick={() => safeAction(() => updateContract(contract.id, { status: 'signed' }))}>
+                <Button size="sm" onClick={() => safeAction(() => updateContract(contract.id, { status: 'signed', signed_at: new Date().toISOString() }))}>
                   Marcar assinado
                 </Button>
               </div>
@@ -902,6 +1050,12 @@ export function FranchiseWorkspace() {
     if (moduleKey === 'notas-fiscais') {
       return (
         <div className="grid gap-3">
+          <Card className="p-4">
+            <h2 className="text-lg font-black text-ink-900">Controle de NFS-e</h2>
+            <p className="mt-2 text-sm text-ink-600">
+              A plataforma registra a NFS-e como pronta para emissao ao final do servico. Ela nao emite nota automaticamente; o numero, arquivo e status devem ser atualizados apos emissao no sistema fiscal ou integracao futura.
+            </p>
+          </Card>
           {data.invoices.map((invoice) => (
             <Card key={invoice.id} className="p-4">
               <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
@@ -909,7 +1063,7 @@ export function FranchiseWorkspace() {
                   <p className="font-bold text-ink-900">{data.companies.find((item) => item.id === invoice.client_id)?.name}</p>
                   <p className="text-sm text-ink-500">{money(invoice.amount)} · prevista para {invoice.expected_date}</p>
                 </div>
-                <Badge variant={statusBadge(invoice.status)}>{invoice.status}</Badge>
+                <Badge variant={statusBadge(invoice.status)}>{invoiceStatusLabels[invoice.status] ?? invoice.status}</Badge>
               </div>
             </Card>
           ))}
@@ -1003,6 +1157,26 @@ export function FranchiseWorkspace() {
       );
     }
 
+    const workflowSettings = data.workflowSettings[0];
+    const postSaleDays = workflowSettings?.post_sale_days?.length ? workflowSettings.post_sale_days : [30, 60, 90];
+    const saveWorkflowSettings = (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      const days = String(formData.get('post_sale_days') ?? '')
+        .split(/[,\s;]+/)
+        .map((value) => Number(value.trim()))
+        .filter((value) => Number.isInteger(value) && value > 0)
+        .sort((a, b) => a - b);
+      const duration = Number(formData.get('interview_default_duration') ?? 60);
+      void safeAction(() => {
+        if (!days.length) throw new Error('Informe ao menos um prazo valido de pos-venda.');
+        return updateWorkflowSettings(profile.franchise_id!, {
+          post_sale_days: days,
+          interview_default_duration: Number.isFinite(duration) && duration > 0 ? duration : 60,
+        });
+      });
+    };
+
     return (
       <Card className="p-5">
         <h2 className="text-xl font-black text-ink-900">Configurações da operação</h2>
@@ -1011,6 +1185,28 @@ export function FranchiseWorkspace() {
           <p>Régua padrão de pós-venda: 30, 60 e 90 dias após início.</p>
           <p>Integrações futuras preparadas: WhatsApp Business API, assinatura digital, NFS-e e gateway de pagamento.</p>
         </div>
+        <form className="mt-5 grid gap-4 md:grid-cols-[1fr_220px_auto]" onSubmit={saveWorkflowSettings}>
+          <Input
+            name="post_sale_days"
+            label="Regua de pos-venda em dias"
+            defaultValue={postSaleDays.join(', ')}
+            placeholder="30, 60, 90"
+            required
+          />
+          <Input
+            name="interview_default_duration"
+            label="Duracao padrao"
+            type="number"
+            min="15"
+            step="15"
+            defaultValue={workflowSettings?.interview_default_duration ?? 60}
+            required
+          />
+          <Button type="submit" className="self-end">
+            <Settings size={16} />
+            Salvar
+          </Button>
+        </form>
       </Card>
     );
   };
@@ -1063,6 +1259,20 @@ export function FranchiseWorkspace() {
           safeAction(() => {
             createSalesOpportunity(profile.franchise_id!, values as Partial<SalesOpportunity> & Pick<SalesOpportunity, 'company_name' | 'contact_name' | 'contact_phone' | 'contact_email' | 'service_name'>);
             setLeadModalOpen(false);
+          })
+        }
+      />
+
+      <FormalizationModal
+        open={Boolean(formalizingOpportunityId)}
+        opportunity={formalizingOpportunity}
+        onClose={() => setFormalizingOpportunityId(null)}
+        onConfirm={(values) =>
+          safeAction(async () => {
+            if (!formalizingOpportunity) throw new Error('Oportunidade não encontrada.');
+            await updateSalesOpportunity(formalizingOpportunity.id, values);
+            await convertOpportunityToProject(formalizingOpportunity.id);
+            setFormalizingOpportunityId(null);
           })
         }
       />
