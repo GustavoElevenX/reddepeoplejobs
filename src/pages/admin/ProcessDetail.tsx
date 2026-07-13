@@ -42,6 +42,7 @@ import {
 } from '../../lib/applicationStages';
 import {
   addProcessComment,
+  createApplication,
   createManualApplication,
   getJobById,
   listApplications,
@@ -142,6 +143,8 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
   const profile = useAdminProfile();
   const [job, setJob] = useState<Job | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [talentPool, setTalentPool] = useState<Application[]>([]);
+  const [talentSearch, setTalentSearch] = useState('');
   const [comments, setComments] = useState<ProcessComment[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Application | null>(null);
@@ -184,13 +187,15 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
         setCanManage(true);
       }
 
-      const [applicationData, commentData, companyData] = await Promise.all([
+      const [applicationData, talentData, commentData, companyData] = await Promise.all([
         listApplications({ jobId: process.id }),
+        listApplications({ franchiseId: process.franchise_id ?? undefined }),
         listProcessComments(process.id).catch(() => []),
         listCompanies({ franchiseId: process.franchise_id ?? undefined }),
       ]);
       setJob(process);
       setApplications(applicationData);
+      setTalentPool(talentData);
       setComments(commentData);
       setCompanies(companyData);
     } finally {
@@ -220,6 +225,21 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
     () => applications.filter((application) => resolveApplicationStage(application) === 'qualificacao'),
     [applications],
   );
+  const huntingCandidates = useMemo(() => {
+    const normalized = talentSearch.trim().toLocaleLowerCase('pt-BR');
+    const currentEmails = new Set(applications.map((item) => item.candidate_email.toLocaleLowerCase('pt-BR')));
+    return talentPool
+      .filter((application) => application.job_id !== id)
+      .filter((application) => !currentEmails.has(application.candidate_email.toLocaleLowerCase('pt-BR')))
+      .filter((application) =>
+        !normalized ||
+        [application.candidate_name, application.candidate_email, application.candidate_city, application.professional_summary, ...application.skills]
+          .filter(Boolean)
+          .join(' ')
+          .toLocaleLowerCase('pt-BR')
+          .includes(normalized),
+      );
+  }, [applications, id, talentPool, talentSearch]);
   const tabCounts = useMemo<Partial<Record<ProcessTab, number>>>(
     () => ({
       hunting: applications.filter((application) => application.status === 'banco_talentos').length,
@@ -563,13 +583,88 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
       ) : null}
 
       {activeTab === 'hunting' ? (
-        <Card className="grid place-items-center p-10 text-center">
-          <Search size={32} className="text-redde-700" />
-          <h2 className="mt-4 text-xl font-black text-ink-900">Hunting do processo</h2>
-          <p className="mt-2 max-w-xl text-sm text-ink-500">
-            Área preparada para busca ativa, importação de perfis e formação de listas de talentos.
-          </p>
-        </Card>
+        <div className="grid gap-4">
+          <Card className="p-5">
+            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+              <div>
+                <h2 className="text-xl font-black text-ink-900">Banco de talentos</h2>
+                <p className="mt-1 text-sm text-ink-500">Busque perfis já recebidos pela unidade e importe-os para este processo.</p>
+              </div>
+              {canManage ? (
+                <Button onClick={() => setCandidateModalOpen(true)}>
+                  <UserPlus size={17} />
+                  Novo perfil
+                </Button>
+              ) : null}
+            </div>
+            <label className="relative mt-5 block">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-500" size={17} />
+              <input
+                value={talentSearch}
+                onChange={(event) => setTalentSearch(event.target.value)}
+                placeholder="Buscar por nome, cidade, habilidade ou e-mail"
+                className="focus-ring h-11 w-full rounded-xl border border-surface-200 bg-surface-50 pl-10 pr-4 text-sm text-ink-900 focus:border-redde-500"
+              />
+            </label>
+          </Card>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {huntingCandidates.map((application) => (
+              <Card key={application.id} className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate font-black text-ink-900">{application.candidate_name}</h3>
+                    <p className="mt-1 truncate text-sm text-ink-500">{application.candidate_email}</p>
+                    <p className="mt-1 text-xs text-ink-500">{application.candidate_city ?? 'Cidade não informada'}</p>
+                  </div>
+                  <Badge>{application.adhesion_score ?? application.match_score ?? 0}%</Badge>
+                </div>
+                <p className="mt-4 line-clamp-3 text-sm leading-6 text-ink-700">
+                  {application.professional_summary || application.message || 'Perfil disponível no banco de talentos.'}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {application.skills.slice(0, 3).map((skill) => (
+                    <span key={skill} className="rounded-full bg-surface-100 px-2 py-1 text-[11px] font-bold text-ink-500">{skill}</span>
+                  ))}
+                </div>
+                {canManage ? (
+                  <Button
+                    className="mt-5 w-full"
+                    size="sm"
+                    onClick={() =>
+                      void (async () => {
+                        await createApplication({
+                          job_id: job.id,
+                          company_id: job.company_id,
+                          franchise_id: job.franchise_id,
+                          candidate_name: application.candidate_name,
+                          candidate_email: application.candidate_email,
+                          candidate_phone: application.candidate_phone,
+                          candidate_city: application.candidate_city,
+                          linkedin_url: application.linkedin_url,
+                          portfolio_url: application.portfolio_url,
+                          salary_expectation: application.salary_expectation,
+                          availability: application.availability,
+                          message: `Perfil importado do banco de talentos. ${application.message ?? ''}`.trim(),
+                          resume_file_path: application.resume_file_path,
+                          lgpd_consent: application.lgpd_consent,
+                          source: 'hunting',
+                        });
+                        await load();
+                      })()
+                    }
+                  >
+                    <UserPlus size={16} />
+                    Adicionar ao processo
+                  </Button>
+                ) : null}
+              </Card>
+            ))}
+          </div>
+          {!huntingCandidates.length ? (
+            <EmptyState title={talentSearch ? 'Nenhum perfil encontrado para esta busca.' : 'Não há outros perfis disponíveis no banco de talentos.'} />
+          ) : null}
+        </div>
       ) : null}
 
       {activeTab === 'triagem' ? (

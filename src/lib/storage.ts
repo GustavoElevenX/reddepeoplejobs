@@ -65,6 +65,34 @@ export async function createResumeSignedUrl(path: string) {
   return data.signedUrl;
 }
 
+export async function uploadFranchiseFile(file: File, franchiseId: string, folder = 'documents') {
+  if (file.size > 20 * 1024 * 1024) throw new Error('O arquivo deve ter no máximo 20MB.');
+  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
+  const uniqueName =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const safeFolder = folder.replace(/[^a-z0-9-_]/gi, '-');
+  const path = `${franchiseId}/${safeFolder}/${uniqueName}.${extension}`;
+
+  if (!hasSupabaseConfig || !supabase) return path;
+  const { error } = await supabase.storage.from('franchise-documents').upload(path, file, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: file.type || undefined,
+  });
+  if (error) throw error;
+  return path;
+}
+
+export async function createFranchiseFileSignedUrl(pathOrUrl: string) {
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  if (!hasSupabaseConfig || !supabase) return '#';
+  const { data, error } = await supabase.storage.from('franchise-documents').createSignedUrl(pathOrUrl, 60 * 10);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
 export function validateCompanyImage(file: File, type: CompanyAssetType) {
   const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
 

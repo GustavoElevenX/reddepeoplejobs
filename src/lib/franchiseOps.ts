@@ -192,6 +192,7 @@ export type ContractRecord = {
   provider: string | null;
   provider_document_id: string | null;
   signing_url: string | null;
+  contract_file_url: string | null;
   signed_file_url: string | null;
   signed_at: string | null;
   notes: string;
@@ -382,6 +383,7 @@ export type ChatConversation = {
   status: 'open' | 'waiting' | 'closed';
   tags: string[];
   responsible: string;
+  contact_phone: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -394,11 +396,19 @@ export type ChatMessage = {
   created_at: string;
 };
 
+export type InterviewTemplate = {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+};
+
 export type FranchiseWorkflowSettings = {
   id: string;
   franchise_id: string;
   post_sale_days: number[];
   interview_default_duration: number;
+  interview_templates: InterviewTemplate[];
   created_at: string;
   updated_at: string;
 };
@@ -539,6 +549,14 @@ function defaultWorkflowSettings(franchiseId: string): FranchiseWorkflowSettings
     franchise_id: franchiseId,
     post_sale_days: [30, 60, 90],
     interview_default_duration: 45,
+    interview_templates: [
+      {
+        id: makeId(),
+        name: 'Convite para entrevista',
+        subject: 'Entrevista do processo seletivo',
+        body: 'Olá, {{candidato}}! Gostaríamos de agendar sua entrevista para {{data}} às {{horario}}.',
+      },
+    ],
     created_at: timestamp,
     updated_at: timestamp,
   };
@@ -552,13 +570,18 @@ async function getWorkflowSettings(franchiseId: string) {
       .eq('franchise_id', franchiseId)
       .maybeSingle();
     if (error) throw error;
-    if (data) return data as FranchiseWorkflowSettings;
+    if (data) {
+      const settings = data as FranchiseWorkflowSettings;
+      return { ...settings, interview_templates: Array.isArray(settings.interview_templates) ? settings.interview_templates : [] };
+    }
     return insertRemote<FranchiseWorkflowSettings>('franchise_workflow_settings', defaultWorkflowSettings(franchiseId));
   }
 
   const store = readStore();
   const existing = store.workflowSettings.find((item) => item.franchise_id === franchiseId);
-  if (existing) return existing;
+  if (existing) {
+    return { ...existing, interview_templates: Array.isArray(existing.interview_templates) ? existing.interview_templates : [] };
+  }
   const created = defaultWorkflowSettings(franchiseId);
   store.workflowSettings.unshift(created);
   writeStore(store);
@@ -567,7 +590,7 @@ async function getWorkflowSettings(franchiseId: string) {
 
 export async function updateWorkflowSettings(
   franchiseId: string,
-  patch: Partial<Pick<FranchiseWorkflowSettings, 'post_sale_days' | 'interview_default_duration'>>,
+  patch: Partial<Pick<FranchiseWorkflowSettings, 'post_sale_days' | 'interview_default_duration' | 'interview_templates'>>,
 ) {
   const current = await getWorkflowSettings(franchiseId);
   if (useRemoteOps()) {
@@ -1063,6 +1086,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
     provider: null,
     provider_document_id: null,
     signing_url: null,
+    contract_file_url: null,
     signed_file_url: opportunity.signed_contract_url,
     signed_at: opportunity.contract_status === 'signed' ? timestamp : null,
     notes: '',
@@ -2056,7 +2080,24 @@ export function addDocument(franchiseId: string, input: Omit<DocumentRecord, 'id
   return document;
 }
 
-export function addChatMessage(franchiseId: string, conversationId: string | null, body: string, title = 'Conversa interna') {
+export async function deleteDocument(id: string) {
+  if (useRemoteOps()) {
+    const { error } = await supabase!.from('documents').delete().eq('id', id);
+    if (error) throw error;
+    return;
+  }
+  const store = readStore();
+  store.documents = store.documents.filter((item) => item.id !== id);
+  writeStore(store);
+}
+
+export function addChatMessage(
+  franchiseId: string,
+  conversationId: string | null,
+  body: string,
+  title = 'Conversa interna',
+  options: { contactPhone?: string; channel?: ChatConversation['channel'] } = {},
+) {
   if (useRemoteOps()) {
     return (async () => {
       const timestamp = todayIso();
@@ -2068,10 +2109,11 @@ export function addChatMessage(franchiseId: string, conversationId: string | nul
           client_id: null,
           application_id: null,
           title,
-          channel: 'internal',
+          channel: options.channel ?? 'internal',
           status: 'open',
           tags: [],
           responsible: '',
+          contact_phone: options.contactPhone?.trim() || null,
           created_at: timestamp,
           updated_at: timestamp,
         });
@@ -2097,10 +2139,11 @@ export function addChatMessage(franchiseId: string, conversationId: string | nul
       client_id: null,
       application_id: null,
       title,
-      channel: 'internal',
+      channel: options.channel ?? 'internal',
       status: 'open',
       tags: [],
       responsible: '',
+      contact_phone: options.contactPhone?.trim() || null,
       created_at: timestamp,
       updated_at: timestamp,
     };
