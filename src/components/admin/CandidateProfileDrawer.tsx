@@ -394,7 +394,7 @@ export function CandidateProfileDrawer({
                 {notes.map((note) => (
                   <div key={note.id} className="rounded-xl border border-surface-200 p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-black text-ink-900">{note.author?.full_name ?? 'Equipe People Jobs'}</p>
+                      <p className="text-sm font-black text-ink-900">{note.author?.full_name ?? 'Equipe Recruitfy'}</p>
                       <span className="text-xs text-ink-500">{formatDate(note.created_at)}</span>
                     </div>
                     <p className="mt-2 whitespace-pre-wrap text-sm text-ink-700">{note.note}</p>

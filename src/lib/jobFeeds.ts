@@ -74,7 +74,7 @@ export function buildIndeedXml(jobs: Job[]) {
         `    <requisitionid>${cdata(job.id)}</requisitionid>`,
         `    <url>${cdata(jobUrl)}</url>`,
         `    <company>${cdata(job.company?.name)}</company>`,
-        `    <sourcename>${cdata('Redde People Jobs')}</sourcename>`,
+        `    <sourcename>${cdata('Recruitfy')}</sourcename>`,
         `    <city>${cdata(job.city)}</city>`,
         `    <state>${cdata(job.state)}</state>`,
         `    <country>${cdata(job.country ?? 'BR')}</country>`,
@@ -93,7 +93,7 @@ export function buildIndeedXml(jobs: Job[]) {
   return [
     '<?xml version="1.0" encoding="utf-8"?>',
     '<source>',
-    `  <publisher>${cdata('Redde People Jobs')}</publisher>`,
+    `  <publisher>${cdata('Recruitfy')}</publisher>`,
     `  <publisherurl>${cdata(SITE_URL)}</publisherurl>`,
     entries,
     '</source>',

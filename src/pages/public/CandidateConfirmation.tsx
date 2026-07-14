@@ -51,7 +51,7 @@ export function CandidateConfirmation() {
     <main className="bg-surface-50 py-10">
       <div className="container-page max-w-3xl">
         <Card className="p-6">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-redde-700">People Jobs</p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-redde-700">Recruitfy</p>
           <h1 className="mt-2 text-3xl font-black text-ink-900">Confirmação de entrevista</h1>
           <p className="mt-3 text-ink-500">
             {data.application?.candidate_name}, sua entrevista com {data.company?.name ?? 'a empresa'} está agendada para{' '}

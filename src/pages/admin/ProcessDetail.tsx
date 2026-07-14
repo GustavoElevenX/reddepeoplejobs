@@ -534,7 +534,7 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
                       <div key={comment.id} className="rounded-lg bg-surface-50 p-3">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-black text-ink-900">
-                            {comment.author?.full_name ?? 'Equipe People Jobs'}
+                            {comment.author?.full_name ?? 'Equipe Recruitfy'}
                           </p>
                           <span className="text-xs text-ink-500">{formatDate(comment.created_at)}</span>
                         </div>

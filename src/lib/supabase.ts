@@ -3,21 +3,21 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const hasSupabaseConfig = Boolean(supabaseUrl && supabaseAnonKey);
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Recruitfy exige VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY. O modo local com dados simulados foi removido.',
+  );
+}
 
-export const supabase: SupabaseClient | null = hasSupabaseConfig
-  ? createClient(supabaseUrl!, supabaseAnonKey!, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-      },
-    })
-  : null;
+export const hasSupabaseConfig = true as const;
+
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});
 
 export function requireSupabase() {
-  if (!supabase) {
-    throw new Error('O ambiente de dados ainda não foi configurado.');
-  }
-
   return supabase;
 }

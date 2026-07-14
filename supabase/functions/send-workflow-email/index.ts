@@ -47,8 +47,8 @@ serve(async (req) => {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const resendKey = Deno.env.get('RESEND_API_KEY');
-  const emailFrom = Deno.env.get('EMAIL_FROM') || 'People Jobs <no-reply@peoplejobs.com.br>';
-  const appUrl = (Deno.env.get('APP_URL') || Deno.env.get('SITE_URL') || 'https://peoplejobs.com.br').replace(/\/$/, '');
+  const emailFrom = Deno.env.get('EMAIL_FROM') || 'Recruitfy <no-reply@recruitfy.com.br>';
+  const appUrl = (Deno.env.get('APP_URL') || Deno.env.get('SITE_URL') || 'https://recruitfy.com.br').replace(/\/$/, '');
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     return Response.json({ error: 'Configuração segura do backend incompleta.' }, { status: 500, headers: corsHeaders });
   }

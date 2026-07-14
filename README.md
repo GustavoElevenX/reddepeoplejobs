@@ -1,6 +1,6 @@
-# People Jobs
+# Recruitfy
 
-Plataforma multi-franqueado para operação de recrutamento e seleção da Redde People Jobs.
+Plataforma multi-franqueado para operação de recrutamento e seleção da Recruitfy.
 
 ## Visão Geral
 
@@ -113,7 +113,7 @@ Configure no ambiente da função:
 ```env
 OPENAI_API_KEY=
 RESEND_API_KEY=
-EMAIL_FROM=People Jobs <no-reply@seudominio.com.br>
+EMAIL_FROM=Recruitfy <no-reply@seudominio.com.br>
 ```
 
 Nunca use `VITE_OPENAI_API_KEY`; a chave OpenAI deve ficar somente no backend.
@@ -133,7 +133,7 @@ A implementação prepara vagas para Google for Jobs, Indeed, Glassdoor e InfoJo
 Configure:
 
 ```env
-VITE_SITE_URL=https://reddepeoplejobs.com.br
+VITE_SITE_URL=https://recruitfy.com.br
 ```
 
 Endpoints públicos:

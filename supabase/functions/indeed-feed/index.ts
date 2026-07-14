@@ -41,7 +41,7 @@ type JobRow = {
       }>;
 };
 
-const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://reddepeoplejobs.com.br').replace(/\/+$/, '');
+const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://recruitfy.com.br').replace(/\/+$/, '');
 
 function cdata(value: unknown) {
   return `<![CDATA[${String(value ?? '').replaceAll(']]>', ']]]]><![CDATA[>')}]]>`;
@@ -174,7 +174,7 @@ serve(async (request) => {
         `    <requisitionid>${cdata(job.id)}</requisitionid>`,
         `    <url>${cdata(jobUrl(company.slug, job.slug))}</url>`,
         `    <company>${cdata(company.name)}</company>`,
-        `    <sourcename>${cdata('Redde People Jobs')}</sourcename>`,
+        `    <sourcename>${cdata('Recruitfy')}</sourcename>`,
         `    <city>${cdata(job.city)}</city>`,
         `    <state>${cdata(job.state)}</state>`,
         `    <country>${cdata(job.country ?? 'BR')}</country>`,
@@ -194,7 +194,7 @@ serve(async (request) => {
   const xml = [
     '<?xml version="1.0" encoding="utf-8"?>',
     '<source>',
-    `  <publisher>${cdata('Redde People Jobs')}</publisher>`,
+    `  <publisher>${cdata('Recruitfy')}</publisher>`,
     `  <publisherurl>${cdata(siteUrl)}</publisherurl>`,
     jobs,
     '</source>',

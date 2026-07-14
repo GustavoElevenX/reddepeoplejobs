@@ -57,7 +57,7 @@ export function buildJobPostingSchema(job: Job) {
     employmentType: mapEmploymentType(job.contract_type),
     hiringOrganization: {
       '@type': 'Organization',
-      name: job.company?.legal_name ?? job.company?.name ?? 'Empresa parceira Redde People',
+      name: job.company?.legal_name ?? job.company?.name ?? 'Empresa parceira Recruitfy',
       sameAs: job.company?.same_as_url ?? job.company?.website_url ?? undefined,
       logo: job.company?.logo_url ?? undefined,
     },

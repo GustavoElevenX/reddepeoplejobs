@@ -1,4 +1,4 @@
-import { hasSupabaseConfig, supabase } from './supabase';
+import { supabase } from './supabase';
 
 const allowedResumeTypes = [
   'application/pdf',
@@ -42,10 +42,6 @@ export async function uploadResume(file: File, jobId: string) {
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const path = `applications/${jobId}/${uniqueName}.${extension}`;
 
-  if (!hasSupabaseConfig || !supabase) {
-    return path;
-  }
-
   const { error } = await supabase.storage.from('resumes').upload(path, file, {
     cacheControl: '3600',
     upsert: false,
@@ -56,10 +52,6 @@ export async function uploadResume(file: File, jobId: string) {
 }
 
 export async function createResumeSignedUrl(path: string) {
-  if (!hasSupabaseConfig || !supabase) {
-    return '#';
-  }
-
   const { data, error } = await supabase.storage.from('resumes').createSignedUrl(path, 60 * 10);
   if (error) throw error;
   return data.signedUrl;
@@ -75,7 +67,6 @@ export async function uploadFranchiseFile(file: File, franchiseId: string, folde
   const safeFolder = folder.replace(/[^a-z0-9-_]/gi, '-');
   const path = `${franchiseId}/${safeFolder}/${uniqueName}.${extension}`;
 
-  if (!hasSupabaseConfig || !supabase) return path;
   const { error } = await supabase.storage.from('franchise-documents').upload(path, file, {
     cacheControl: '3600',
     upsert: false,
@@ -87,7 +78,6 @@ export async function uploadFranchiseFile(file: File, franchiseId: string, folde
 
 export async function createFranchiseFileSignedUrl(pathOrUrl: string) {
   if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
-  if (!hasSupabaseConfig || !supabase) return '#';
   const { data, error } = await supabase.storage.from('franchise-documents').createSignedUrl(pathOrUrl, 60 * 10);
   if (error) throw error;
   return data.signedUrl;
@@ -117,10 +107,6 @@ export async function uploadCompanyAsset(file: File, companyId: string, assetTyp
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const path = `${companyId}/${assetType}/${uniqueName}.${extension}`;
-
-  if (!hasSupabaseConfig || !supabase) {
-    return `/imagens/clientes/${file.name}`;
-  }
 
   const { error } = await supabase.storage.from('company-assets').upload(path, file, {
     cacheControl: '3600',

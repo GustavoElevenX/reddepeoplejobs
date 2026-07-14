@@ -11,7 +11,7 @@ export function ApplicationSuccess() {
         </div>
         <h1 className="mt-6 text-4xl font-black text-ink-900">Candidatura enviada com sucesso.</h1>
         <p className="mt-4 text-lg leading-8 text-ink-500">
-          Seu currículo foi recebido. Caso seu perfil avance no processo, a empresa ou a People Jobs entrará em contato pelos dados informados.
+          Seu currículo foi recebido. Caso seu perfil avance no processo, a empresa ou a Recruitfy entrará em contato pelos dados informados.
         </p>
         <Link to="/vagas" className="mt-8 inline-flex">
           <Button size="lg">Ver outras vagas</Button>

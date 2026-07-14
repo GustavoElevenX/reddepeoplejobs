@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { getAdminRedirectPath, signIn } from '../../lib/auth';
-import { hasSupabaseConfig } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -54,20 +53,15 @@ export function Login() {
           </span>
           <h1 className="mt-4 text-3xl font-black text-ink-900">Acesso à plataforma</h1>
           <p className="mt-2 text-sm leading-6 text-ink-500">
-            Plataforma própria da rede People para gestão de recrutamento, seleção e operação dos franqueados.
+            Plataforma Recruitfy para gestão de recrutamento, seleção e operação dos franqueados.
           </p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
           <Input label="E-mail" type="email" {...register('email')} error={errors.email?.message} />
           <Input label="Senha" type="password" {...register('password')} error={errors.password?.message} />
-          {!hasSupabaseConfig ? (
-            <div className="rounded-lg bg-redde-50 p-3 text-sm font-semibold text-redde-700">
-              Supabase não configurado. Configure as variáveis de ambiente para usar o painel.
-            </div>
-          ) : null}
           {error ? <div className="rounded-lg bg-redde-50 p-3 text-sm font-semibold text-redde-700">{error}</div> : null}
-          <Button type="submit" disabled={isSubmitting || !hasSupabaseConfig}>
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : null}
             Entrar
           </Button>

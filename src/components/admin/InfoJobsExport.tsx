@@ -23,7 +23,7 @@ export function buildInfoJobsText(job: Job) {
 
   return [
     `Título da vaga: ${job.title}`,
-    `Empresa: ${job.company?.name ?? 'Empresa parceira Redde People'}`,
+    `Empresa: ${job.company?.name ?? 'Empresa parceira Recruitfy'}`,
     `Cidade/Estado: ${[job.city, job.state].filter(Boolean).join('/') || 'Remoto'}`,
     `Bairro: ${job.neighborhood || 'Não informado'}`,
     `Tipo de contrato: ${contractTypeLabels[job.contract_type]}`,

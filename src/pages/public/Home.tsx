@@ -220,7 +220,7 @@ export function Home() {
             <div>
               <h2 className="text-3xl font-black text-ink-900">Empresas parceiras estão contratando agora</h2>
               <p className="mt-2 max-w-2xl text-ink-500">
-                Conheça empresas com vagas abertas e processos seletivos acompanhados pelo People Jobs.
+                Conheça empresas com vagas abertas e processos seletivos acompanhados pelo Recruitfy.
               </p>
             </div>
             <Link to="/empresas" className="inline-flex items-center gap-2 text-sm font-bold text-redde-600">
@@ -274,7 +274,7 @@ export function Home() {
             <div className="mb-7">
               <h2 className="text-3xl font-black text-ink-900">Áreas com oportunidades</h2>
               <p className="mt-2 max-w-2xl text-ink-500">
-                Navegue pelas áreas que têm vagas abertas agora no People Jobs.
+                Navegue pelas áreas que têm vagas abertas agora no Recruitfy.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -298,7 +298,7 @@ export function Home() {
       <section className="bg-white py-12">
         <div className="container-page">
           <div className="mb-7">
-            <h2 className="text-3xl font-black text-ink-900">Como funciona o People Jobs</h2>
+            <h2 className="text-3xl font-black text-ink-900">Como funciona o Recruitfy</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {[
@@ -337,7 +337,7 @@ export function Home() {
             </h2>
             <p className="mt-3 max-w-3xl leading-7 text-white/75">
               {cta?.subtitle ??
-                'O People Jobs permite que empresas parceiras publiquem vagas, tenham uma página própria e acompanhem candidaturas em um painel simples.'}
+                'O Recruitfy permite que empresas parceiras publiquem vagas, tenham uma página própria e acompanhem candidaturas em um painel simples.'}
             </p>
             <div className="mt-5 grid gap-2 text-sm font-semibold text-white/85 sm:grid-cols-2 lg:grid-cols-3">
               {[
@@ -355,10 +355,10 @@ export function Home() {
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <a href={cta?.button_url ?? 'mailto:contato@peoplejobs.com.br'} className="inline-flex">
+            <a href={cta?.button_url ?? 'mailto:contato@recruitfy.com.br'} className="inline-flex">
               <Button size="lg" variant="secondary" className="border-white bg-white text-ink-900 hover:bg-redde-50">
                 <Mail size={18} />
-                {cta?.button_label ?? 'Falar com o People Jobs'}
+                {cta?.button_label ?? 'Falar com o Recruitfy'}
               </Button>
             </a>
             <Link to="/admin/login" className="inline-flex">

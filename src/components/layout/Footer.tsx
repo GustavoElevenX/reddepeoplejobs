@@ -11,15 +11,15 @@ const companyLinks = [
   { label: 'Sou empresa', to: '/#para-empresas' },
   { label: 'Publicar vagas', to: '/#para-empresas' },
   { label: 'Acessar painel', to: '/admin/login' },
-  { label: 'Falar com o People Jobs', to: 'mailto:contato@peoplejobs.com.br' },
+  { label: 'Falar com o Recruitfy', to: 'mailto:contato@recruitfy.com.br' },
 ];
 
 const institutionalLinks = [
-  { label: 'Sobre o People Jobs', to: '/' },
+  { label: 'Sobre o Recruitfy', to: '/' },
   { label: 'Política de privacidade', to: '/#seguranca-lgpd' },
   { label: 'Termos de uso', to: '/#seguranca-lgpd' },
   { label: 'LGPD', to: '/#seguranca-lgpd' },
-  { label: 'Contato', to: 'mailto:contato@peoplejobs.com.br' },
+  { label: 'Contato', to: 'mailto:contato@recruitfy.com.br' },
 ];
 
 function FooterLink({ label, to }: { label: string; to: string }) {

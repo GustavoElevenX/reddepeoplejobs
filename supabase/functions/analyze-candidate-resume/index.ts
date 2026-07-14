@@ -149,29 +149,46 @@ serve(async (req) => {
   let applicationId = '';
   const admin = createClient(supabaseUrl, serviceRoleKey);
   try {
-    const body = await req.json() as { applicationId?: unknown };
+    const body = await req.json() as { applicationId?: unknown; analysisToken?: unknown };
     if (typeof body.applicationId !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.applicationId)) {
       return Response.json({ error: 'applicationId inválido.' }, { status: 400, headers: corsHeaders });
     }
     applicationId = body.applicationId;
     const authorization = req.headers.get('Authorization');
-    if (!authorization) return Response.json({ error: 'Autenticação obrigatória.' }, { status: 401, headers: corsHeaders });
-    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } });
-    const { data: userData, error: userError } = await userClient.auth.getUser();
-    if (userError || !userData.user) return Response.json({ error: 'Sessão inválida.' }, { status: 401, headers: corsHeaders });
-
-    const [{ data: profile }, { data: application, error: applicationError }] = await Promise.all([
-      admin.from('profiles').select('id,role,franchise_id,is_active').eq('id', userData.user.id).single(),
-      admin.from('applications').select('*').eq('id', applicationId).single(),
-    ]);
+    const { data: application, error: applicationError } = await admin
+      .from('applications')
+      .select('*')
+      .eq('id', applicationId)
+      .single();
     if (applicationError || !application) return Response.json({ error: 'Candidatura não encontrada.' }, { status: 404, headers: corsHeaders });
-    const isAdmin = profile?.is_active && ['admin_master', 'redde_super_admin', 'redde_admin'].includes(profile.role);
-    const isOwner = profile?.is_active && profile.role === 'franqueado' && profile.franchise_id === application.franchise_id;
-    if (!isAdmin && !isOwner) return Response.json({ error: 'Sem permissão para analisar esta candidatura.' }, { status: 403, headers: corsHeaders });
+
+    let authorizedUser = false;
+    if (authorization) {
+      const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } });
+      const { data: userData } = await userClient.auth.getUser();
+      if (userData.user) {
+        const { data: profile } = await admin
+          .from('profiles')
+          .select('id,role,franchise_id,is_active')
+          .eq('id', userData.user.id)
+          .single();
+        const isAdmin = profile?.is_active && ['admin_master', 'redde_super_admin', 'redde_admin'].includes(profile.role);
+        const isOwner = profile?.is_active && profile.role === 'franqueado' && profile.franchise_id === application.franchise_id;
+        authorizedUser = Boolean(isAdmin || isOwner);
+      }
+    }
+    const validOneTimeToken = typeof body.analysisToken === 'string'
+      && body.analysisToken.length >= 32
+      && body.analysisToken === application.resume_analysis_token
+      && application.resume_analysis_status === 'pending';
+    if (!authorizedUser && !validOneTimeToken) {
+      return Response.json({ error: 'Sem permissão para analisar esta candidatura.' }, { status: 403, headers: corsHeaders });
+    }
     if (!application.resume_file_path) throw new Error('A candidatura não possui currículo anexado.');
 
     await admin.from('applications').update({
-      resume_analysis_status: 'processing', resume_analysis_error: null, updated_at: new Date().toISOString(),
+      resume_analysis_status: 'processing', resume_analysis_error: null, resume_analysis_token: null,
+      updated_at: new Date().toISOString(),
     }).eq('id', applicationId);
 
     const [{ data: job, error: jobError }, { data: project }] = await Promise.all([

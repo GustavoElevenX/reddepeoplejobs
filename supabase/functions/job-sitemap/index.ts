@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.87.1';
 
-const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://reddepeoplejobs.com.br').replace(/\/+$/, '');
+const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://recruitfy.com.br').replace(/\/+$/, '');
 
 function escapeXml(value: unknown) {
   return String(value ?? '')

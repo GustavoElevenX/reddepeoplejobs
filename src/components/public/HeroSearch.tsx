@@ -30,13 +30,13 @@ export function HeroSearch({ companies, openJobsCount, loading = false }: HeroSe
       <div className="container-page pb-10 pt-28 lg:pb-12 lg:pt-32">
         <div className="mx-auto max-w-4xl text-center">
           <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-white">
-            Portal de vagas People Jobs
+            Portal de vagas Recruitfy
           </span>
           <h1 className="mt-5 text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">
             Encontre vagas em empresas que estão contratando agora.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-white/85">
-            O People Jobs conecta candidatos a empresas parceiras com processos seletivos mais organizados, claros e profissionais.
+            O Recruitfy conecta candidatos a empresas parceiras com processos seletivos mais organizados, claros e profissionais.
           </p>
         </div>
 

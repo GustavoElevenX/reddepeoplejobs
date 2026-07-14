@@ -100,7 +100,7 @@ export function JobDetail() {
   const aboutCompany = job.about_company ?? job.company?.about_text;
   const schema = buildJobPostingSchema(job);
   const canonicalUrl = job.company?.slug ? getJobUrl(job.company.slug, job.slug) : undefined;
-  const pageTitle = job.seo_title || `${job.title} - ${job.company?.name ?? 'Redde People Jobs'}`;
+  const pageTitle = job.seo_title || `${job.title} - ${job.company?.name ?? 'Recruitfy'}`;
   const pageDescription =
     job.seo_description || job.short_description || `Candidate-se para a vaga ${job.title}.`;
   const usesExternalApplication = !job.direct_apply && Boolean(job.external_apply_url);

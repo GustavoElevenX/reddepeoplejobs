@@ -1,4 +1,4 @@
-export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? 'https://reddepeoplejobs.com.br').replace(/\/+$/, '');
+export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? 'https://recruitfy.com.br').replace(/\/+$/, '');
 
 export function getJobPath(companySlug: string, jobSlug: string) {
   return `/empresa/${encodeURIComponent(companySlug)}/vagas/${encodeURIComponent(jobSlug)}`;

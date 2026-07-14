@@ -37,7 +37,7 @@ export function ReddeDashboard() {
         <div>
           <h1 className="text-3xl font-black text-ink-900">Admin Master</h1>
           <p className="mt-2 text-ink-500">
-            Visão consolidada dos franqueados, empresas, vagas e candidatos da rede People.
+            Visão consolidada dos franqueados, empresas, vagas e candidatos da Recruitfy.
           </p>
         </div>
         <Link to="/admin/master/franqueados">
