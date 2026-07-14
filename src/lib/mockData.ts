@@ -62,6 +62,23 @@ const applicationProcessDefaults = {
   skills: [],
   education: [],
   experiences: [],
+  resume_analysis_status: 'pending' as const,
+  resume_analysis: {
+    professional_summary: '', skills: [], education: [], experiences: [], languages: [], certifications: [],
+    total_experience_months: 0, current_role: '', location: '', salary_expectation_found: '', availability_found: '', evidence: [],
+  },
+  resume_analysis_error: null,
+  resume_analyzed_at: null,
+  ai_match_score: null,
+  ranking_details: {
+    overall_score: 0, mandatory_requirements_score: 0, experience_score: 0, technical_skills_score: 0,
+    education_score: 0, location_score: 0, availability_score: 0, salary_score: 0,
+    behavioral_indicators_score: 0, met_requirements: [], missing_requirements: [], strengths: [], risks: [], evidence: [], summary: '',
+  },
+  ranking_generated_at: null,
+  resume_analysis_waived_at: null,
+  resume_analysis_waiver_reason: null,
+  resume_analysis_waived_by: null,
 };
 
 export const mockFranchises: Franchise[] = [

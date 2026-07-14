@@ -1,5 +1,5 @@
 import { CalendarPlus, CheckCircle2, Send, XCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
@@ -9,14 +9,15 @@ import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
+import { Modal } from '../../components/ui/Modal';
 import {
+  finalizeHiringDecisions,
   getClientPortal,
   saveHiringDecision,
   saveNps,
   scheduleInterview,
   type FinalistRecord,
 } from '../../lib/franchiseOps';
-import { createApplicationRanking } from '../../lib/ranking';
 
 type PortalData = Awaited<ReturnType<typeof getClientPortal>>;
 
@@ -28,8 +29,9 @@ export function ClientPortal() {
   const [decisionFinalist, setDecisionFinalist] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [confirmFinalize, setConfirmFinalize] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!token) {
       setLoading(false);
       return;
@@ -37,11 +39,11 @@ export function ClientPortal() {
     setLoading(true);
     setData(await getClientPortal(token));
     setLoading(false);
-  }
+  }, [token]);
 
   useEffect(() => {
     void load();
-  }, [token]);
+  }, [load]);
 
   async function action(fn: () => Promise<unknown> | unknown, message: string) {
     setError('');
@@ -62,6 +64,13 @@ export function ClientPortal() {
 
   const selected = data.finalists.find((item) => item.id === selectedFinalist) ?? null;
   const decisionSelected = data.finalists.find((item) => item.id === decisionFinalist) ?? null;
+  const decisionsByFinalist = new Map(data.decisions.map((item) => [item.finalist_id, item]));
+  const canFinalize = data.finalists.length > 0 && data.finalists.every((item) => {
+    const decision = decisionsByFinalist.get(item.id);
+    return decision && ['approved', 'rejected'].includes(decision.decision)
+      && (decision.decision !== 'approved' || (decision.start_date && decision.internal_responsible_name));
+  });
+  const finalized = data.client_decision_status === 'finalized';
 
   return (
     <main className="bg-surface-50 py-10">
@@ -78,9 +87,6 @@ export function ClientPortal() {
           {data.finalists.length ? (
             data.finalists.map((finalist) => {
               const application = data.applications.find((item) => item.id === finalist.application_id);
-              const ranking = application
-                ? createApplicationRanking(application, data.job)
-                : { score: 0, summary: 'Candidatura não localizada.', strengths: [], concerns: [] };
               const schedule = data.schedules.find((item) => item.finalist_id === finalist.id);
               const decision = data.decisions.find((item) => item.finalist_id === finalist.id);
               return (
@@ -89,14 +95,9 @@ export function ClientPortal() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-xl font-black text-ink-900">{application?.candidate_name ?? 'Candidato'}</h2>
-                        <Badge>{ranking.score}% aderência</Badge>
                         <Badge>{finalist.status}</Badge>
                       </div>
-                      <p className="mt-2 text-sm text-ink-500">{application?.candidate_email} · {application?.candidate_phone}</p>
                       <p className="mt-4 whitespace-pre-line text-sm leading-6 text-ink-700">{finalist.ai_report}</p>
-                      {finalist.franchise_opinion ? (
-                        <p className="mt-3 text-sm text-ink-500"><strong>Parecer do franqueado:</strong> {finalist.franchise_opinion}</p>
-                      ) : null}
                       {schedule ? (
                         <p className="mt-3 text-sm font-semibold text-redde-700">
                           Entrevista: {schedule.date} às {schedule.time} · {schedule.candidate_confirmed_at ? 'presença confirmada' : 'aguardando confirmação'}
@@ -105,13 +106,13 @@ export function ClientPortal() {
                       {decision ? <p className="mt-2 text-sm font-semibold text-ink-700">Decisão: {decision.decision}</p> : null}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="secondary" onClick={() => setSelectedFinalist(finalist.id)}>
+                      <Button variant="secondary" disabled={finalized} onClick={() => setSelectedFinalist(finalist.id)}>
                         <CalendarPlus size={17} />
                         Marcar entrevista
                       </Button>
-                      <Button onClick={() => setDecisionFinalist(finalist.id)}>
+                      <Button disabled={finalized} onClick={() => setDecisionFinalist(finalist.id)}>
                         <CheckCircle2 size={17} />
-                        Decisão final
+                        {decision ? 'Editar decisão salva' : 'Salvar decisão'}
                       </Button>
                     </div>
                   </div>
@@ -124,8 +125,21 @@ export function ClientPortal() {
         </div>
 
         <Card className="p-5">
+          <h2 className="text-xl font-black text-ink-900">Resumo das decisões</h2>
+          <div className="mt-4 grid gap-2">{data.finalists.map((finalist) => {
+            const application = data.applications.find((item) => item.id === finalist.application_id);
+            const decision = decisionsByFinalist.get(finalist.id);
+            return <div key={finalist.id} className="flex justify-between rounded-lg bg-surface-50 p-3 text-sm"><span>{application?.candidate_name ?? 'Candidato'}</span><strong>{decision?.decision ?? 'pendente'}</strong></div>;
+          })}</div>
+          <Button className="mt-4 w-full" disabled={!canFinalize || finalized} onClick={() => setConfirmFinalize(true)}>
+            <CheckCircle2 size={18}/>{finalized ? 'Decisão conjunta finalizada' : 'Finalizar decisão dos candidatos'}
+          </Button>
+          {!canFinalize && !finalized ? <p className="mt-2 text-sm text-ink-500">Decida todos os finalistas e preencha os dados obrigatórios dos aprovados.</p> : null}
+        </Card>
+
+        <Card className="p-5">
           <h2 className="text-xl font-black text-ink-900">NPS do processo</h2>
-          <form
+          {data.nps ? <div className="mt-4 rounded-lg bg-surface-50 p-4"><p className="font-black">Nota registrada: {data.nps.score}/10</p><p className="mt-1 text-sm text-ink-500">{data.nps.comment || 'Sem comentário'}</p></div> : data.can_submit_nps ? <form
             className="mt-4 grid gap-4"
             onSubmit={(event) => {
               event.preventDefault();
@@ -145,21 +159,21 @@ export function ClientPortal() {
             }}
           >
             <div className="grid gap-4 md:grid-cols-2">
-              <Input name="score" label="De 0 a 10, quanto você recomendaria?" type="number" min="0" max="10" defaultValue={data.nps?.score ?? 10} required />
-              <Input name="referral_contacts" label="Indicações, se houver" defaultValue={data.nps?.referral_contacts ?? ''} />
+              <Input name="score" label="De 0 a 10, quanto você recomendaria?" type="number" min="0" max="10" defaultValue={10} required />
+              <Input name="referral_contacts" label="Indicações, se houver" />
             </div>
-            <Textarea name="comment" label="Comentário" rows={3} defaultValue={data.nps?.comment ?? ''} />
-            <Textarea name="positives" label="Pontos positivos" rows={3} defaultValue={data.nps?.positives ?? ''} />
-            <Textarea name="improvements" label="Pontos a melhorar" rows={3} defaultValue={data.nps?.improvements ?? ''} />
+            <Textarea name="comment" label="Comentário" rows={3} />
+            <Textarea name="positives" label="Pontos positivos" rows={3} />
+            <Textarea name="improvements" label="Pontos a melhorar" rows={3} />
             <label className="flex items-center gap-3 rounded-lg bg-surface-50 p-3 text-sm font-semibold text-ink-700">
-              <input name="referral_possible" type="checkbox" className="h-4 w-4 accent-redde-500" defaultChecked={data.nps?.referral_possible ?? false} />
+              <input name="referral_possible" type="checkbox" className="h-4 w-4 accent-redde-500" />
               Posso indicar outra empresa
             </label>
             <Button type="submit">
               <Send size={18} />
               Enviar NPS
             </Button>
-          </form>
+          </form> : <p className="mt-3 text-sm text-ink-500">O NPS será liberado somente depois que todas as decisões forem finalizadas em conjunto e houver ao menos um candidato aprovado.</p>}
         </Card>
 
         {selected ? (
@@ -173,9 +187,15 @@ export function ClientPortal() {
           <DecisionForm
             portalToken={token!}
             finalist={decisionSelected}
-            onSubmit={(fn) => action(fn, 'Decisão registrada com sucesso.')}
+            onSubmit={(fn) => action(fn, 'Decisão salva. O processo só será encerrado após a finalização conjunta.')}
           />
         ) : null}
+        <Modal open={confirmFinalize} onClose={() => setConfirmFinalize(false)} title="Finalizar decisão dos candidatos" description="Esta ação encerra a etapa de decisão do cliente.">
+          <div className="grid gap-3">{data.decisions.map((decision) => {
+            const application = data.applications.find((item) => item.id === decision.application_id);
+            return <div key={decision.id} className="rounded-lg border p-3"><p className="font-bold">{application?.candidate_name} · {decision.decision}</p>{decision.decision === 'approved' ? <p className="text-sm text-ink-500">Início: {decision.start_date} · Responsável: {decision.internal_responsible_name}</p> : null}</div>;
+          })}<Button onClick={() => { setConfirmFinalize(false); void action(() => finalizeHiringDecisions(token!), 'Decisões finalizadas em conjunto.'); }}>Confirmar finalização</Button></div>
+        </Modal>
       </div>
     </main>
   );
@@ -251,7 +271,7 @@ function DecisionForm({
   const [decision, setDecision] = useState<'approved' | 'rejected' | 'undecided'>('approved');
   return (
     <Card className="p-5">
-      <h2 className="text-xl font-black text-ink-900">Decisão final</h2>
+      <h2 className="text-xl font-black text-ink-900">Salvar decisão deste candidato</h2>
       <form
         className="mt-4 grid gap-4"
         onSubmit={(event) => {
@@ -312,7 +332,7 @@ function DecisionForm({
         )}
         <Button type="submit">
           {decision === 'rejected' ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
-          Registrar decisão
+          Salvar decisão
         </Button>
       </form>
     </Card>

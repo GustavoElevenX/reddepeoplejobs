@@ -269,6 +269,25 @@ function normalizeApplication(row: ApplicationRow): Application {
     skills: application.skills ?? [],
     education: application.education ?? [],
     experiences: application.experiences ?? [],
+    resume_analysis_status: application.resume_analysis_status ?? 'pending',
+    resume_analysis: application.resume_analysis ?? {
+      professional_summary: '', skills: [], education: [], experiences: [], languages: [], certifications: [],
+      total_experience_months: 0, current_role: '', location: '', salary_expectation_found: '',
+      availability_found: '', evidence: [],
+    },
+    resume_analysis_error: application.resume_analysis_error ?? null,
+    resume_analyzed_at: application.resume_analyzed_at ?? null,
+    ai_match_score: application.ai_match_score ?? null,
+    ranking_details: application.ranking_details ?? {
+      overall_score: 0, mandatory_requirements_score: 0, experience_score: 0, technical_skills_score: 0,
+      education_score: 0, location_score: 0, availability_score: 0, salary_score: 0,
+      behavioral_indicators_score: 0, met_requirements: [], missing_requirements: [], strengths: [], risks: [],
+      evidence: [], summary: '',
+    },
+    ranking_generated_at: application.ranking_generated_at ?? null,
+    resume_analysis_waived_at: application.resume_analysis_waived_at ?? null,
+    resume_analysis_waiver_reason: application.resume_analysis_waiver_reason ?? null,
+    resume_analysis_waived_by: application.resume_analysis_waived_by ?? null,
     company: companies ?? undefined,
     job: jobs ?? undefined,
   };
@@ -994,6 +1013,23 @@ export async function createApplication(
       skills: [],
       education: [],
       experiences: [],
+      resume_analysis_status: 'pending',
+      resume_analysis: {
+        professional_summary: '', skills: [], education: [], experiences: [], languages: [], certifications: [],
+        total_experience_months: 0, current_role: '', location: '', salary_expectation_found: '', availability_found: '', evidence: [],
+      },
+      resume_analysis_error: null,
+      resume_analyzed_at: null,
+      ai_match_score: null,
+      ranking_details: {
+        overall_score: 0, mandatory_requirements_score: 0, experience_score: 0, technical_skills_score: 0,
+        education_score: 0, location_score: 0, availability_score: 0, salary_score: 0,
+        behavioral_indicators_score: 0, met_requirements: [], missing_requirements: [], strengths: [], risks: [], evidence: [], summary: '',
+      },
+      ranking_generated_at: null,
+      resume_analysis_waived_at: null,
+      resume_analysis_waiver_reason: null,
+      resume_analysis_waived_by: null,
       created_at: timestamp,
       updated_at: timestamp,
     } as Application,
@@ -1001,33 +1037,18 @@ export async function createApplication(
   );
 
   if (hasSupabaseConfig && supabase) {
-    const { error } = await supabase.from('applications').insert({
+    const { data, error } = await supabase.from('applications').insert({
       ...payload,
       match_score: ranking.score,
       adhesion_score: ranking.score,
       professional_summary: ranking.summary,
-    });
+    }).select('*').single();
     if (error) throw error;
-    return {
-      id: '',
-      ...payload,
-      status: 'novo',
-      stage: 'qualificacao',
-      kanban_order: 0,
-      match_score: ranking.score,
-      adhesion_score: ranking.score,
-      is_new: true,
-      rejection_reason: null,
-      tags: [],
-      interview_scheduled_at: null,
-      recruiter_opinion: null,
-      professional_summary: ranking.summary,
-      skills: [],
-      education: [],
-      experiences: [],
-      created_at: timestamp,
-      updated_at: timestamp,
-    } as Application;
+    const application = normalizeApplication(data as ApplicationRow);
+    void supabase.functions.invoke('analyze-candidate-resume', {
+      body: { applicationId: application.id },
+    }).catch(() => undefined);
+    return application;
   }
 
   const store = getLocalStore();
@@ -1057,6 +1078,23 @@ export async function createApplication(
     skills: [],
     education: [],
     experiences: [],
+    resume_analysis_status: 'pending',
+    resume_analysis: {
+      professional_summary: '', skills: [], education: [], experiences: [], languages: [], certifications: [],
+      total_experience_months: 0, current_role: '', location: '', salary_expectation_found: '', availability_found: '', evidence: [],
+    },
+    resume_analysis_error: null,
+    resume_analyzed_at: null,
+    ai_match_score: null,
+    ranking_details: {
+      overall_score: 0, mandatory_requirements_score: 0, experience_score: 0, technical_skills_score: 0,
+      education_score: 0, location_score: 0, availability_score: 0, salary_score: 0,
+      behavioral_indicators_score: 0, met_requirements: [], missing_requirements: [], strengths: [], risks: [], evidence: [], summary: '',
+    },
+    ranking_generated_at: null,
+    resume_analysis_waived_at: null,
+    resume_analysis_waiver_reason: null,
+    resume_analysis_waived_by: null,
     created_at: timestamp,
     updated_at: timestamp,
     job,
@@ -1104,6 +1142,23 @@ export async function createManualApplication(values: {
     skills: [],
     education: [],
     experiences: [],
+    resume_analysis_status: 'pending' as const,
+    resume_analysis: {
+      professional_summary: '', skills: [], education: [], experiences: [], languages: [], certifications: [],
+      total_experience_months: 0, current_role: '', location: '', salary_expectation_found: '', availability_found: '', evidence: [],
+    },
+    resume_analysis_error: null,
+    resume_analyzed_at: null,
+    ai_match_score: null,
+    ranking_details: {
+      overall_score: 0, mandatory_requirements_score: 0, experience_score: 0, technical_skills_score: 0,
+      education_score: 0, location_score: 0, availability_score: 0, salary_score: 0,
+      behavioral_indicators_score: 0, met_requirements: [], missing_requirements: [], strengths: [], risks: [], evidence: [], summary: '',
+    },
+    ranking_generated_at: null,
+    resume_analysis_waived_at: null,
+    resume_analysis_waiver_reason: null,
+    resume_analysis_waived_by: null,
     lgpd_consent: false,
     source: 'manual',
     created_at: timestamp,

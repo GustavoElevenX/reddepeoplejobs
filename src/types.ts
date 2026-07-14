@@ -45,6 +45,43 @@ export type ApplicationStatus =
   | 'contratado'
   | 'banco_talentos';
 
+export type ResumeAnalysisStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export type ResumeAnalysis = {
+  professional_summary: string;
+  skills: string[];
+  education: CandidateEducation[];
+  experiences: CandidateExperience[];
+  languages: string[];
+  certifications: string[];
+  total_experience_months: number;
+  current_role: string;
+  location: string;
+  salary_expectation_found: string;
+  availability_found: string;
+  evidence: string[];
+};
+
+export type RankingDetails = {
+  overall_score: number;
+  mandatory_requirements_score: number;
+  experience_score: number;
+  technical_skills_score: number;
+  education_score: number;
+  location_score: number;
+  availability_score: number;
+  salary_score: number;
+  behavioral_indicators_score: number;
+  met_requirements: string[];
+  missing_requirements: string[];
+  strengths: string[];
+  risks: string[];
+  evidence: string[];
+  summary: string;
+};
+
+export type ClientDecisionStatus = 'not_started' | 'in_progress' | 'finalized' | 'reopen_required';
+
 export type Franchise = {
   id: string;
   name: string;
@@ -210,6 +247,16 @@ export type Application = {
   skills: string[];
   education: CandidateEducation[];
   experiences: CandidateExperience[];
+  resume_analysis_status: ResumeAnalysisStatus;
+  resume_analysis: ResumeAnalysis;
+  resume_analysis_error: string | null;
+  resume_analyzed_at: string | null;
+  ai_match_score: number | null;
+  ranking_details: RankingDetails;
+  ranking_generated_at: string | null;
+  resume_analysis_waived_at: string | null;
+  resume_analysis_waiver_reason: string | null;
+  resume_analysis_waived_by: string | null;
   lgpd_consent: boolean;
   source: string | null;
   created_at: string;

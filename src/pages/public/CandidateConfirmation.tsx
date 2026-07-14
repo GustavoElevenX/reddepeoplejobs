@@ -1,5 +1,5 @@
 import { CheckCircle2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
@@ -16,7 +16,7 @@ export function CandidateConfirmation() {
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState('');
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!token) {
       setLoading(false);
       return;
@@ -26,11 +26,11 @@ export function CandidateConfirmation() {
     setData(result);
     setConfirmed(Boolean(result?.schedule.candidate_confirmed_at));
     setLoading(false);
-  }
+  }, [token]);
 
   useEffect(() => {
     void load();
-  }, [token]);
+  }, [load]);
 
   async function confirm() {
     if (!token) return;

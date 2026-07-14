@@ -1,10 +1,21 @@
 import { addDays, formatISO, isBefore, parseISO } from 'date-fns';
-import { createApplicationRanking } from './ranking';
+import { getPersistedApplicationRanking, normalizeRankingDetails } from './ranking';
 import { listApplications, listCompanies, listJobs, upsertCompany, upsertJob, updateApplicationStatus } from './data';
 import { getLocalStore, makeId } from './localDb';
 import { slugify } from './slugify';
 import { hasSupabaseConfig, supabase } from './supabase';
-import type { Application, Company, Franchise, Job, JobContractType, JobModality } from '../types';
+import type {
+  Application,
+  ClientDecisionStatus,
+  Company,
+  Franchise,
+  Job,
+  JobContractType,
+  JobModality,
+  RankingDetails,
+  ResumeAnalysis,
+  ResumeAnalysisStatus,
+} from '../types';
 
 export type SalesStage =
   | 'new_lead'
@@ -16,6 +27,15 @@ export type SalesStage =
   | 'lost';
 
 export type ContractStatus = 'not_generated' | 'generated' | 'sent' | 'signed' | 'cancelled';
+export type SignatureStatus =
+  | 'not_generated'
+  | 'generated'
+  | 'sent'
+  | 'viewed'
+  | 'signed'
+  | 'cancelled'
+  | 'expired'
+  | 'failed';
 export type InitialPaymentStatus = 'pending' | 'paid' | 'waived' | 'overdue';
 export type ProjectStage =
   | 'commercial_formalized'
@@ -44,10 +64,17 @@ export type BriefingStatus =
   | 'needs_adjustment';
 export type JobDescriptionStatus = 'generated' | 'edited' | 'approved' | 'rejected' | 'regenerate';
 export type ReceivableStatus = 'pending' | 'received' | 'overdue' | 'cancelled';
+export type InstallmentStatus = 'locked' | 'pending' | 'received' | 'waived' | 'overdue' | 'cancelled';
 export type PayableStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
 export type InvoiceStatus = 'pending' | 'ready_to_issue' | 'issued' | 'cancelled';
 export type TaskStatus = 'open' | 'done' | 'snoozed';
-export type FinalistStatus = 'draft' | 'approved_by_franchise' | 'released_to_client' | 'interview_scheduled' | 'client_decided';
+export type FinalistStatus =
+  | 'draft'
+  | 'selected'
+  | 'approved_by_franchise'
+  | 'released_to_client'
+  | 'interview_scheduled'
+  | 'client_decided';
 
 export type SalesOpportunity = {
   id: string;
@@ -93,6 +120,11 @@ export type FranchiseProject = {
   priority: 'low' | 'medium' | 'high';
   next_step: string;
   client_access_token: string;
+  client_decision_status: ClientDecisionStatus;
+  client_decision_finalized_at: string | null;
+  nps_released_at: string | null;
+  process_completed_at: string | null;
+  finalists_release_exception_reason: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -195,6 +227,8 @@ export type ContractRecord = {
   contract_file_url: string | null;
   signed_file_url: string | null;
   signed_at: string | null;
+  signature_status: SignatureStatus;
+  signature_error: string | null;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -227,6 +261,28 @@ export type AccountReceivable = {
   payment_terms: string;
   payment_link: string;
   status: ReceivableStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AccountReceivableInstallment = {
+  id: string;
+  franchise_id: string;
+  client_id: string;
+  project_id: string;
+  service_order_id: string | null;
+  receivable_id: string;
+  installment_number: number;
+  description: string;
+  amount: number;
+  due_date: string | null;
+  release_trigger: 'immediate' | 'final_decision' | 'manual';
+  released_at: string | null;
+  status: InstallmentStatus;
+  paid_at: string | null;
+  payment_link: string | null;
+  receipt_url: string | null;
+  notes: string;
   created_at: string;
   updated_at: string;
 };
@@ -283,7 +339,77 @@ export type FinalistRecord = {
   status: FinalistStatus;
   franchise_opinion: string;
   ai_report: string;
+  ai_report_status: 'pending' | 'generating' | 'generated' | 'approved' | 'failed';
+  ai_report_payload: FinalistAiReport | Record<string, never>;
+  ai_report_generated_at: string | null;
+  franchise_approved_at: string | null;
+  franchise_approved_by: string | null;
   client_notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FinalistAiReport = {
+  executive_summary: string;
+  career_summary: string;
+  job_adherence: string;
+  technical_strengths: string[];
+  behavioral_strengths: string[];
+  attention_points: string[];
+  mandatory_requirements_evidence: Array<{
+    requirement: string;
+    status: 'met' | 'partial' | 'not_found';
+    evidence: string;
+  }>;
+  interview_summary: string;
+  availability_and_salary: string;
+  recommendation: 'strong_yes' | 'yes' | 'with_reservations' | 'no';
+  recommended_client_questions: string[];
+  client_facing_report: string;
+};
+
+export type CandidateScreening = {
+  id: string;
+  franchise_id: string;
+  project_id: string;
+  job_id: string;
+  application_id: string;
+  status: 'draft' | 'completed' | 'rejected';
+  answers: Record<string, string>;
+  mandatory_requirements_confirmed: boolean;
+  salary_compatible: boolean | null;
+  availability_compatible: boolean | null;
+  location_compatible: boolean | null;
+  technical_score: number | null;
+  behavioral_score: number | null;
+  recruiter_notes: string;
+  rejection_reason: string | null;
+  completed_by: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InternalInterview = {
+  id: string;
+  franchise_id: string;
+  project_id: string;
+  job_id: string;
+  application_id: string;
+  status: 'draft' | 'scheduled' | 'completed' | 'cancelled';
+  scheduled_at: string | null;
+  interviewed_at: string | null;
+  interviewer_id: string | null;
+  template_snapshot: Record<string, unknown>;
+  questions_answers: Array<{ question: string; answer: string }>;
+  strengths: string;
+  risks: string;
+  technical_score: number | null;
+  behavioral_score: number | null;
+  communication_score: number | null;
+  culture_score: number | null;
+  recommendation: 'strong_yes' | 'yes' | 'with_reservations' | 'no' | null;
+  conclusion: string;
   created_at: string;
   updated_at: string;
 };
@@ -320,6 +446,8 @@ export type HiringDecision = {
   admission_notes: string;
   required_documents: string;
   rejection_reason: string;
+  is_final: boolean;
+  finalized_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -348,6 +476,7 @@ export type PostSaleTask = {
   due_date: string;
   contact_date: string | null;
   responsible: string;
+  contacted_person: string;
   candidate_status: string;
   client_satisfaction: string;
   replacement_risk: string;
@@ -355,6 +484,9 @@ export type PostSaleTask = {
   referral_received: boolean;
   notes: string;
   next_action: string;
+  next_action_date: string | null;
+  referral_name: string;
+  referral_contact: string;
   status: TaskStatus;
   created_at: string;
   updated_at: string;
@@ -378,12 +510,16 @@ export type ChatConversation = {
   franchise_id: string;
   client_id: string | null;
   application_id: string | null;
+  project_id: string | null;
   title: string;
   channel: 'internal' | 'whatsapp_ready';
   status: 'open' | 'waiting' | 'closed';
   tags: string[];
   responsible: string;
   contact_phone: string | null;
+  provider: string;
+  provider_conversation_id: string | null;
+  provider_error: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -393,6 +529,19 @@ export type ChatMessage = {
   conversation_id: string;
   sender: 'franchise' | 'client' | 'candidate' | 'system';
   body: string;
+  franchise_id: string | null;
+  client_id: string | null;
+  project_id: string | null;
+  application_id: string | null;
+  provider: string;
+  provider_conversation_id: string | null;
+  provider_message_id: string | null;
+  direction: 'inbound' | 'outbound';
+  delivery_status: 'queued' | 'sent' | 'delivered' | 'read' | 'failed';
+  sent_at: string | null;
+  delivered_at: string | null;
+  read_at: string | null;
+  error_message: string | null;
   created_at: string;
 };
 
@@ -421,6 +570,7 @@ type FranchiseOpsStore = {
   contracts: ContractRecord[];
   serviceOrders: ServiceOrder[];
   accountsReceivable: AccountReceivable[];
+  receivableInstallments: AccountReceivableInstallment[];
   accountsPayable: AccountPayable[];
   invoices: InvoiceRecord[];
   tasks: NotificationTask[];
@@ -432,6 +582,8 @@ type FranchiseOpsStore = {
   documents: DocumentRecord[];
   conversations: ChatConversation[];
   messages: ChatMessage[];
+  screenings: CandidateScreening[];
+  internalInterviews: InternalInterview[];
   workflowSettings: FranchiseWorkflowSettings[];
 };
 
@@ -439,6 +591,15 @@ export type FranchiseWorkspaceData = FranchiseOpsStore & {
   companies: Company[];
   jobs: Job[];
   applications: Application[];
+  clientLastHiringActivities: ClientLastHiringActivity[];
+};
+
+export type ClientLastHiringActivity = {
+  client_id: string;
+  franchise_id: string;
+  last_hiring_at: string | null;
+  last_completed_project_at: string | null;
+  activity_reference_at: string;
 };
 
 export const salesStageLabels: Record<SalesStage, string> = {
@@ -481,6 +642,7 @@ function emptyStore(): FranchiseOpsStore {
     contracts: [],
     serviceOrders: [],
     accountsReceivable: [],
+    receivableInstallments: [],
     accountsPayable: [],
     invoices: [],
     tasks: [],
@@ -492,6 +654,8 @@ function emptyStore(): FranchiseOpsStore {
     documents: [],
     conversations: [],
     messages: [],
+    screenings: [],
+    internalInterviews: [],
     workflowSettings: [],
   };
 }
@@ -513,12 +677,60 @@ function writeStore(store: FranchiseOpsStore) {
   window.localStorage.setItem(STORE_KEY, JSON.stringify(store));
 }
 
-function useRemoteOps() {
+function isRemoteOpsEnabled() {
   return Boolean(hasSupabaseConfig && supabase);
 }
 
 function asArray<T>(data: T[] | null | undefined) {
   return data ?? [];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function strings(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+export function normalizeResumeAnalysis(value: unknown): ResumeAnalysis {
+  const record = isRecord(value) ? value : {};
+  return {
+    professional_summary: typeof record.professional_summary === 'string' ? record.professional_summary : '',
+    skills: strings(record.skills),
+    education: Array.isArray(record.education) ? (record.education as ResumeAnalysis['education']) : [],
+    experiences: Array.isArray(record.experiences) ? (record.experiences as ResumeAnalysis['experiences']) : [],
+    languages: strings(record.languages),
+    certifications: strings(record.certifications),
+    total_experience_months:
+      typeof record.total_experience_months === 'number' ? Math.max(0, record.total_experience_months) : 0,
+    current_role: typeof record.current_role === 'string' ? record.current_role : '',
+    location: typeof record.location === 'string' ? record.location : '',
+    salary_expectation_found:
+      typeof record.salary_expectation_found === 'string' ? record.salary_expectation_found : '',
+    availability_found: typeof record.availability_found === 'string' ? record.availability_found : '',
+    evidence: strings(record.evidence),
+  };
+}
+
+function normalizeApplicationAiData(application: Application): Application {
+  const ranking = normalizeRankingDetails(application.ranking_details) ?? ({} as RankingDetails);
+  const allowedStatuses: ResumeAnalysisStatus[] = ['pending', 'processing', 'completed', 'failed'];
+  return {
+    ...application,
+    resume_analysis_status: allowedStatuses.includes(application.resume_analysis_status)
+      ? application.resume_analysis_status
+      : 'pending',
+    resume_analysis: normalizeResumeAnalysis(application.resume_analysis),
+    resume_analysis_error: application.resume_analysis_error ?? null,
+    resume_analyzed_at: application.resume_analyzed_at ?? null,
+    ai_match_score: application.ai_match_score ?? null,
+    ranking_details: ranking,
+    ranking_generated_at: application.ranking_generated_at ?? null,
+    resume_analysis_waived_at: application.resume_analysis_waived_at ?? null,
+    resume_analysis_waiver_reason: application.resume_analysis_waiver_reason ?? null,
+    resume_analysis_waived_by: application.resume_analysis_waived_by ?? null,
+  };
 }
 
 async function selectByFranchise<T>(table: string, franchiseId: string) {
@@ -563,7 +775,7 @@ function defaultWorkflowSettings(franchiseId: string): FranchiseWorkflowSettings
 }
 
 async function getWorkflowSettings(franchiseId: string) {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const { data, error } = await supabase!
       .from('franchise_workflow_settings')
       .select('*')
@@ -593,7 +805,7 @@ export async function updateWorkflowSettings(
   patch: Partial<Pick<FranchiseWorkflowSettings, 'post_sale_days' | 'interview_default_duration' | 'interview_templates'>>,
 ) {
   const current = await getWorkflowSettings(franchiseId);
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     return updateRemote<FranchiseWorkflowSettings>('franchise_workflow_settings', current.id, patch as Record<string, unknown>);
   }
 
@@ -605,73 +817,30 @@ export async function updateWorkflowSettings(
   return store.workflowSettings.find((item) => item.id === current.id)!;
 }
 
+type WorkflowEmailEvent =
+  | 'briefing_link'
+  | 'finalists_link'
+  | 'candidate_confirmation'
+  | 'interview_guidelines'
+  | 'hiring_approved_candidate'
+  | 'hiring_approved_internal';
+
 async function sendWorkflowEmail(payload: {
-  to?: string | null;
-  subject: string;
-  template: string;
-  data: Record<string, unknown>;
-  franchiseId?: string | null;
-  projectId?: string | null;
+  event: WorkflowEmailEvent;
+  projectId: string;
+  scheduleId?: string;
+  finalistId?: string;
+  portalToken?: string;
+  candidateToken?: string;
 }) {
-  if (!useRemoteOps() || !payload.to) return;
+  if (!isRemoteOpsEnabled() || !payload.projectId) return;
   try {
     await supabase!.functions.invoke('send-workflow-email', {
-      body: {
-        to: payload.to,
-        subject: payload.subject,
-        template: payload.template,
-        data: payload.data,
-        franchiseId: payload.franchiseId,
-        projectId: payload.projectId,
-      },
+      body: payload,
     });
   } catch {
     // E-mail não deve bloquear a operação principal; email_logs registra falhas no backend quando possível.
   }
-}
-
-async function sendHiringApprovalEmails(
-  decision: HiringDecision,
-  project: FranchiseProject | null,
-  application: Application | null | undefined,
-  input: Omit<HiringDecision, 'id' | 'franchise_id' | 'project_id' | 'application_id' | 'finalist_id' | 'created_at' | 'updated_at'>,
-) {
-  if (input.decision !== 'approved') return;
-  await Promise.all([
-    sendWorkflowEmail({
-      to: application?.candidate_email,
-      subject: 'Aprovacao no processo seletivo',
-      template: 'hiring_approved_candidate',
-      franchiseId: decision.franchise_id,
-      projectId: decision.project_id,
-      data: {
-        candidato: application?.candidate_name,
-        projeto: project?.title,
-        inicio: input.start_date,
-        responsavel: input.internal_responsible_name,
-        telefone: input.internal_responsible_phone,
-        observacoes: input.admission_notes,
-        documentos: input.required_documents,
-      },
-    }),
-    sendWorkflowEmail({
-      to: input.internal_responsible_email,
-      subject: 'Novo candidato aprovado para admissao',
-      template: 'hiring_approved_internal',
-      franchiseId: decision.franchise_id,
-      projectId: decision.project_id,
-      data: {
-        candidato: application?.candidate_name,
-        email: application?.candidate_email,
-        telefone: application?.candidate_phone,
-        projeto: project?.title,
-        inicio: input.start_date,
-        responsavel: input.internal_responsible_name,
-        observacoes: input.admission_notes,
-        documentos: input.required_documents,
-      },
-    }),
-  ]);
 }
 
 async function insertRemote<T>(table: string, payload: Record<string, unknown>) {
@@ -697,11 +866,6 @@ function todayIso() {
   return new Date().toISOString();
 }
 
-function appOrigin() {
-  if (typeof window !== 'undefined') return window.location.origin;
-  return '';
-}
-
 function dateOnly(date: Date) {
   return formatISO(date, { representation: 'date' });
 }
@@ -716,6 +880,76 @@ function splitEntry(total: number, paymentTerms: string) {
   if (paymentTerms === 'cartao_3x') return { entry: total / 3, remaining: (total / 3) * 2 };
   if (paymentTerms === 'personalizada') return { entry: 0, remaining: total };
   return { entry: total / 2, remaining: total / 2 };
+}
+
+function buildInitialInstallments(
+  opportunity: SalesOpportunity,
+  project: FranchiseProject,
+  companyId: string,
+  serviceOrderId: string,
+  receivableId: string,
+  timestamp: string,
+): AccountReceivableInstallment[] {
+  const totalCents = Math.round(opportunity.negotiated_value * 100);
+  const paid = opportunity.initial_payment_status === 'paid';
+  const waived = opportunity.initial_payment_status === 'waived';
+  const base = (number: number, description: string, cents: number): AccountReceivableInstallment => ({
+    id: makeId(),
+    franchise_id: opportunity.franchise_id,
+    client_id: companyId,
+    project_id: project.id,
+    service_order_id: serviceOrderId,
+    receivable_id: receivableId,
+    installment_number: number,
+    description,
+    amount: cents / 100,
+    due_date: dateOnly(addDays(new Date(), number === 1 ? 7 : 30 * (number - 1))),
+    release_trigger: 'immediate',
+    released_at: timestamp,
+    status: 'pending',
+    paid_at: null,
+    payment_link: opportunity.payment_link || null,
+    receipt_url: null,
+    notes: '',
+    created_at: timestamp,
+    updated_at: timestamp,
+  });
+
+  if (opportunity.payment_terms === '50_50') {
+    const entryCents = waived ? 0 : Math.round(totalCents / 2);
+    const entry = base(1, waived ? 'Entrada dispensada' : 'Entrada de 50%', entryCents);
+    entry.status = waived ? 'waived' : paid ? 'received' : 'pending';
+    entry.paid_at = paid ? timestamp : null;
+    const balance = base(2, waived ? 'Saldo integral' : 'Saldo de 50%', totalCents - entryCents);
+    balance.release_trigger = 'final_decision';
+    balance.released_at = null;
+    balance.status = 'locked';
+    return [entry, balance];
+  }
+  if (opportunity.payment_terms === 'cartao_3x') {
+    const first = Math.floor(totalCents / 3);
+    const second = Math.floor(totalCents / 3);
+    return [first, second, totalCents - first - second].map((cents, index) => {
+      const installment = base(index + 1, `Parcela ${index + 1} de 3`, cents);
+      installment.due_date = dateOnly(addDays(new Date(), 30 * index));
+      if (index === 0 && paid) {
+        installment.status = 'received';
+        installment.paid_at = timestamp;
+      }
+      return installment;
+    });
+  }
+  if (opportunity.payment_terms === 'personalizada') {
+    const installment = base(1, waived ? 'Parcela inicial dispensada' : 'Parcela inicial personalizada', waived ? 0 : totalCents);
+    installment.status = waived ? 'waived' : paid ? 'received' : 'pending';
+    installment.paid_at = paid ? timestamp : null;
+    installment.notes = 'Edite ou adicione parcelas até atingir o total da OS.';
+    return [installment];
+  }
+  const cash = base(1, 'Pagamento à vista', totalCents);
+  cash.status = paid ? 'received' : waived ? 'waived' : 'pending';
+  cash.paid_at = paid ? timestamp : null;
+  return [cash];
 }
 
 export function getDefaultBriefingPayload(opportunity: SalesOpportunity, projectTitle?: string): BriefingPayload {
@@ -763,7 +997,7 @@ export function getDefaultBriefingPayload(opportunity: SalesOpportunity, project
 }
 
 export async function listFranchiseWorkspace(franchiseId: string): Promise<FranchiseWorkspaceData> {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const [
       companies,
       jobs,
@@ -775,6 +1009,7 @@ export async function listFranchiseWorkspace(franchiseId: string): Promise<Franc
       contracts,
       serviceOrders,
       accountsReceivable,
+      receivableInstallments,
       accountsPayable,
       invoices,
       tasks,
@@ -785,6 +1020,9 @@ export async function listFranchiseWorkspace(franchiseId: string): Promise<Franc
       postSaleTasks,
       documents,
       conversations,
+      screenings,
+      internalInterviews,
+      clientLastHiringActivities,
     ] = await Promise.all([
       listCompanies({ franchiseId }),
       listJobs({ franchiseId }),
@@ -796,6 +1034,7 @@ export async function listFranchiseWorkspace(franchiseId: string): Promise<Franc
       selectByFranchise<ContractRecord>('contracts', franchiseId),
       selectByFranchise<ServiceOrder>('service_orders', franchiseId),
       selectByFranchise<AccountReceivable>('accounts_receivable', franchiseId),
+      selectByFranchise<AccountReceivableInstallment>('accounts_receivable_installments', franchiseId),
       selectByFranchise<AccountPayable>('accounts_payable', franchiseId),
       selectByFranchise<InvoiceRecord>('invoices', franchiseId),
       selectByFranchise<NotificationTask>('notification_tasks', franchiseId),
@@ -806,6 +1045,9 @@ export async function listFranchiseWorkspace(franchiseId: string): Promise<Franc
       selectByFranchise<PostSaleTask>('post_sale_tasks', franchiseId),
       selectByFranchise<DocumentRecord>('documents', franchiseId),
       selectByFranchise<ChatConversation>('chat_conversations', franchiseId),
+      selectByFranchise<CandidateScreening>('candidate_screenings', franchiseId),
+      selectByFranchise<InternalInterview>('internal_interviews', franchiseId),
+      selectByFranchise<ClientLastHiringActivity>('client_last_hiring_activity', franchiseId),
     ]);
     const conversationIds = conversations.map((item) => item.id);
     const messages = conversationIds.length
@@ -823,6 +1065,7 @@ export async function listFranchiseWorkspace(franchiseId: string): Promise<Franc
       contracts,
       serviceOrders,
       accountsReceivable,
+      receivableInstallments,
       accountsPayable,
       invoices,
       tasks,
@@ -833,12 +1076,16 @@ export async function listFranchiseWorkspace(franchiseId: string): Promise<Franc
       postSaleTasks,
       documents,
       conversations,
+      screenings,
+      internalInterviews,
+      clientLastHiringActivities,
       workflowSettings: [await getWorkflowSettings(franchiseId)],
       messages,
       companies,
       jobs,
-      applications: applications.map((application) => {
-        const ranking = createApplicationRanking(application, jobs.find((job) => job.id === application.job_id));
+      applications: applications.map((rawApplication) => {
+        const application = normalizeApplicationAiData(rawApplication);
+        const ranking = getPersistedApplicationRanking(application, jobs.find((job) => job.id === application.job_id));
         return {
           ...application,
           match_score: application.match_score ?? ranking.score,
@@ -864,6 +1111,7 @@ export async function listFranchiseWorkspace(franchiseId: string): Promise<Franc
     contracts: store.contracts.filter((item) => item.franchise_id === franchiseId),
     serviceOrders: store.serviceOrders.filter((item) => item.franchise_id === franchiseId),
     accountsReceivable: store.accountsReceivable.filter((item) => item.franchise_id === franchiseId),
+    receivableInstallments: store.receivableInstallments.filter((item) => item.franchise_id === franchiseId),
     accountsPayable: store.accountsPayable.filter((item) => item.franchise_id === franchiseId),
     invoices: store.invoices.filter((item) => item.franchise_id === franchiseId),
     tasks: store.tasks.filter((item) => item.franchise_id === franchiseId),
@@ -875,11 +1123,25 @@ export async function listFranchiseWorkspace(franchiseId: string): Promise<Franc
     documents: store.documents.filter((item) => item.franchise_id === franchiseId),
     conversations: store.conversations.filter((item) => item.franchise_id === franchiseId),
     messages: store.messages,
+    screenings: store.screenings.filter((item) => item.franchise_id === franchiseId),
+    internalInterviews: store.internalInterviews.filter((item) => item.franchise_id === franchiseId),
     workflowSettings: store.workflowSettings.filter((item) => item.franchise_id === franchiseId),
+    clientLastHiringActivities: companies.map((company) => {
+      const approvedDates = store.hiringDecisions.filter((decision) => decision.decision === 'approved' && decision.is_final
+        && store.projects.some((project) => project.id === decision.project_id && project.client_id === company.id))
+        .map((decision) => decision.finalized_at ?? decision.updated_at).filter(Boolean).sort();
+      const projectDates = store.projects.filter((project) => project.client_id === company.id
+        && ['candidate_approved', 'post_sale', 'completed'].includes(project.stage)).map((project) => project.created_at).sort();
+      const lastHiring = approvedDates.at(-1) ?? null;
+      const lastProject = projectDates.at(-1) ?? null;
+      return { client_id: company.id, franchise_id: franchiseId, last_hiring_at: lastHiring,
+        last_completed_project_at: lastProject, activity_reference_at: lastHiring ?? lastProject ?? company.created_at };
+    }),
     companies,
     jobs,
-    applications: applications.map((application) => {
-      const ranking = createApplicationRanking(application, jobs.find((job) => job.id === application.job_id));
+    applications: applications.map((rawApplication) => {
+      const application = normalizeApplicationAiData(rawApplication);
+      const ranking = getPersistedApplicationRanking(application, jobs.find((job) => job.id === application.job_id));
       return {
         ...application,
         match_score: application.match_score ?? ranking.score,
@@ -928,7 +1190,7 @@ export function createSalesOpportunity(
     created_at: timestamp,
     updated_at: timestamp,
   };
-  if (useRemoteOps()) return insertRemote<SalesOpportunity>('sales_opportunities', opportunity);
+  if (isRemoteOpsEnabled()) return insertRemote<SalesOpportunity>('sales_opportunities', opportunity);
 
   const store = readStore();
   store.opportunities.unshift(opportunity);
@@ -937,7 +1199,7 @@ export function createSalesOpportunity(
 }
 
 export function updateSalesOpportunity(id: string, patch: Partial<SalesOpportunity>) {
-  if (useRemoteOps()) return updateRemote<SalesOpportunity>('sales_opportunities', id, patch as Record<string, unknown>);
+  if (isRemoteOpsEnabled()) return updateRemote<SalesOpportunity>('sales_opportunities', id, patch as Record<string, unknown>);
 
   const store = readStore();
   const index = store.opportunities.findIndex((item) => item.id === id);
@@ -971,9 +1233,9 @@ export function getConversionMissingFields(opportunity: SalesOpportunity) {
 }
 
 export async function convertOpportunityToProject(opportunityId: string) {
-  let store = readStore();
+  const store = readStore();
   let opportunity = store.opportunities.find((item) => item.id === opportunityId) ?? null;
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const { data, error } = await supabase!
       .from('sales_opportunities')
       .select('*')
@@ -1025,6 +1287,11 @@ export async function convertOpportunityToProject(opportunityId: string) {
     priority: 'medium',
     next_step: 'Enviar ou preencher briefing da vaga',
     client_access_token: makeId(),
+    client_decision_status: 'not_started',
+    client_decision_finalized_at: null,
+    nps_released_at: null,
+    process_completed_at: null,
+    finalists_release_exception_reason: null,
     created_at: timestamp,
     updated_at: timestamp,
   };
@@ -1056,7 +1323,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
     due_date: dateOnly(addDays(new Date(), 7)),
     payment_terms: opportunity.payment_terms,
     payment_link: opportunity.payment_link,
-    status: opportunity.initial_payment_status === 'paid' ? 'received' : 'pending',
+    status: 'pending',
     created_at: timestamp,
     updated_at: timestamp,
   };
@@ -1089,6 +1356,8 @@ export async function convertOpportunityToProject(opportunityId: string) {
     contract_file_url: null,
     signed_file_url: opportunity.signed_contract_url,
     signed_at: opportunity.contract_status === 'signed' ? timestamp : null,
+    signature_status: opportunity.contract_status === 'signed' ? 'signed' : 'not_generated',
+    signature_error: null,
     notes: '',
     created_at: timestamp,
     updated_at: timestamp,
@@ -1106,12 +1375,23 @@ export async function convertOpportunityToProject(opportunityId: string) {
     created_at: timestamp,
     updated_at: timestamp,
   };
+  const installments = buildInitialInstallments(
+    opportunity,
+    project,
+    company.id,
+    serviceOrder.id,
+    receivable.id,
+    timestamp,
+  );
 
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
+    await insertRemote<FranchiseProject>('projects', project);
+    await insertRemote<ServiceOrder>('service_orders', serviceOrder);
+    await insertRemote<AccountReceivable>('accounts_receivable', receivable);
+    await Promise.all(installments.map((installment) =>
+      insertRemote<AccountReceivableInstallment>('accounts_receivable_installments', installment),
+    ));
     await Promise.all([
-      insertRemote<FranchiseProject>('projects', project),
-      insertRemote<ServiceOrder>('service_orders', serviceOrder),
-      insertRemote<AccountReceivable>('accounts_receivable', receivable),
       insertRemote<JobBriefing>('job_briefings', briefing),
       insertRemote<ContractRecord>('contracts', contract),
       insertRemote<NotificationTask>('notification_tasks', task),
@@ -1122,23 +1402,16 @@ export async function convertOpportunityToProject(opportunityId: string) {
       converted_project_id: project.id,
     });
     await sendWorkflowEmail({
-      to: opportunity.contact_email,
-      subject: 'Briefing da vaga disponível',
-      template: 'briefing_link',
-      franchiseId: opportunity.franchise_id,
+      event: 'briefing_link',
       projectId: project.id,
-      data: {
-        cliente: opportunity.company_name,
-        projeto: project.title,
-        url: `${appOrigin()}/briefing/${briefing.secure_token}`,
-      },
     });
-    return { project, company, briefing, serviceOrder, receivable, contract };
+    return { project, company, briefing, serviceOrder, receivable, installments, contract };
   }
 
   store.projects.unshift(project);
   store.serviceOrders.unshift(serviceOrder);
   store.accountsReceivable.unshift(receivable);
+  store.receivableInstallments.unshift(...installments);
   store.briefings.unshift(briefing);
   store.contracts.unshift(contract);
   store.tasks.unshift(task);
@@ -1149,7 +1422,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
   );
   writeStore(store);
 
-  return { project, company, briefing, serviceOrder, receivable, contract };
+  return { project, company, briefing, serviceOrder, receivable, installments, contract };
 }
 
 export function saveBriefing(
@@ -1158,7 +1431,7 @@ export function saveBriefing(
   status: BriefingStatus = 'filled',
   filledBy: JobBriefing['filled_by'] = 'franchise',
 ) {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     if (filledBy === 'client') {
       return (async () => {
         const { data, error } = await supabase!.rpc('save_public_briefing', {
@@ -1272,7 +1545,7 @@ export async function generateJobDescription(projectId: string) {
   const store = readStore();
   let project = store.projects.find((item) => item.id === projectId) ?? null;
   let briefing = store.briefings.find((item) => item.project_id === projectId) ?? null;
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const [{ data: projectData, error: projectError }, { data: briefingData, error: briefingError }] = await Promise.all([
       supabase!.from('projects').select('*').eq('id', projectId).single(),
       supabase!.from('job_briefings').select('*').eq('project_id', projectId).single(),
@@ -1307,7 +1580,7 @@ export async function generateJobDescription(projectId: string) {
   const timestamp = todayIso();
   const existingIndex = store.jobDescriptions.findIndex((item) => item.project_id === projectId);
   let existingRemote: JobDescriptionDraft | null = null;
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const { data } = await supabase!
       .from('job_descriptions')
       .select('*')
@@ -1328,7 +1601,7 @@ export async function generateJobDescription(projectId: string) {
     updated_at: timestamp,
   };
 
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const saved = existingRemote
       ? await updateRemote<JobDescriptionDraft>('job_descriptions', draft.id, {
           status: draft.status,
@@ -1381,7 +1654,7 @@ export async function generateJobDescription(projectId: string) {
 export async function approveJobDescriptionAndPublish(descriptionId: string, content: GeneratedJobDescription) {
   const store = readStore();
   let draft = store.jobDescriptions.find((item) => item.id === descriptionId) ?? null;
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const { data, error } = await supabase!.from('job_descriptions').select('*').eq('id', descriptionId).single();
     if (error) throw error;
     draft = normalizeDescription(data as JobDescriptionDraft);
@@ -1389,7 +1662,7 @@ export async function approveJobDescriptionAndPublish(descriptionId: string, con
   if (!draft) throw new Error('Descricao nao encontrada.');
   let project = store.projects.find((item) => item.id === draft.project_id) ?? null;
   let briefing = store.briefings.find((item) => item.id === draft.briefing_id) ?? null;
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const [{ data: projectData, error: projectError }, { data: briefingData, error: briefingError }] = await Promise.all([
       supabase!.from('projects').select('*').eq('id', draft.project_id).single(),
       supabase!.from('job_briefings').select('*').eq('id', draft.briefing_id).single(),
@@ -1433,7 +1706,7 @@ export async function approveJobDescriptionAndPublish(descriptionId: string, con
     process_status: 'in_progress',
     direct_apply: true,
     open_positions: Number(briefing.payload.positions || 1),
-    billing_amount: useRemoteOps()
+    billing_amount: isRemoteOpsEnabled()
       ? (((await supabase!
           .from('service_orders')
           .select('amount')
@@ -1445,7 +1718,7 @@ export async function approveJobDescriptionAndPublish(descriptionId: string, con
   });
 
   const timestamp = todayIso();
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     await updateRemote<JobDescriptionDraft>('job_descriptions', descriptionId, {
       content,
       status: 'approved',
@@ -1479,7 +1752,7 @@ async function getCompanyForProject(project: FranchiseProject) {
 export function createAccountPayable(franchiseId: string, input: Omit<AccountPayable, 'id' | 'franchise_id' | 'created_at' | 'updated_at'>) {
   const timestamp = todayIso();
   const item: AccountPayable = { id: makeId(), franchise_id: franchiseId, ...input, created_at: timestamp, updated_at: timestamp };
-  if (useRemoteOps()) return insertRemote<AccountPayable>('accounts_payable', item);
+  if (isRemoteOpsEnabled()) return insertRemote<AccountPayable>('accounts_payable', item);
 
   const store = readStore();
   store.accountsPayable.unshift(item);
@@ -1488,7 +1761,7 @@ export function createAccountPayable(franchiseId: string, input: Omit<AccountPay
 }
 
 export function updateReceivable(id: string, patch: Partial<AccountReceivable>) {
-  if (useRemoteOps()) return updateRemote<AccountReceivable>('accounts_receivable', id, patch as Record<string, unknown>);
+  if (isRemoteOpsEnabled()) return updateRemote<AccountReceivable>('accounts_receivable', id, patch as Record<string, unknown>);
 
   const store = readStore();
   const index = store.accountsReceivable.findIndex((item) => item.id === id);
@@ -1498,8 +1771,61 @@ export function updateReceivable(id: string, patch: Partial<AccountReceivable>) 
   return store.accountsReceivable[index];
 }
 
+export async function listReceivableInstallments(receivableId: string) {
+  if (isRemoteOpsEnabled()) {
+    const { data, error } = await supabase!.from('accounts_receivable_installments').select('*')
+      .eq('receivable_id', receivableId).order('installment_number');
+    if (error) throw error;
+    return (data ?? []) as AccountReceivableInstallment[];
+  }
+  return readStore().receivableInstallments.filter((item) => item.receivable_id === receivableId)
+    .sort((a, b) => a.installment_number - b.installment_number);
+}
+
+export function createReceivableInstallment(
+  input: Omit<AccountReceivableInstallment, 'id' | 'created_at' | 'updated_at'>,
+) {
+  if (input.amount < 0) throw new Error('O valor da parcela não pode ser negativo.');
+  const installment: AccountReceivableInstallment = {
+    id: makeId(), ...input, created_at: todayIso(), updated_at: todayIso(),
+  };
+  if (isRemoteOpsEnabled()) return insertRemote<AccountReceivableInstallment>('accounts_receivable_installments', installment);
+  const store = readStore();
+  if (store.receivableInstallments.some((item) => item.receivable_id === input.receivable_id
+    && item.installment_number === input.installment_number)) throw new Error('Número de parcela já utilizado.');
+  store.receivableInstallments.push(installment); writeStore(store); return installment;
+}
+
+export function updateReceivableInstallment(id: string, patch: Partial<AccountReceivableInstallment>) {
+  const normalizedPatch = { ...patch };
+  if (patch.status === 'received' && !patch.paid_at) normalizedPatch.paid_at = todayIso();
+  if (patch.status && patch.status !== 'received') normalizedPatch.paid_at = null;
+  if (isRemoteOpsEnabled()) {
+    return updateRemote<AccountReceivableInstallment>('accounts_receivable_installments', id, normalizedPatch as Record<string, unknown>);
+  }
+  const store = readStore(); const index = store.receivableInstallments.findIndex((item) => item.id === id);
+  if (index < 0) throw new Error('Parcela não encontrada.');
+  store.receivableInstallments[index] = { ...store.receivableInstallments[index], ...normalizedPatch, updated_at: todayIso() };
+  writeStore(store); return store.receivableInstallments[index];
+}
+
+export async function releaseFinalBalance(projectId: string) {
+  if (isRemoteOpsEnabled()) {
+    const { data, error } = await supabase!.from('accounts_receivable_installments')
+      .update({ status: 'pending', released_at: todayIso(), updated_at: todayIso() })
+      .eq('project_id', projectId).eq('status', 'locked').eq('release_trigger', 'final_decision').select('*');
+    if (error) throw error;
+    return (data ?? []) as AccountReceivableInstallment[];
+  }
+  const store = readStore();
+  store.receivableInstallments = store.receivableInstallments.map((item) => item.project_id === projectId
+    && item.status === 'locked' && item.release_trigger === 'final_decision'
+    ? { ...item, status: 'pending', released_at: todayIso(), updated_at: todayIso() } : item);
+  writeStore(store); return store.receivableInstallments.filter((item) => item.project_id === projectId);
+}
+
 export function updateContract(id: string, patch: Partial<ContractRecord>) {
-  if (useRemoteOps()) return updateRemote<ContractRecord>('contracts', id, patch as Record<string, unknown>);
+  if (isRemoteOpsEnabled()) return updateRemote<ContractRecord>('contracts', id, patch as Record<string, unknown>);
 
   const store = readStore();
   const index = store.contracts.findIndex((item) => item.id === id);
@@ -1510,7 +1836,7 @@ export function updateContract(id: string, patch: Partial<ContractRecord>) {
 }
 
 export function updateInvoice(id: string, patch: Partial<InvoiceRecord>) {
-  if (useRemoteOps()) return updateRemote<InvoiceRecord>('invoices', id, patch as Record<string, unknown>);
+  if (isRemoteOpsEnabled()) return updateRemote<InvoiceRecord>('invoices', id, patch as Record<string, unknown>);
 
   const store = readStore();
   const index = store.invoices.findIndex((item) => item.id === id);
@@ -1520,54 +1846,222 @@ export function updateInvoice(id: string, patch: Partial<InvoiceRecord>) {
   return store.invoices[index];
 }
 
-export async function selectFinalist(projectId: string, applicationId: string, franchiseOpinion = '') {
-  const store = readStore();
-  let project = store.projects.find((item) => item.id === projectId) ?? null;
-  if (useRemoteOps()) {
-    const { data, error } = await supabase!.from('projects').select('*').eq('id', projectId).single();
-    if (error) throw error;
-    project = data as FranchiseProject;
+async function currentProfileId() {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
+
+export async function analyzeCandidateResume(applicationId: string) {
+  if (!isRemoteOpsEnabled()) throw new Error('A análise de currículo por IA exige o Supabase configurado.');
+  const { data, error } = await supabase!.functions.invoke('analyze-candidate-resume', {
+    body: { applicationId },
+  });
+  if (error) throw error;
+  return data as { status: 'completed'; score: number };
+}
+
+export async function waiveCandidateResumeAnalysis(applicationId: string, reason: string) {
+  if (!reason.trim()) throw new Error('Informe a justificativa para dispensar a análise.');
+  if (!isRemoteOpsEnabled()) throw new Error('A dispensa precisa ser registrada no Supabase.');
+  return updateRemote<Application>('applications', applicationId, {
+    resume_analysis_waived_at: todayIso(),
+    resume_analysis_waiver_reason: reason.trim(),
+    resume_analysis_waived_by: await currentProfileId(),
+  });
+}
+
+export async function getOrCreateCandidateScreening(projectId: string, applicationId: string) {
+  if (isRemoteOpsEnabled()) {
+    const { data: existing, error: lookupError } = await supabase!.from('candidate_screenings')
+      .select('*').eq('project_id', projectId).eq('application_id', applicationId).maybeSingle();
+    if (lookupError) throw lookupError;
+    if (existing) return existing as CandidateScreening;
+    const { data: project, error: projectError } = await supabase!.from('projects')
+      .select('id,franchise_id,job_id').eq('id', projectId).single();
+    if (projectError || !project?.job_id) throw projectError ?? new Error('Publique a vaga antes de iniciar a triagem.');
+    return insertRemote<CandidateScreening>('candidate_screenings', {
+      id: makeId(), franchise_id: project.franchise_id, project_id: projectId, job_id: project.job_id,
+      application_id: applicationId, status: 'draft', answers: {}, mandatory_requirements_confirmed: false,
+      salary_compatible: null, availability_compatible: null, location_compatible: null,
+      technical_score: null, behavioral_score: null, recruiter_notes: '', rejection_reason: null,
+      completed_by: null, completed_at: null, created_at: todayIso(), updated_at: todayIso(),
+    });
   }
+  const store = readStore();
+  const existing = store.screenings.find((item) => item.project_id === projectId && item.application_id === applicationId);
+  if (existing) return existing;
+  const project = store.projects.find((item) => item.id === projectId);
+  if (!project?.job_id) throw new Error('Publique a vaga antes de iniciar a triagem.');
+  const screening: CandidateScreening = {
+    id: makeId(), franchise_id: project.franchise_id, project_id: projectId, job_id: project.job_id,
+    application_id: applicationId, status: 'draft', answers: {}, mandatory_requirements_confirmed: false,
+    salary_compatible: null, availability_compatible: null, location_compatible: null,
+    technical_score: null, behavioral_score: null, recruiter_notes: '', rejection_reason: null,
+    completed_by: null, completed_at: null, created_at: todayIso(), updated_at: todayIso(),
+  };
+  store.screenings.unshift(screening); writeStore(store); return screening;
+}
+
+export function saveCandidateScreening(screeningId: string, patch: Partial<CandidateScreening>) {
+  if (isRemoteOpsEnabled()) return updateRemote<CandidateScreening>('candidate_screenings', screeningId, patch as Record<string, unknown>);
+  const store = readStore();
+  const index = store.screenings.findIndex((item) => item.id === screeningId);
+  if (index < 0) throw new Error('Triagem não encontrada.');
+  store.screenings[index] = { ...store.screenings[index], ...patch, updated_at: todayIso() };
+  writeStore(store); return store.screenings[index];
+}
+
+export async function completeCandidateScreening(screeningId: string, payload: Partial<CandidateScreening>) {
+  if (!payload.mandatory_requirements_confirmed) throw new Error('Confirme os requisitos obrigatórios.');
+  for (const value of [payload.technical_score, payload.behavioral_score]) {
+    if (typeof value !== 'number' || value < 0 || value > 10) throw new Error('Informe notas entre 0 e 10.');
+  }
+  const completed = await saveCandidateScreening(screeningId, {
+    ...payload, status: 'completed', rejection_reason: null,
+    completed_by: isRemoteOpsEnabled() ? await currentProfileId() : null, completed_at: todayIso(),
+  });
+  await updateApplicationStatus(completed.application_id, 'entrevista');
+  if (isRemoteOpsEnabled()) await updateRemote<FranchiseProject>('projects', completed.project_id, {
+    stage: 'internal_interviews', next_step: 'Agendar entrevista interna',
+  });
+  else {
+    const store = readStore();
+    store.projects = store.projects.map((item) => item.id === completed.project_id
+      ? { ...item, stage: 'internal_interviews', next_step: 'Agendar entrevista interna', updated_at: todayIso() } : item);
+    writeStore(store);
+  }
+  return completed;
+}
+
+export async function rejectCandidateInScreening(screeningId: string, reason: string) {
+  if (!reason.trim()) throw new Error('Informe o motivo da reprovação.');
+  const rejected = await saveCandidateScreening(screeningId, {
+    status: 'rejected', rejection_reason: reason.trim(), recruiter_notes: reason.trim(),
+    completed_by: isRemoteOpsEnabled() ? await currentProfileId() : null, completed_at: todayIso(),
+  });
+  await updateApplicationStatus(rejected.application_id, 'reprovado');
+  return rejected;
+}
+
+export async function getOrCreateInternalInterview(projectId: string, applicationId: string) {
+  const screening = isRemoteOpsEnabled()
+    ? (await supabase!.from('candidate_screenings').select('*').eq('project_id', projectId)
+      .eq('application_id', applicationId).eq('status', 'completed').maybeSingle()).data as CandidateScreening | null
+    : readStore().screenings.find((item) => item.project_id === projectId && item.application_id === applicationId && item.status === 'completed');
+  if (!screening) throw new Error('Conclua a triagem antes de abrir a entrevista interna.');
+  if (isRemoteOpsEnabled()) {
+    const { data: existing, error } = await supabase!.from('internal_interviews').select('*')
+      .eq('project_id', projectId).eq('application_id', applicationId).maybeSingle();
+    if (error) throw error;
+    if (existing) return existing as InternalInterview;
+    const settings = await getWorkflowSettings(screening.franchise_id);
+    const firstTemplate = settings.interview_templates[0] ?? null;
+    return insertRemote<InternalInterview>('internal_interviews', {
+      id: makeId(), franchise_id: screening.franchise_id, project_id: projectId, job_id: screening.job_id,
+      application_id: applicationId, status: 'draft', scheduled_at: null, interviewed_at: null,
+      interviewer_id: null, template_snapshot: firstTemplate ?? {},
+      questions_answers: firstTemplate ? [{ question: firstTemplate.body, answer: '' }] : [],
+      strengths: '', risks: '', technical_score: null, behavioral_score: null, communication_score: null,
+      culture_score: null, recommendation: null, conclusion: '', created_at: todayIso(), updated_at: todayIso(),
+    });
+  }
+  const store = readStore();
+  const existing = store.internalInterviews.find((item) => item.project_id === projectId && item.application_id === applicationId);
+  if (existing) return existing;
+  const interview: InternalInterview = {
+    id: makeId(), franchise_id: screening.franchise_id, project_id: projectId, job_id: screening.job_id,
+    application_id: applicationId, status: 'draft', scheduled_at: null, interviewed_at: null,
+    interviewer_id: null, template_snapshot: {}, questions_answers: [], strengths: '', risks: '',
+    technical_score: null, behavioral_score: null, communication_score: null, culture_score: null,
+    recommendation: null, conclusion: '', created_at: todayIso(), updated_at: todayIso(),
+  };
+  store.internalInterviews.unshift(interview); writeStore(store); return interview;
+}
+
+export function saveInternalInterview(interviewId: string, patch: Partial<InternalInterview>) {
+  if (isRemoteOpsEnabled()) return updateRemote<InternalInterview>('internal_interviews', interviewId, patch as Record<string, unknown>);
+  const store = readStore(); const index = store.internalInterviews.findIndex((item) => item.id === interviewId);
+  if (index < 0) throw new Error('Entrevista interna não encontrada.');
+  store.internalInterviews[index] = { ...store.internalInterviews[index], ...patch, updated_at: todayIso() };
+  writeStore(store); return store.internalInterviews[index];
+}
+
+export function scheduleInternalInterview(interviewId: string, scheduledAt: string) {
+  if (!scheduledAt) throw new Error('Informe a data e o horário.');
+  return saveInternalInterview(interviewId, { status: 'scheduled', scheduled_at: scheduledAt });
+}
+
+export async function completeInternalInterview(interviewId: string, payload: Partial<InternalInterview>) {
+  if (!payload.interviewed_at || !payload.interviewer_id || !payload.conclusion?.trim() || !payload.recommendation) {
+    throw new Error('Informe data, entrevistador, conclusão e recomendação.');
+  }
+  if (!payload.questions_answers?.some((item) => item.question.trim() && item.answer.trim())) {
+    throw new Error('Registre ao menos uma pergunta e resposta.');
+  }
+  for (const value of [payload.technical_score, payload.behavioral_score, payload.communication_score, payload.culture_score]) {
+    if (typeof value !== 'number' || value < 0 || value > 10) throw new Error('Todas as notas devem estar entre 0 e 10.');
+  }
+  const completed = await saveInternalInterview(interviewId, { ...payload, status: 'completed' });
+  if (completed.recommendation !== 'no') await updateApplicationStatus(completed.application_id, 'selecionado');
+  else await updateApplicationStatus(completed.application_id, 'reprovado');
+  return completed;
+}
+
+export function cancelInternalInterview(interviewId: string) {
+  return saveInternalInterview(interviewId, { status: 'cancelled' });
+}
+
+export async function generateFinalistReport(projectId: string, applicationId: string) {
+  if (!isRemoteOpsEnabled()) throw new Error('O parecer por IA exige o Supabase configurado.');
+  const { data, error } = await supabase!.functions.invoke('generate-finalist-report', { body: { projectId, applicationId } });
+  if (error) throw error;
+  return data as { finalist: FinalistRecord };
+}
+
+export function saveFinalistReport(finalistId: string, aiReport: string, payload: FinalistAiReport | Record<string, never>) {
+  if (!aiReport.trim()) throw new Error('O parecer ao cliente não pode ficar vazio.');
+  return updateRemote<FinalistRecord>('finalists', finalistId, {
+    ai_report: aiReport.trim(), ai_report_payload: payload, ai_report_status: 'generated',
+  });
+}
+
+export async function approveFinalistReport(finalistId: string) {
+  if (!isRemoteOpsEnabled()) throw new Error('A aprovação precisa ser registrada no Supabase.');
+  return updateRemote<FinalistRecord>('finalists', finalistId, {
+    ai_report_status: 'approved', franchise_approved_at: todayIso(), franchise_approved_by: await currentProfileId(),
+  });
+}
+
+export async function selectFinalist(projectId: string, applicationId: string, franchiseOpinion = '') {
+  if (isRemoteOpsEnabled()) {
+    const { data, error } = await supabase!.rpc('select_project_finalist', {
+      project_uuid: projectId,
+      application_uuid: applicationId,
+      franchise_opinion_value: franchiseOpinion,
+    });
+    if (error) throw error;
+    return data as FinalistRecord;
+  }
+  const store = readStore();
+  const project = store.projects.find((item) => item.id === projectId) ?? null;
   if (!project) throw new Error('Projeto nao encontrado.');
-  const projectFinalists = useRemoteOps()
-    ? (((await supabase!.from('finalists').select('*').eq('project_id', projectId)).data ?? []) as FinalistRecord[])
-    : store.finalists.filter((item) => item.project_id === projectId);
-  if (projectFinalists.length >= 3 && !projectFinalists.some((item) => item.application_id === applicationId)) {
+  const projectFinalists = store.finalists.filter((item) => item.project_id === projectId);
+  if (projectFinalists.filter((item) => item.status !== 'draft').length >= 3
+    && !projectFinalists.some((item) => item.application_id === applicationId)) {
     throw new Error('Cada processo pode ter ate 3 finalistas.');
   }
   const existing = projectFinalists.find((item) => item.application_id === applicationId);
-  if (existing) return existing;
-
-  const applications = await listApplications({ franchiseId: project.franchise_id });
-  const jobs = await listJobs({ franchiseId: project.franchise_id });
-  const application = applications.find((item) => item.id === applicationId);
-  const job = jobs.find((item) => item.id === application?.job_id);
-  if (!application) throw new Error('Candidato nao encontrado.');
-  const ranking = createApplicationRanking(application, job);
-  const timestamp = todayIso();
-  const finalist: FinalistRecord = {
-    id: makeId(),
-    franchise_id: project.franchise_id,
-    project_id: projectId,
-    application_id: applicationId,
-    status: 'approved_by_franchise',
-    franchise_opinion: franchiseOpinion,
-    ai_report: `${application.candidate_name} apresenta ${ranking.score}% de aderencia. Pontos fortes: ${ranking.strengths.join(', ') || 'perfil aderente ao processo'}. Pontos de atencao: ${ranking.concerns.join(', ') || 'validar detalhes em entrevista'}.`,
-    client_notes: '',
-    created_at: timestamp,
-    updated_at: timestamp,
-  };
-  if (useRemoteOps()) {
-    const saved = await insertRemote<FinalistRecord>('finalists', finalist);
-    await updateRemote<FranchiseProject>('projects', projectId, {
-      stage: 'finalists_selected',
-      next_step: 'Liberar finalistas ao cliente',
-    });
-    await updateApplicationStatus(applicationId, 'selecionado');
-    return saved;
+  const screening = store.screenings.find((item) => item.project_id === projectId && item.application_id === applicationId);
+  const interview = store.internalInterviews.find((item) => item.project_id === projectId && item.application_id === applicationId);
+  if (screening?.status !== 'completed') throw new Error('Conclua a triagem antes de selecionar o finalista.');
+  if (interview?.status !== 'completed' || interview.recommendation === 'no') {
+    throw new Error('Conclua a entrevista interna com recomendação elegível.');
   }
-
-  store.finalists.unshift(finalist);
+  if (!existing || existing.ai_report_status !== 'approved') throw new Error('Aprove o parecer antes de selecionar o finalista.');
+  const timestamp = todayIso();
+  const finalist = { ...existing, status: 'selected' as const, franchise_opinion: franchiseOpinion, updated_at: timestamp };
+  store.finalists = store.finalists.map((item) => item.id === existing.id ? finalist : item);
   store.projects = store.projects.map((item) =>
     item.id === projectId ? { ...item, stage: 'finalists_selected', next_step: 'Liberar finalistas ao cliente', updated_at: timestamp } : item,
   );
@@ -1576,20 +2070,30 @@ export async function selectFinalist(projectId: string, applicationId: string, f
   return finalist;
 }
 
-export function releaseFinalistsToClient(projectId: string) {
-  if (useRemoteOps()) {
+export function releaseFinalistsToClient(projectId: string, allowLessReason = '') {
+  if (isRemoteOpsEnabled()) {
     return (async () => {
       const { data: project, error } = await supabase!.from('projects').select('*').eq('id', projectId).single();
       if (error) throw error;
       const currentProject = project as FranchiseProject;
+      const { data: finalistRows, error: finalistError } = await supabase!.from('finalists').select('*')
+        .eq('project_id', projectId).eq('status', 'selected');
+      if (finalistError) throw finalistError;
+      const selected = (finalistRows ?? []) as FinalistRecord[];
+      if (!selected.length || selected.length > 3) throw new Error('Selecione de um a três finalistas.');
+      if (selected.some((item) => item.ai_report_status !== 'approved')) throw new Error('Todos os pareceres precisam estar aprovados.');
+      if (selected.length !== 3 && !allowLessReason.trim()) {
+        throw new Error('Informe a justificativa para liberar menos de três finalistas.');
+      }
       await supabase!
         .from('finalists')
         .update({ status: 'released_to_client', updated_at: todayIso() })
         .eq('project_id', projectId)
-        .eq('status', 'approved_by_franchise');
+        .eq('status', 'selected');
       await updateRemote<FranchiseProject>('projects', projectId, {
         stage: 'waiting_client',
         next_step: 'Cliente analisar finalistas e agendar entrevistas',
+        finalists_release_exception_reason: selected.length === 3 ? null : allowLessReason.trim(),
       });
       await insertRemote<NotificationTask>('notification_tasks', {
         id: makeId(),
@@ -1603,24 +2107,9 @@ export function releaseFinalistsToClient(projectId: string) {
         created_at: todayIso(),
         updated_at: todayIso(),
       });
-      const companies = await listCompanies({ franchiseId: currentProject.franchise_id });
-      const company = companies.find((item) => item.id === currentProject.client_id);
-      const { data: opportunity } = await supabase!
-        .from('sales_opportunities')
-        .select('contact_email')
-        .eq('id', currentProject.opportunity_id)
-        .maybeSingle();
       await sendWorkflowEmail({
-        to: (opportunity as { contact_email?: string } | null)?.contact_email ?? null,
-        subject: 'Finalistas disponíveis para análise',
-        template: 'finalists_link',
-        franchiseId: currentProject.franchise_id,
+        event: 'finalists_link',
         projectId: currentProject.id,
-        data: {
-          cliente: company?.name ?? 'Cliente',
-          projeto: currentProject.title,
-          url: `${appOrigin()}/portal-cliente/${currentProject.client_access_token}`,
-        },
       });
       return currentProject.client_access_token;
     })();
@@ -1629,14 +2118,20 @@ export function releaseFinalistsToClient(projectId: string) {
   const store = readStore();
   const project = store.projects.find((item) => item.id === projectId);
   if (!project) throw new Error('Projeto nao encontrado.');
+  const selected = store.finalists.filter((item) => item.project_id === projectId && item.status === 'selected');
+  if (!selected.length || selected.length > 3 || selected.some((item) => item.ai_report_status !== 'approved')) {
+    throw new Error('Selecione até três finalistas com parecer aprovado.');
+  }
+  if (selected.length !== 3 && !allowLessReason.trim()) throw new Error('Informe a justificativa para liberar menos de três finalistas.');
   const timestamp = todayIso();
   store.finalists = store.finalists.map((item) =>
-    item.project_id === projectId && item.status === 'approved_by_franchise'
+    item.project_id === projectId && item.status === 'selected'
       ? { ...item, status: 'released_to_client', updated_at: timestamp }
       : item,
   );
   store.projects = store.projects.map((item) =>
-    item.id === projectId ? { ...item, stage: 'waiting_client', next_step: 'Cliente analisar finalistas e agendar entrevistas', updated_at: timestamp } : item,
+    item.id === projectId ? { ...item, stage: 'waiting_client', next_step: 'Cliente analisar finalistas e agendar entrevistas',
+      finalists_release_exception_reason: selected.length === 3 ? null : allowLessReason.trim(), updated_at: timestamp } : item,
   );
   store.tasks.unshift({
     id: makeId(),
@@ -1670,7 +2165,7 @@ export function scheduleInterview(
   >,
   portalToken?: string,
 ) {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     return (async () => {
       if (portalToken) {
         const { data, error } = await supabase!.rpc('schedule_client_interview', {
@@ -1680,22 +2175,11 @@ export function scheduleInterview(
         });
         if (error) throw error;
         const schedule = data as ClientInterviewSchedule;
-        const portal = await getClientPortal(portalToken).catch(() => null);
-        const application = portal?.applications.find((item) => item.id === schedule.application_id);
         await sendWorkflowEmail({
-          to: application?.candidate_email,
-          subject: 'Confirme sua presença na entrevista',
-          template: 'candidate_confirmation',
-          franchiseId: schedule.franchise_id,
+          event: 'candidate_confirmation',
           projectId: schedule.project_id,
-          data: {
-            candidato: application?.candidate_name,
-            data: schedule.date,
-            horario: schedule.time,
-            formato: schedule.format,
-            local: schedule.location_or_link,
-            url: `${appOrigin()}/confirmar-presenca/${schedule.candidate_confirmation_token}`,
-          },
+          scheduleId: schedule.id,
+          portalToken,
         });
         return schedule;
       }
@@ -1728,22 +2212,10 @@ export function scheduleInterview(
         stage: 'client_interviews',
         next_step: 'Aguardar confirmacao do candidato',
       });
-      const applications = await listApplications({ franchiseId: schedule.franchise_id });
-      const application = applications.find((item) => item.id === schedule.application_id);
       await sendWorkflowEmail({
-        to: application?.candidate_email,
-        subject: 'Confirme sua presença na entrevista',
-        template: 'candidate_confirmation',
-        franchiseId: schedule.franchise_id,
+        event: 'candidate_confirmation',
         projectId: schedule.project_id,
-        data: {
-          candidato: application?.candidate_name,
-          data: schedule.date,
-          horario: schedule.time,
-          formato: schedule.format,
-          local: schedule.location_or_link,
-          url: `${appOrigin()}/confirmar-presenca/${schedule.candidate_confirmation_token}`,
-        },
+        scheduleId: schedule.id,
       });
       return schedule;
     })();
@@ -1783,30 +2255,18 @@ export function scheduleInterview(
 }
 
 export function confirmCandidatePresence(token: string) {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     return (async () => {
-      const context = await getCandidateConfirmation(token).catch(() => null);
       const { data: schedule, error } = await supabase!.rpc('confirm_candidate_presence', {
         access_token: token,
       });
       if (error) throw error;
       const savedSchedule = schedule as ClientInterviewSchedule;
       await sendWorkflowEmail({
-        to: context?.application?.candidate_email,
-        subject: 'Orientacoes para sua entrevista',
-        template: 'interview_guidelines',
-        franchiseId: savedSchedule.franchise_id,
+        event: 'interview_guidelines',
         projectId: savedSchedule.project_id,
-        data: {
-          candidato: context?.application?.candidate_name,
-          empresa: context?.company?.name,
-          projeto: context?.project?.title,
-          data: savedSchedule.date,
-          horario: savedSchedule.time,
-          formato: savedSchedule.format,
-          local: savedSchedule.location_or_link,
-          orientacoes: savedSchedule.notes,
-        },
+        scheduleId: savedSchedule.id,
+        candidateToken: token,
       });
       return savedSchedule;
     })();
@@ -1835,7 +2295,7 @@ export function confirmCandidatePresence(token: string) {
 
 export async function saveHiringDecision(
   finalistId: string,
-  input: Omit<HiringDecision, 'id' | 'franchise_id' | 'project_id' | 'application_id' | 'finalist_id' | 'created_at' | 'updated_at'>,
+  input: Omit<HiringDecision, 'id' | 'franchise_id' | 'project_id' | 'application_id' | 'finalist_id' | 'is_final' | 'finalized_at' | 'created_at' | 'updated_at'>,
   portalToken?: string,
 ) {
   if (input.decision === 'approved') {
@@ -1850,30 +2310,26 @@ export async function saveHiringDecision(
     }
   }
 
-  if (useRemoteOps() && portalToken) {
+  if (isRemoteOpsEnabled() && portalToken) {
     const { data, error } = await supabase!.rpc('save_portal_hiring_decision', {
       access_token: portalToken,
       finalist_uuid: finalistId,
       decision_payload: input,
     });
     if (error) throw error;
-    const decision = data as HiringDecision;
-    const portal = await getClientPortal(portalToken).catch(() => null);
-    const application = portal?.applications.find((item) => item.id === decision.application_id);
-    await sendHiringApprovalEmails(decision, portal?.project ?? null, application, input);
-    return decision;
+    return data as HiringDecision;
   }
 
   const store = readStore();
   let finalist = store.finalists.find((item) => item.id === finalistId) ?? null;
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const { data, error } = await supabase!.from('finalists').select('*').eq('id', finalistId).single();
     if (error) throw error;
     finalist = data as FinalistRecord;
   }
   if (!finalist) throw new Error('Finalista nao encontrado.');
   let project = store.projects.find((item) => item.id === finalist.project_id) ?? null;
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const { data, error } = await supabase!.from('projects').select('*').eq('id', finalist.project_id).single();
     if (error) throw error;
     project = data as FranchiseProject;
@@ -1887,11 +2343,13 @@ export async function saveHiringDecision(
     finalist_id: finalist.id,
     application_id: finalist.application_id,
     ...input,
+    is_final: false,
+    finalized_at: null,
     created_at: timestamp,
     updated_at: timestamp,
   };
 
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const saved = await insertRemote<HiringDecision>('hiring_decisions', decision);
     await updateRemote<FinalistRecord>('finalists', finalistId, { status: 'client_decided' });
 
@@ -1939,6 +2397,7 @@ export async function saveHiringDecision(
           title: `Fazer pos-venda de ${days} dias`,
           due_date: dateOnly(addDays(input.start_date ? parseISO(input.start_date) : new Date(), days)),
           contact_date: null,
+          contacted_person: '',
           responsible: input.internal_responsible_name,
           candidate_status: '',
           client_satisfaction: '',
@@ -1947,15 +2406,15 @@ export async function saveHiringDecision(
           referral_received: false,
           notes: '',
           next_action: '',
+          next_action_date: null,
+          referral_name: '',
+          referral_contact: '',
           status: 'open',
           created_at: timestamp,
           updated_at: timestamp,
         });
       });
       await updateApplicationStatus(finalist.application_id, 'aprovado');
-      const applications = await listApplications({ franchiseId: finalist.franchise_id });
-      const application = applications.find((item) => item.id === finalist.application_id);
-      await sendHiringApprovalEmails(saved, project, application, input);
     } else if (input.decision === 'rejected') {
       await updateApplicationStatus(finalist.application_id, 'reprovado');
     }
@@ -2005,6 +2464,7 @@ export async function saveHiringDecision(
         title: `Fazer pos-venda de ${days} dias`,
         due_date: dateOnly(addDays(input.start_date ? parseISO(input.start_date) : new Date(), days)),
         contact_date: null,
+        contacted_person: '',
         responsible: input.internal_responsible_name,
         candidate_status: '',
         client_satisfaction: '',
@@ -2013,6 +2473,9 @@ export async function saveHiringDecision(
         referral_received: false,
         notes: '',
         next_action: '',
+        next_action_date: null,
+        referral_name: '',
+        referral_contact: '',
         status: 'open',
         created_at: timestamp,
         updated_at: timestamp,
@@ -2027,8 +2490,23 @@ export async function saveHiringDecision(
   return decision;
 }
 
+export async function finalizeHiringDecisions(portalToken: string) {
+  if (!isRemoteOpsEnabled()) throw new Error('A finalização conjunta exige o Supabase configurado.');
+  const { data, error } = await supabase!.rpc('finalize_portal_hiring_decisions', { access_token: portalToken });
+  if (error) throw error;
+  const result = data as { status: 'finalized' | 'reopen_required'; approved_count: number; decisions: unknown[] };
+  if (result.status === 'finalized') {
+    const portal = await getClientPortal(portalToken);
+    await Promise.all([
+      sendWorkflowEmail({ event: 'hiring_approved_candidate', projectId: portal?.project.id ?? '', portalToken }),
+      sendWorkflowEmail({ event: 'hiring_approved_internal', projectId: portal?.project.id ?? '', portalToken }),
+    ]);
+  }
+  return result;
+}
+
 export function saveNps(projectTokenOrId: string, input: Omit<NpsResponse, 'id' | 'franchise_id' | 'project_id' | 'client_id' | 'created_at'>) {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     return (async () => {
       const { data, error } = await supabase!.rpc('save_public_nps', {
         access_token: projectTokenOrId,
@@ -2060,7 +2538,7 @@ export function saveNps(projectTokenOrId: string, input: Omit<NpsResponse, 'id' 
 }
 
 export function updatePostSaleTask(id: string, patch: Partial<PostSaleTask>) {
-  if (useRemoteOps()) return updateRemote<PostSaleTask>('post_sale_tasks', id, patch as Record<string, unknown>);
+  if (isRemoteOpsEnabled()) return updateRemote<PostSaleTask>('post_sale_tasks', id, patch as Record<string, unknown>);
 
   const store = readStore();
   const index = store.postSaleTasks.findIndex((item) => item.id === id);
@@ -2070,9 +2548,48 @@ export function updatePostSaleTask(id: string, patch: Partial<PostSaleTask>) {
   return store.postSaleTasks[index];
 }
 
+export async function completePostSaleContact(taskId: string, payload: Partial<PostSaleTask>) {
+  const required = [payload.contact_date, payload.contacted_person, payload.candidate_status,
+    payload.client_satisfaction, payload.replacement_risk, payload.notes, payload.status];
+  if (required.some((value) => !String(value ?? '').trim())) throw new Error('Preencha todos os campos obrigatórios do contato.');
+  if (payload.next_action?.trim() && !payload.next_action_date) throw new Error('Informe a data da próxima ação.');
+  if (payload.referral_received && !payload.referral_name?.trim() && !payload.referral_contact?.trim()
+    && !payload.notes?.trim()) throw new Error('Informe os dados da indicação ou registre-os nas observações.');
+  const saved = await updatePostSaleTask(taskId, payload);
+  if (payload.next_action?.trim() && payload.next_action_date) {
+    const nextTask: PostSaleTask = {
+      ...saved, id: makeId(), title: payload.next_action.trim(), due_date: payload.next_action_date,
+      contact_date: null, contacted_person: '', candidate_status: '', client_satisfaction: '',
+      replacement_risk: 'baixo', notes: '', next_action: '', next_action_date: null,
+      new_position_identified: false, referral_received: false, referral_name: '', referral_contact: '',
+      status: 'open', created_at: todayIso(), updated_at: todayIso(),
+    };
+    if (isRemoteOpsEnabled()) await insertRemote<PostSaleTask>('post_sale_tasks', nextTask);
+    else { const store = readStore(); store.postSaleTasks.unshift(nextTask); writeStore(store); }
+  }
+  if (payload.replacement_risk === 'reposicao_necessaria') {
+    if (isRemoteOpsEnabled()) {
+      await updateRemote<FranchiseProject>('projects', saved.project_id, {
+        stage: 'screening', next_step: 'Iniciar reposição do candidato', process_completed_at: null,
+      });
+      await insertRemote<NotificationTask>('notification_tasks', {
+        id: makeId(), franchise_id: saved.franchise_id, project_id: saved.project_id, opportunity_id: null,
+        title: `Reposição urgente: ${saved.title}`, type: 'replacement_required', due_at: todayIso(),
+        status: 'open', created_at: todayIso(), updated_at: todayIso(),
+      });
+    } else {
+      const store = readStore();
+      store.projects = store.projects.map((item) => item.id === saved.project_id
+        ? { ...item, stage: 'screening', next_step: 'Iniciar reposição do candidato', process_completed_at: null, updated_at: todayIso() } : item);
+      writeStore(store);
+    }
+  }
+  return saved;
+}
+
 export function addDocument(franchiseId: string, input: Omit<DocumentRecord, 'id' | 'franchise_id' | 'created_at'>) {
   const document: DocumentRecord = { id: makeId(), franchise_id: franchiseId, ...input, created_at: todayIso() };
-  if (useRemoteOps()) return insertRemote<DocumentRecord>('documents', document);
+  if (isRemoteOpsEnabled()) return insertRemote<DocumentRecord>('documents', document);
 
   const store = readStore();
   store.documents.unshift(document);
@@ -2081,7 +2598,7 @@ export function addDocument(franchiseId: string, input: Omit<DocumentRecord, 'id
 }
 
 export async function deleteDocument(id: string) {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const { error } = await supabase!.from('documents').delete().eq('id', id);
     if (error) throw error;
     return;
@@ -2098,7 +2615,7 @@ export function addChatMessage(
   title = 'Conversa interna',
   options: { contactPhone?: string; channel?: ChatConversation['channel'] } = {},
 ) {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     return (async () => {
       const timestamp = todayIso();
       let currentConversationId = conversationId;
@@ -2108,12 +2625,16 @@ export function addChatMessage(
           franchise_id: franchiseId,
           client_id: null,
           application_id: null,
+          project_id: null,
           title,
           channel: options.channel ?? 'internal',
           status: 'open',
           tags: [],
           responsible: '',
           contact_phone: options.contactPhone?.trim() || null,
+          provider: options.channel === 'whatsapp_ready' ? 'manual_external' : 'internal',
+          provider_conversation_id: null,
+          provider_error: options.channel === 'whatsapp_ready' ? 'WhatsApp não configurado; use o fallback externo.' : null,
           created_at: timestamp,
           updated_at: timestamp,
         });
@@ -2124,6 +2645,19 @@ export function addChatMessage(
         conversation_id: currentConversationId,
         sender: 'franchise',
         body,
+        franchise_id: franchiseId,
+        client_id: null,
+        project_id: null,
+        application_id: null,
+        provider: options.channel === 'whatsapp_ready' ? 'manual_external' : 'internal',
+        provider_conversation_id: null,
+        provider_message_id: null,
+        direction: 'outbound',
+        delivery_status: 'queued',
+        sent_at: null,
+        delivered_at: null,
+        read_at: null,
+        error_message: options.channel === 'whatsapp_ready' ? 'Envio realizado fora do sistema; entrega não confirmada.' : null,
         created_at: timestamp,
       });
     })();
@@ -2138,12 +2672,16 @@ export function addChatMessage(
       franchise_id: franchiseId,
       client_id: null,
       application_id: null,
+      project_id: null,
       title,
       channel: options.channel ?? 'internal',
       status: 'open',
       tags: [],
       responsible: '',
       contact_phone: options.contactPhone?.trim() || null,
+      provider: options.channel === 'whatsapp_ready' ? 'manual_external' : 'internal',
+      provider_conversation_id: null,
+      provider_error: options.channel === 'whatsapp_ready' ? 'WhatsApp não configurado; use o fallback externo.' : null,
       created_at: timestamp,
       updated_at: timestamp,
     };
@@ -2155,6 +2693,19 @@ export function addChatMessage(
     conversation_id: currentConversationId,
     sender: 'franchise',
     body,
+    franchise_id: franchiseId,
+    client_id: null,
+    project_id: null,
+    application_id: null,
+    provider: options.channel === 'whatsapp_ready' ? 'manual_external' : 'internal',
+    provider_conversation_id: null,
+    provider_message_id: null,
+    direction: 'outbound',
+    delivery_status: 'queued',
+    sent_at: null,
+    delivered_at: null,
+    read_at: null,
+    error_message: options.channel === 'whatsapp_ready' ? 'Envio realizado fora do sistema; entrega não confirmada.' : null,
     created_at: timestamp,
   };
   store.messages.push(message);
@@ -2163,7 +2714,7 @@ export function addChatMessage(
 }
 
 export function markTaskDone(id: string) {
-  if (useRemoteOps()) return updateRemote<NotificationTask>('notification_tasks', id, { status: 'done' });
+  if (isRemoteOpsEnabled()) return updateRemote<NotificationTask>('notification_tasks', id, { status: 'done' });
 
   const store = readStore();
   store.tasks = store.tasks.map((item) => (item.id === id ? { ...item, status: 'done', updated_at: todayIso() } : item));
@@ -2171,7 +2722,7 @@ export function markTaskDone(id: string) {
 }
 
 export async function getPublicBriefing(token: string) {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const { data, error } = await supabase!.rpc('get_public_briefing', {
       access_token: token,
     });
@@ -2184,7 +2735,7 @@ export async function getPublicBriefing(token: string) {
 }
 
 export async function getClientPortal(token: string) {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const { data, error } = await supabase!.rpc('get_client_portal', {
       access_token: token,
     });
@@ -2199,6 +2750,9 @@ export async function getClientPortal(token: string) {
       decisions: HiringDecision[];
       nps: NpsResponse | null;
       applications: Application[];
+      can_submit_nps: boolean;
+      client_decision_status: ClientDecisionStatus;
+      decision_finalized_at: string | null;
     };
   }
 
@@ -2210,7 +2764,9 @@ export async function getClientPortal(token: string) {
     listJobs({ franchiseId: project.franchise_id }),
     listApplications({ franchiseId: project.franchise_id }),
   ]);
-  const projectFinalists = store.finalists.filter((item) => item.project_id === project.id);
+  const projectFinalists = store.finalists.filter((item) => item.project_id === project.id
+    && ['released_to_client', 'interview_scheduled', 'client_decided'].includes(item.status)
+    && item.ai_report_status === 'approved');
   const finalistApplicationIds = new Set(projectFinalists.map((item) => item.application_id));
   return {
     project,
@@ -2221,11 +2777,15 @@ export async function getClientPortal(token: string) {
     decisions: store.hiringDecisions.filter((item) => item.project_id === project.id),
     nps: store.npsResponses.find((item) => item.project_id === project.id) ?? null,
     applications: applications.filter((item) => finalistApplicationIds.has(item.id)),
+    can_submit_nps: Boolean(project.nps_released_at && project.client_decision_status === 'finalized'
+      && store.hiringDecisions.some((item) => item.project_id === project.id && item.decision === 'approved' && item.is_final)),
+    client_decision_status: project.client_decision_status,
+    decision_finalized_at: project.client_decision_finalized_at,
   };
 }
 
 export async function getCandidateConfirmation(token: string) {
-  if (useRemoteOps()) {
+  if (isRemoteOpsEnabled()) {
     const { data, error } = await supabase!.rpc('get_candidate_confirmation', {
       access_token: token,
     });
@@ -2260,16 +2820,7 @@ export function getWorkspaceAlerts(data: FranchiseWorkspaceData) {
   const inactiveSince = addDays(now, -180);
   const inactiveClients = data.companies
     .map((company) => {
-      const projectDates = data.projects
-        .filter((project) => project.client_id === company.id)
-        .map((project) => project.updated_at || project.created_at);
-      const decisionDates = data.hiringDecisions
-        .filter((decision) => data.projects.some((project) => project.id === decision.project_id && project.client_id === company.id))
-        .map((decision) => decision.updated_at || decision.created_at);
-      const lastActivity = [...projectDates, ...decisionDates]
-        .filter(Boolean)
-        .sort()
-        .at(-1);
+      const lastActivity = data.clientLastHiringActivities.find((item) => item.client_id === company.id)?.activity_reference_at;
       return { company, lastActivity };
     })
     .filter((item) => item.lastActivity && isBefore(parseISO(item.lastActivity), inactiveSince));

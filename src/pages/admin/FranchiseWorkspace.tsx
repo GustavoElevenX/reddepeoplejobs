@@ -56,7 +56,9 @@ import {
   addDocument,
   approveJobDescriptionAndPublish,
   convertOpportunityToProject,
+  completePostSaleContact,
   createAccountPayable,
+  createReceivableInstallment,
   createSalesOpportunity,
   deleteDocument,
   generateJobDescription,
@@ -73,8 +75,7 @@ import {
   updateWorkflowSettings,
   updateContract,
   updateInvoice,
-  updatePostSaleTask,
-  updateReceivable,
+  updateReceivableInstallment,
   updateSalesOpportunity,
   type BriefingPayload,
   type FranchiseWorkspaceData,
@@ -82,7 +83,7 @@ import {
   type SalesOpportunity,
   type SalesStage,
 } from '../../lib/franchiseOps';
-import { createApplicationRanking } from '../../lib/ranking';
+import { getPersistedApplicationRanking } from '../../lib/ranking';
 import { getJobUrl } from '../../lib/jobUrls';
 import { createFranchiseFileSignedUrl, uploadFranchiseFile } from '../../lib/storage';
 import { useAdminProfile } from '../../routes/ProtectedRoute';
@@ -1152,7 +1153,7 @@ export function FranchiseWorkspace() {
         data.applications.map((application) => {
           const job = data.jobs.find((item) => item.id === application.job_id);
           const project = data.projects.find((item) => item.job_id === application.job_id);
-          const ranking = createApplicationRanking(application, job);
+          const ranking = getPersistedApplicationRanking(application, job);
           const isFinalist = data.finalists.some((item) => item.application_id === application.id);
           return (
             <Card key={application.id} className="p-5">
@@ -1235,15 +1236,17 @@ export function FranchiseWorkspace() {
   );
 
   const renderFinance = () => {
-    const totalReceived = data.accountsReceivable.filter((item) => item.status === 'received').reduce((sum, item) => sum + item.total_amount, 0);
+    const totalReceived = data.receivableInstallments.filter((item) => item.status === 'received').reduce((sum, item) => sum + item.amount, 0);
+    const totalOpen = data.receivableInstallments.filter((item) => ['pending', 'overdue'].includes(item.status)).reduce((sum, item) => sum + item.amount, 0);
+    const futureBalance = data.receivableInstallments.filter((item) => item.status === 'locked').reduce((sum, item) => sum + item.amount, 0);
     const expenses = data.accountsPayable.reduce((sum, item) => sum + item.amount, 0);
     return (
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-4">
-          <AdminStatCard title="Total a receber" value={money(stats.receivable)} icon={ReceiptText} />
+          <AdminStatCard title="Total a receber" value={money(totalOpen)} icon={ReceiptText} />
           <AdminStatCard title="Total recebido" value={money(totalReceived)} icon={CheckCircle2} />
+          <AdminStatCard title="Saldo futuro" value={money(futureBalance)} icon={Sparkles} />
           <AdminStatCard title="Despesas do mês" value={money(expenses)} icon={BadgeDollarSign} />
-          <AdminStatCard title="Resultado previsto" value={money(stats.revenueForecast - expenses)} icon={Sparkles} />
         </div>
         <div className="grid gap-6 xl:grid-cols-2">
           <Card className="p-5">
@@ -1255,15 +1258,15 @@ export function FranchiseWorkspace() {
                     <strong>{item.description}</strong>
                     <Badge variant={statusBadge(item.status)}>{item.status}</Badge>
                   </div>
-                  <p className="text-sm text-ink-500">{money(item.total_amount)} · vencimento {item.due_date}</p>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => safeAction(() => updateReceivable(item.id, { status: 'received' }))}>
-                      Marcar recebido
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => safeAction(() => updateReceivable(item.id, { status: 'overdue' }))}>
-                      Marcar vencido
-                    </Button>
-                  </div>
+                  <p className="text-sm text-ink-500">{money(item.total_amount)} · entrada e saldo controlados separadamente</p>
+                  <div className="grid gap-2">{data.receivableInstallments.filter((installment) => installment.receivable_id === item.id).map((installment) => (
+                    <div key={installment.id} className="rounded-lg bg-surface-50 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold">{installment.description} · {money(installment.amount)}</p><p className="text-xs text-ink-500">{installment.status} · {installment.due_date ?? 'sem vencimento'} · {installment.release_trigger}</p></div>
+                        <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={installment.status === 'locked'} onClick={() => safeAction(() => updateReceivableInstallment(installment.id, { status: 'received' }))}>Recebida</Button><Button size="sm" variant="ghost" disabled={installment.status === 'locked'} onClick={() => safeAction(() => updateReceivableInstallment(installment.id, { status: 'overdue' }))}>Vencida</Button><Button size="sm" variant="ghost" onClick={() => { const amount = window.prompt('Novo valor da parcela', String(installment.amount)); const dueDate = window.prompt('Novo vencimento (AAAA-MM-DD)', installment.due_date ?? ''); if (amount !== null) void safeAction(() => updateReceivableInstallment(installment.id, { amount: Number(amount), due_date: dueDate || null })); }}>Editar</Button>
+                          <label className="cursor-pointer rounded-lg border bg-white px-3 py-2 text-xs font-bold">Comprovante<input type="file" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void safeAction(async () => updateReceivableInstallment(installment.id, { receipt_url: await uploadFranchiseFile(file, profile.franchise_id!, 'receipts') })); }}/></label></div></div>
+                    </div>
+                  ))}</div>
+                  <form className="grid gap-2 rounded-lg border border-dashed p-3 md:grid-cols-4" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); const existing = data.receivableInstallments.filter((installment) => installment.receivable_id === item.id); void safeAction(() => createReceivableInstallment({ franchise_id: item.franchise_id, client_id: item.client_id, project_id: item.project_id, service_order_id: item.service_order_id, receivable_id: item.id, installment_number: Math.max(0, ...existing.map((installment) => installment.installment_number)) + 1, description: String(form.get('description') || 'Parcela manual'), amount: Number(form.get('amount') || 0), due_date: String(form.get('due_date') || '') || null, release_trigger: 'manual', released_at: new Date().toISOString(), status: 'pending', paid_at: null, payment_link: null, receipt_url: null, notes: 'Parcela adicionada manualmente.' })); event.currentTarget.reset(); }}><Input name="description" label="Nova parcela" required/><Input name="amount" label="Valor" type="number" min="0" step="0.01" required/><Input name="due_date" label="Vencimento" type="date"/><Button type="submit" size="sm" className="self-end">Adicionar parcela</Button></form>
                 </div>
               ))}
             </div>
@@ -1368,7 +1371,7 @@ export function FranchiseWorkspace() {
         <Card className="p-5">
           <h2 className="text-xl font-black text-ink-900">WhatsApp e histórico de conversas</h2>
           <p className="mt-2 text-sm text-ink-600">
-            Abra uma conversa no WhatsApp com a mensagem preenchida e mantenha o contato registrado no CRM.
+            WhatsApp não configurado. O sistema abre o wa.me como fallback externo e registra a tentativa como manual, sem afirmar envio ou entrega.
           </p>
           <form
             className="mt-4 grid gap-3"
@@ -1416,13 +1419,13 @@ export function FranchiseWorkspace() {
               <div key={conversation.id} className="rounded-lg border border-surface-200 p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-bold">{conversation.title}</p>
-                  <Badge>{conversation.channel === 'whatsapp_ready' ? 'Preparado para WhatsApp' : 'Interno'}</Badge>
+                  <Badge>{conversation.channel === 'whatsapp_ready' ? 'WhatsApp não configurado' : 'Interno'}</Badge>
                   <Badge variant={conversation.status === 'closed' ? 'neutral' : 'warning'}>{conversation.status}</Badge>
                 </div>
                 {conversation.contact_phone ? <p className="mt-1 text-xs font-semibold text-ink-500">{conversation.contact_phone}</p> : null}
                 {data.messages
                   .filter((message) => message.conversation_id === conversation.id)
-                  .map((message) => <p key={message.id} className="mt-2 text-sm text-ink-500">{message.body}</p>)}
+                  .map((message) => <p key={message.id} className="mt-2 text-sm text-ink-500">{message.body} · {message.provider === 'manual_external' ? 'manual externo, entrega não confirmada' : message.delivery_status}</p>)}
                 {conversation.contact_phone ? (
                   <Button
                     className="mt-3"
@@ -1674,10 +1677,26 @@ export function FranchiseWorkspace() {
                   <p className="font-bold text-ink-900">{task.title}</p>
                   <p className="text-sm text-ink-500">Vencimento {task.due_date} · risco {task.replacement_risk}</p>
                 </div>
-                <Button size="sm" variant="secondary" onClick={() => safeAction(() => updatePostSaleTask(task.id, { status: 'done', contact_date: new Date().toISOString() }))}>
-                  Concluir contato
-                </Button>
               </div>
+              <details className="mt-3 rounded-lg border border-surface-200 bg-surface-50 p-3"><summary className="cursor-pointer text-sm font-bold text-redde-700">Registrar contato completo</summary>
+                <form className="mt-4 grid gap-3" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); void safeAction(() => completePostSaleContact(task.id, {
+                  contact_date: String(form.get('contact_date') || ''), contacted_person: String(form.get('contacted_person') || ''),
+                  candidate_status: String(form.get('candidate_status') || ''), client_satisfaction: String(form.get('client_satisfaction') || ''), replacement_risk: String(form.get('replacement_risk') || ''),
+                  new_position_identified: form.get('new_position_identified') === 'on', referral_received: form.get('referral_received') === 'on', referral_name: String(form.get('referral_name') || ''), referral_contact: String(form.get('referral_contact') || ''),
+                  notes: String(form.get('notes') || ''), next_action: String(form.get('next_action') || ''), next_action_date: String(form.get('next_action_date') || '') || null, status: String(form.get('status') || 'done') as 'open' | 'done' | 'snoozed',
+                })); }}>
+                  <div className="grid gap-3 md:grid-cols-2"><Input name="contact_date" label="Data do contato" type="datetime-local" required/><Input name="contacted_person" label="Pessoa contatada" required/>
+                    <Select name="candidate_status" label="Situação do candidato" options={['','ativo','em_adaptacao','com_dificuldades','desligado','pediu_desligamento','nao_iniciou','sem_retorno'].map((value)=>({label:value||'Selecione',value}))} required/>
+                    <Select name="client_satisfaction" label="Satisfação do cliente" options={['','muito_satisfeito','satisfeito','neutro','insatisfeito','muito_insatisfeito'].map((value)=>({label:value||'Selecione',value}))} required/>
+                    <Select name="replacement_risk" label="Risco de reposição" options={['baixo','medio','alto','reposicao_necessaria'].map((value)=>({label:value,value}))}/><Select name="status" label="Status da tarefa" options={[{label:'Concluída',value:'done'},{label:'Aberta',value:'open'},{label:'Adiada',value:'snoozed'}]}/></div>
+                  <div className="flex flex-wrap gap-5 text-sm font-semibold"><label><input name="new_position_identified" type="checkbox"/> Nova vaga identificada</label><label><input name="referral_received" type="checkbox"/> Indicação recebida</label></div>
+                  <div className="grid gap-3 md:grid-cols-2"><Input name="referral_name" label="Nome da indicação"/><Input name="referral_contact" label="Contato da indicação"/></div><Textarea name="notes" label="Observações" required/><div className="grid gap-3 md:grid-cols-2"><Input name="next_action" label="Próxima ação"/><Input name="next_action_date" label="Data da próxima ação" type="date"/></div><Button type="submit" size="sm">Salvar contato</Button>
+                </form>
+              </details>
+              {(task.new_position_identified || task.referral_received) ? <div className="mt-3 flex flex-wrap gap-2">
+                {task.new_position_identified ? <Button size="sm" onClick={() => { const project = data.projects.find((item) => item.id === task.project_id); const company = data.companies.find((item) => item.id === task.client_id); const opportunity = data.opportunities.find((item) => item.id === project?.opportunity_id); if (!company) return; void safeAction(() => createSalesOpportunity(profile.franchise_id!, { client_id: company.id, company_name: company.name, contact_name: opportunity?.contact_name ?? 'Contato do cliente', contact_phone: opportunity?.contact_phone ?? '', contact_email: opportunity?.contact_email ?? '', service_name: 'Nova vaga identificada no pós-venda', source: 'Pós-venda', stage: 'new_lead' })); }}>Criar oportunidade vinculada</Button> : null}
+                {task.referral_received ? <Button size="sm" variant="secondary" onClick={() => void safeAction(() => createSalesOpportunity(profile.franchise_id!, { company_name: task.referral_name || 'Indicação recebida', contact_name: task.referral_name || 'Contato indicado', contact_phone: task.referral_contact || '', contact_email: '', service_name: 'Contato indicado no pós-venda', source: 'Indicação', stage: 'new_lead' }))}>Criar lead da indicação</Button> : null}
+              </div> : null}
             </Card>
           ))}
           {!data.postSaleTasks.length ? <EmptyState title="As tarefas de pós-venda serão criadas após aprovação final do candidato." /> : null}
