@@ -71,7 +71,7 @@ select {
 }
 
 .kanban-scroll::-webkit-scrollbar-thumb:hover {
-  background: #8300ea;
+  background: #800084;
 }
 
 .kanban-column-scroll {

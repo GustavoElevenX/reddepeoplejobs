@@ -61,9 +61,9 @@ export function Sidebar({ profile }: SidebarProps) {
       <div className="flex items-center gap-3 px-4 py-5">
         <span className="flex h-11 w-36 items-center overflow-hidden">
           <img
-            src="/imagens/logo/redde-people-jobs-white.png"
-            alt="People Jobs"
-            className="h-full w-full object-contain"
+            src="/imagens/logo/logo-nova.png"
+            alt="Recruitfy"
+            className="h-full w-full object-contain brightness-0 invert"
           />
         </span>
       </div>

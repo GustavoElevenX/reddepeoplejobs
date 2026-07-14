@@ -26,7 +26,7 @@ export function HeroSearch({ companies, openJobsCount, loading = false }: HeroSe
   }
 
   return (
-    <section className="border-b border-[#8300ea] bg-[#8300ea]">
+    <section className="border-b border-[#800084] bg-[#800084]">
       <div className="container-page pb-10 pt-28 lg:pb-12 lg:pt-32">
         <div className="mx-auto max-w-4xl text-center">
           <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-white">

@@ -328,7 +328,7 @@ export function Home() {
         </div>
       </section>
 
-      <section id="para-empresas" className="bg-[#8300ea] py-12 text-white">
+      <section id="para-empresas" className="bg-[#800084] py-12 text-white">
         <div className="container-page grid gap-7 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <span className="text-sm font-black uppercase tracking-[0.14em] text-white/60">Para empresas</span>
@@ -362,7 +362,7 @@ export function Home() {
               </Button>
             </a>
             <Link to="/admin/login" className="inline-flex">
-              <Button size="lg" variant="secondary" className="border-white bg-white text-[#8300ea] hover:bg-redde-50">
+              <Button size="lg" variant="secondary" className="border-white bg-white text-[#800084] hover:bg-redde-50">
                 Acessar painel
               </Button>
             </Link>

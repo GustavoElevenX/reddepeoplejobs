@@ -39,9 +39,9 @@ export function LogoCarousel({ companies }: LogoCarouselProps) {
   return (
     <div className="group relative overflow-hidden">
       {/* Gradiente esquerdo */}
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#8300ea] to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#800084] to-transparent" />
       {/* Gradiente direito */}
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#8300ea] to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#800084] to-transparent" />
 
       <div className="flex animate-marquee items-center py-3">
         {items.map((company, index) => (

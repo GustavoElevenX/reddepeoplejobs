@@ -37,8 +37,8 @@ export function Footer() {
         <div>
           <div className="flex h-12 w-40 items-center overflow-hidden">
             <img
-              src="/imagens/logo/redde-people-jobs-color.png"
-              alt="People Jobs"
+              src="/imagens/logo/logo-nova.png"
+              alt="Recruitfy"
               className="h-full w-full object-contain"
             />
           </div>

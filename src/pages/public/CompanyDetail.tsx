@@ -72,7 +72,7 @@ export function CompanyDetail() {
   return (
     <main className="bg-surface-50">
       <section className="relative overflow-hidden bg-ink-900 text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(131,0,234,0.42),transparent_32%),linear-gradient(135deg,#07070A_0%,#21003D_55%,#07070A_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(128,0,132,0.42),transparent_32%),linear-gradient(135deg,#07070A_0%,#260028_55%,#07070A_100%)]" />
         <div className="absolute inset-0 opacity-20">
           {company.cover_image_url ? (
             <img src={company.cover_image_url} alt="" className="h-full w-full object-cover" />
