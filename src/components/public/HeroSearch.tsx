@@ -35,7 +35,7 @@ export function HeroSearch({ companies, loading = false }: HeroSearchProps) {
             Encontre vagas verificadas em São Luís e acompanhe sua candidatura com transparência.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-white/85">
-            Salário informado, empresas verificadas e processos seletivos com retorno — sem precisar criar uma conta.
+            Salário informado, empresas verificadas e processos seletivos com retorno, sem precisar criar uma conta.
           </p>
         </div>
 

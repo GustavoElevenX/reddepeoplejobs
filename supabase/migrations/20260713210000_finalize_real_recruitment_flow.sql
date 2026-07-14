@@ -277,7 +277,7 @@ insert into public.accounts_receivable_installments (
   released_at, status, paid_at, payment_link, notes
 )
 select ar.franchise_id, ar.client_id, ar.project_id, ar.service_order_id, ar.id,
-  1, 'Parcela única — migrada do modelo anterior', ar.total_amount, ar.due_date, 'immediate',
+  1, 'Parcela única, migrada do modelo anterior', ar.total_amount, ar.due_date, 'immediate',
   now(), case when ar.status = 'received' then 'received' when ar.status = 'overdue' then 'overdue' else 'pending' end,
   case when ar.status = 'received' then ar.updated_at else null end, ar.payment_link,
   'Migrado do modelo anterior'
@@ -291,7 +291,7 @@ insert into public.accounts_receivable_installments (
   released_at, status, paid_at, payment_link, notes
 )
 select ar.franchise_id, ar.client_id, ar.project_id, ar.service_order_id, ar.id,
-  1, 'Entrada — migrada do modelo anterior', ar.entry_amount, ar.due_date, 'immediate', now(),
+  1, 'Entrada, migrada do modelo anterior', ar.entry_amount, ar.due_date, 'immediate', now(),
   case when ar.status = 'received' then 'received' else 'pending' end,
   case when ar.status = 'received' then ar.updated_at else null end, ar.payment_link,
   'Migrado do modelo anterior'
@@ -304,7 +304,7 @@ insert into public.accounts_receivable_installments (
   installment_number, description, amount, due_date, release_trigger, status, notes
 )
 select ar.franchise_id, ar.client_id, ar.project_id, ar.service_order_id, ar.id,
-  2, 'Saldo — migrado do modelo anterior', ar.remaining_amount, ar.due_date, 'final_decision', 'locked',
+  2, 'Saldo, migrado do modelo anterior', ar.remaining_amount, ar.due_date, 'final_decision', 'locked',
   'Migrado do modelo anterior'
 from public.accounts_receivable ar
 where exists (select 1 from public.accounts_receivable_installments i where i.receivable_id = ar.id and i.installment_number = 1 and i.notes = 'Migrado do modelo anterior')
