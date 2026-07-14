@@ -17,7 +17,7 @@ export function PublicHeader() {
   const isHome = pathname === '/';
   // Roxo quando está no topo da home (sem scroll), branco quando deu scroll ou em outra página
   const isPurple = isHome && !scrolled && !open;
-  const logoSrc = '/imagens/logo/logo-nova.png';
+  const logoSrc = isPurple ? '/imagens/logo/logo-nova-inversa.png' : '/imagens/logo/logo-nova.png';
 
   useEffect(() => {
     function updateHeaderState() {
@@ -43,7 +43,7 @@ export function PublicHeader() {
           <img
             src={logoSrc}
             alt="Recruitfy"
-            className={`h-10 w-auto object-contain ${isPurple ? 'brightness-0 invert' : ''}`}
+            className="h-10 w-auto object-contain"
           />
         </Link>
 
