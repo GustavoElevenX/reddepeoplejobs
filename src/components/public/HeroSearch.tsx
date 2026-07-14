@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Building2, MapPin, Search } from 'lucide-react';
+import { Building2, Route, Search, ShieldCheck } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CompanySummary } from '../../types';
@@ -8,11 +8,10 @@ import { LogoCarousel } from './LogoCarousel';
 
 type HeroSearchProps = {
   companies: CompanySummary[];
-  openJobsCount: number;
   loading?: boolean;
 };
 
-export function HeroSearch({ companies, openJobsCount, loading = false }: HeroSearchProps) {
+export function HeroSearch({ companies, loading = false }: HeroSearchProps) {
   const [search, setSearch] = useState('');
   const [city, setCity] = useState('');
   const navigate = useNavigate();
@@ -30,13 +29,13 @@ export function HeroSearch({ companies, openJobsCount, loading = false }: HeroSe
       <div className="container-page pb-10 pt-28 lg:pb-12 lg:pt-32">
         <div className="mx-auto max-w-4xl text-center">
           <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-white">
-            Portal de vagas Recruitfy
+            O portal regional da Recruitfy
           </span>
           <h1 className="mt-5 text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">
-            Encontre vagas em empresas que estão contratando agora.
+            Encontre vagas verificadas em São Luís e acompanhe sua candidatura com transparência.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-white/85">
-            O Recruitfy conecta candidatos a empresas parceiras com processos seletivos mais organizados, claros e profissionais.
+            Salário informado, empresas verificadas e processos seletivos com retorno — sem precisar criar uma conta.
           </p>
         </div>
 
@@ -54,8 +53,8 @@ export function HeroSearch({ companies, openJobsCount, loading = false }: HeroSe
           />
           <Input
             label="Onde?"
-            aria-label="Cidade"
-            placeholder="Cidade"
+            aria-label="Cidade, bairro ou região"
+            placeholder="São Luís, bairro ou região"
             value={city}
             onChange={(event) => setCity(event.target.value)}
             className="h-12"
@@ -68,18 +67,18 @@ export function HeroSearch({ companies, openJobsCount, loading = false }: HeroSe
 
         <div className="mx-auto mt-5 flex max-w-4xl flex-wrap items-center justify-center gap-3 text-sm text-white/85">
           <span className="inline-flex items-center gap-2">
-            <BriefcaseBusiness size={16} className="text-white" />
-            {openJobsCount} vagas abertas
+            <ShieldCheck size={16} className="text-white" />
+            Empresas verificadas
           </span>
           <span className="hidden h-1 w-1 rounded-full bg-white/35 sm:block" />
           <span className="inline-flex items-center gap-2">
             <Building2 size={16} className="text-white" />
-            {companies.length} empresas parceiras
+            Informações objetivas
           </span>
           <span className="hidden h-1 w-1 rounded-full bg-white/35 sm:block" />
           <span className="inline-flex items-center gap-2">
-            <MapPin size={16} className="text-white" />
-            Candidatura sem login
+            <Route size={16} className="text-white" />
+            Acompanhamento sem login
           </span>
         </div>
       </div>

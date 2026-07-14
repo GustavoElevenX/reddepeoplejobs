@@ -18,6 +18,7 @@ import { ReddeUsers } from '../pages/admin/ReddeUsers';
 import { ProcessDetail } from '../pages/admin/ProcessDetail';
 import { Processes } from '../pages/admin/Processes';
 import { ApplicationSuccess } from '../pages/public/ApplicationSuccess';
+import { ApplicationTracking } from '../pages/public/ApplicationTracking';
 import { CandidateConfirmation } from '../pages/public/CandidateConfirmation';
 import { ClientPortal } from '../pages/public/ClientPortal';
 import { Companies } from '../pages/public/Companies';
@@ -89,6 +90,7 @@ export function AppRoutes() {
         <Route path="/vagas" element={<Jobs />} />
         <Route path="/empresa/:companySlug/vagas/:jobSlug" element={<JobDetail />} />
         <Route path="/candidatura/sucesso" element={<ApplicationSuccess />} />
+        <Route path="/acompanhar/:token" element={<ApplicationTracking />} />
         <Route path="/briefing/:token" element={<PublicBriefing />} />
         <Route path="/portal-cliente/:token" element={<ClientPortal />} />
         <Route path="/confirmar-presenca/:token" element={<CandidateConfirmation />} />

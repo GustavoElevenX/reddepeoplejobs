@@ -259,10 +259,38 @@ export type Application = {
   resume_analysis_waived_by: string | null;
   lgpd_consent: boolean;
   source: string | null;
+  tracking_token?: string | null;
   created_at: string;
   updated_at: string;
   job?: Pick<Job, 'id' | 'title' | 'slug'>;
   company?: Pick<Company, 'id' | 'name' | 'slug'>;
+};
+
+export type ApplicationTrackingEvent = {
+  stage: ApplicationStage;
+  created_at: string;
+};
+
+export type PublicApplicationTracking = {
+  candidate_first_name: string;
+  job_title: string;
+  company_name: string;
+  company_slug: string;
+  job_slug: string;
+  stage: ApplicationStage;
+  status: ApplicationStatus;
+  submitted_at: string;
+  updated_at: string;
+  timeline: ApplicationTrackingEvent[];
+};
+
+export type CompanyResponseMetric = {
+  company_id: string;
+  total_applications: number;
+  completed_applications: number;
+  response_rate: number;
+  average_response_days: number | null;
+  last_process_completed_at: string | null;
 };
 
 export type CandidateEducation = {

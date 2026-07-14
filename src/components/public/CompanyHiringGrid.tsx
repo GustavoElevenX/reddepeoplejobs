@@ -56,7 +56,10 @@ function CompanyHiringCard({ company, jobs }: { company: Company; jobs: Job[] })
 
 export function CompanyHiringGrid({ companies, jobs }: CompanyHiringGridProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div
+      className="grid gap-4"
+      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 230px), 1fr))' }}
+    >
       {companies.map((company) => (
         <CompanyHiringCard key={company.id} company={company} jobs={jobs} />
       ))}

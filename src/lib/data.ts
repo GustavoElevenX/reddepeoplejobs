@@ -1,7 +1,7 @@
 import { formatISO, startOfMonth, subDays } from 'date-fns';
 import { resolveApplicationStage } from './applicationStages';
 import { supabase } from './supabase';
-import type { Application, ApplicationNote, ApplicationStage, ApplicationStageHistory, ApplicationStatus, Company, CompanyCommercialStatus, CompanyPageStatus, CompanyUserAccess, DashboardStats, Franchise, FranchiseDashboardStats, FranchisePerformance, FranchiseStatus, Job, JobContractType, JobDistribution, JobDistributionChannel, JobModality, JobStatus, NetworkDashboardStats, ProcessComment, Profile, SiteContent, } from '../types';
+import type { Application, ApplicationNote, ApplicationStage, ApplicationStageHistory, ApplicationStatus, Company, CompanyCommercialStatus, CompanyPageStatus, CompanyResponseMetric, CompanyUserAccess, DashboardStats, Franchise, FranchiseDashboardStats, FranchisePerformance, FranchiseStatus, Job, JobContractType, JobDistribution, JobDistributionChannel, JobModality, JobStatus, NetworkDashboardStats, ProcessComment, Profile, PublicApplicationTracking, SiteContent, } from '../types';
 export type UserPermissionInput = {
     can_edit_company_page: boolean;
     can_manage_jobs: boolean;
@@ -556,19 +556,42 @@ export async function createApplication(values: Pick<Application, 'job_id' | 'co
         source: values.source ?? 'direct',
         franchise_id: values.franchise_id ?? null,
     };
-    const { data, error } = await supabase.from('applications').insert({
-        ...payload,
-    }).select('*').single();
+    const { data, error } = await supabase.rpc('submit_public_application', {
+        application_payload: payload,
+    });
     if (error)
         throw error;
-    const application = normalizeApplication(data as ApplicationRow);
+    const receipt = (Array.isArray(data) ? data[0] : data) as {
+        application_id: string;
+        tracking_token: string;
+        resume_analysis_token: string;
+    } | null;
+    if (!receipt)
+        throw new Error('O Supabase não retornou o protocolo da candidatura.');
     void supabase.functions.invoke('analyze-candidate-resume', {
         body: {
-            applicationId: application.id,
-            analysisToken: (data as ApplicationRow & { resume_analysis_token?: string }).resume_analysis_token,
+            applicationId: receipt.application_id,
+            analysisToken: receipt.resume_analysis_token,
         },
     }).catch(() => undefined);
-    return application;
+    return {
+        id: receipt.application_id,
+        tracking_token: receipt.tracking_token,
+    };
+}
+
+export async function getPublicApplicationTracking(token: string) {
+    const { data, error } = await supabase.rpc('get_public_application_tracking', { access_token: token });
+    if (error)
+        throw error;
+    return data as PublicApplicationTracking | null;
+}
+
+export async function listPublicCompanyResponseMetrics() {
+    const { data, error } = await supabase.rpc('list_public_company_response_metrics');
+    if (error)
+        throw error;
+    return (data ?? []) as CompanyResponseMetric[];
 }
 export async function createManualApplication(values: {
     job: Job;

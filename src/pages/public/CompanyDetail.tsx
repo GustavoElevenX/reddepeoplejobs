@@ -139,10 +139,10 @@ export function CompanyDetail() {
             { title: 'Sobre a empresa', text: company.about_text },
             { title: 'Por que trabalhar aqui?', text: company.why_work_here },
             { title: 'Cultura e ambiente', text: company.culture_text },
-          ].map((block) => (
+          ].filter((block): block is { title: string; text: string } => Boolean(block.text)).map((block) => (
             <Card key={block.title} className="p-7">
               <h2 className="text-2xl font-black text-ink-900">{block.title}</h2>
-              <p className="mt-3 leading-7 text-ink-500">{block.text ?? 'Texto editável pelo painel administrativo.'}</p>
+              <p className="mt-3 whitespace-pre-line leading-7 text-ink-500">{block.text}</p>
             </Card>
           ))}
         </div>

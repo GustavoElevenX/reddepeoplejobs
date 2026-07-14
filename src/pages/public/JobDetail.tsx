@@ -1,4 +1,4 @@
-import { ArrowDown, Building2, CalendarDays, MapPin } from 'lucide-react';
+import { ArrowDown, Building2, CalendarDays, CheckCircle2, Circle, MapPin } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useParams } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { Card } from '../../components/ui/Card';
 import { contractTypeLabels, formatDate, formatJobSalary, formatLocation, modalityLabels } from '../../lib/formatters';
 import { getJobByCompanyAndSlug } from '../../lib/data';
 import { buildJobPostingSchema } from '../../lib/jobPostingSchema';
+import { getJobTransparency } from '../../lib/jobTransparency';
 import { getJobUrl } from '../../lib/jobUrls';
 import type { Job } from '../../types';
 
@@ -105,6 +106,7 @@ export function JobDetail() {
     job.seo_description || job.short_description || `Candidate-se para a vaga ${job.title}.`;
   const usesExternalApplication = !job.direct_apply && Boolean(job.external_apply_url);
   const salaryLabel = formatJobSalary(job);
+  const transparency = getJobTransparency(job);
 
   const summaryItems = [
     { label: 'Empresa', value: job.company?.name },
@@ -154,6 +156,9 @@ export function JobDetail() {
               <Badge>{modalityLabels[job.modality]}</Badge>
               <Badge>{contractTypeLabels[job.contract_type]}</Badge>
               {salaryLabel ? <Badge variant="info">{salaryLabel}</Badge> : null}
+              <Badge variant={transparency.score >= 80 ? 'success' : 'info'}>
+                {transparency.score}% transparente
+              </Badge>
               {job.application_deadline ? <Badge variant="warning">Prazo: {formatDate(job.application_deadline)}</Badge> : null}
             </div>
             <a
@@ -211,6 +216,29 @@ export function JobDetail() {
         </div>
 
         <div className="grid h-fit gap-5 lg:sticky lg:top-24">
+          <Card className="p-5">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-redde-600">Índice de transparência</p>
+                <p className="mt-2 text-4xl font-black text-ink-900">{transparency.score}%</p>
+              </div>
+              <span className="text-right text-xs font-semibold leading-5 text-ink-500">
+                Calculado pelas informações publicadas
+              </span>
+            </div>
+            <div className="mt-5 grid gap-3">
+              {transparency.criteria.map((criterion) => (
+                <div key={criterion.label} className="flex items-center gap-2 text-sm font-semibold">
+                  {criterion.met ? (
+                    <CheckCircle2 className="shrink-0 text-emerald-600" size={17} />
+                  ) : (
+                    <Circle className="shrink-0 text-surface-300" size={17} />
+                  )}
+                  <span className={criterion.met ? 'text-ink-700' : 'text-ink-400'}>{criterion.label}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
           <Card className="p-5">
             <h2 className="text-xl font-black text-ink-900">Resumo</h2>
             <div className="mt-4 grid gap-3 text-sm text-ink-500">

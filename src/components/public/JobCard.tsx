@@ -2,6 +2,7 @@ import { ArrowRight, Building2, CalendarDays, MapPin } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { contractTypeLabels, formatLocation, formatPublicRelativeDate, formatSalaryRange, modalityLabels } from '../../lib/formatters';
+import { getJobTransparency } from '../../lib/jobTransparency';
 import type { Job } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -15,6 +16,7 @@ export function JobCard({ job }: JobCardProps) {
   const companySlug = job.company?.slug ?? 'empresa';
   const [logoFailed, setLogoFailed] = useState(false);
   const logoUrl = job.company?.logo_url;
+  const transparency = getJobTransparency(job);
 
   return (
     <Card className="flex h-full flex-col p-5 transition hover:-translate-y-1 hover:shadow-soft">
@@ -41,6 +43,7 @@ export function JobCard({ job }: JobCardProps) {
       </div>
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-ink-500">{job.short_description ?? job.description}</p>
       <div className="mt-4 flex flex-wrap gap-2">
+        <Badge variant={transparency.score >= 80 ? 'success' : 'info'}>{transparency.score}% transparente</Badge>
         <Badge>{modalityLabels[job.modality]}</Badge>
         <Badge>{contractTypeLabels[job.contract_type]}</Badge>
         {job.seniority ? <Badge>{job.seniority}</Badge> : null}

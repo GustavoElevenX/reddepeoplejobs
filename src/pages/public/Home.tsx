@@ -4,23 +4,29 @@ import {
   Building2,
   CheckCircle2,
   ClipboardList,
+  Clock3,
+  HeartHandshake,
   LockKeyhole,
   Mail,
+  Route,
   Search,
   Send,
   ShieldCheck,
-  Sparkles,
+  Timer,
+  UserRoundCheck,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { CompanyHiringGrid } from '../../components/public/CompanyHiringGrid';
 import { EmptyState } from '../../components/public/EmptyState';
 import { HeroSearch } from '../../components/public/HeroSearch';
 import { JobCard } from '../../components/public/JobCard';
 import { LoadingState } from '../../components/public/LoadingState';
 import { Button } from '../../components/ui/Button';
-import { listCompanies, listJobs, getSiteContent } from '../../lib/data';
-import type { Company, Job, SiteContent } from '../../types';
+import { getSiteContent, listCompanies, listJobs, listPublicCompanyResponseMetrics } from '../../lib/data';
+import { getJobTransparency, isEntryLevelJob } from '../../lib/jobTransparency';
+import { formatDate } from '../../lib/formatters';
+import type { Company, CompanyResponseMetric, Job, SiteContent } from '../../types';
 
 const areaDefinitions = [
   {
@@ -110,18 +116,22 @@ function settle<T>(promise: Promise<T>) {
 export function Home() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [responseMetrics, setResponseMetrics] = useState<CompanyResponseMetric[]>([]);
   const [cta, setCta] = useState<SiteContent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [trackingCode, setTrackingCode] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     let isMounted = true;
 
     async function load() {
       setLoading(true);
-      const [companyData, jobData, ctaData] = await Promise.all([
+      const [companyData, jobData, ctaData, metricsData] = await Promise.all([
         settle(listCompanies({ publishedOnly: true })),
         settle(listJobs({ openOnly: true })),
         settle(getSiteContent('home_company_cta')),
+        settle(listPublicCompanyResponseMetrics()),
       ]);
 
       if (!isMounted) return;
@@ -144,6 +154,12 @@ export function Home() {
         console.error('Erro ao carregar CTA da home:', ctaData.reason);
       }
 
+      if (metricsData.status === 'fulfilled') {
+        setResponseMetrics(metricsData.value);
+      } else {
+        console.error('Erro ao carregar indicadores de retorno:', metricsData.reason);
+      }
+
       setLoading(false);
     }
 
@@ -163,7 +179,19 @@ export function Home() {
         .slice(0, 8),
     [companies, jobsByCompany],
   );
-  const recentJobs = useMemo(() => jobs.slice(0, 6), [jobs]);
+  const transparentJobs = useMemo(
+    () => [...jobs].sort((a, b) => getJobTransparency(b).score - getJobTransparency(a).score).slice(0, 6),
+    [jobs],
+  );
+  const entryLevelJobs = useMemo(() => jobs.filter(isEntryLevelJob).slice(0, 3), [jobs]);
+  const companiesWithResponse = useMemo(
+    () => responseMetrics
+      .map((metric) => ({ metric, company: companies.find((company) => company.id === metric.company_id) }))
+      .filter((item): item is { metric: CompanyResponseMetric; company: Company } => Boolean(item.company))
+      .sort((a, b) => b.metric.response_rate - a.metric.response_rate)
+      .slice(0, 4),
+    [companies, responseMetrics],
+  );
   const areas = useMemo(
     () =>
       areaDefinitions
@@ -189,27 +217,36 @@ export function Home() {
     return [...cityLinks, ...areaLinks].slice(0, 7);
   }, [areas, jobs]);
 
+  function handleTracking(event: FormEvent) {
+    event.preventDefault();
+    const value = trackingCode.trim().replace(/\/+$/, '');
+    const token = value.split('/').pop();
+    if (token) navigate(`/acompanhar/${encodeURIComponent(token)}`);
+  }
+
   return (
     <>
-      <HeroSearch companies={companies} openJobsCount={jobs.length} loading={loading} />
+      <HeroSearch companies={companies} loading={loading} />
 
-      <section className="bg-white py-8">
-        <div className="container-page grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-surface-200 bg-surface-50 p-5">
-            <p className="text-3xl font-black text-ink-900">{companies.length}</p>
-            <p className="mt-1 text-sm font-bold text-ink-500">empresas parceiras</p>
+      <section className="bg-white py-10">
+        <div className="container-page">
+          <div className="mb-6 text-center">
+            <h2 className="text-2xl font-black text-ink-900">Por que buscar pela Recruitfy?</h2>
+            <p className="mt-2 text-ink-500">Informação clara antes, durante e depois da candidatura.</p>
           </div>
-          <div className="rounded-lg border border-surface-200 bg-surface-50 p-5">
-            <p className="text-3xl font-black text-ink-900">{jobs.length}</p>
-            <p className="mt-1 text-sm font-bold text-ink-500">vagas abertas</p>
-          </div>
-          <div className="rounded-lg border border-surface-200 bg-surface-50 p-5">
-            <p className="text-3xl font-black text-ink-900">{companiesHiring.length}</p>
-            <p className="mt-1 text-sm font-bold text-ink-500">empresas contratando</p>
-          </div>
-          <div className="rounded-lg border border-surface-200 bg-surface-50 p-5">
-            <p className="text-3xl font-black text-ink-900">100%</p>
-            <p className="mt-1 text-sm font-bold text-ink-500">gratuito para se candidatar</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { icon: ShieldCheck, title: 'Vagas verificadas', text: 'Oportunidades publicadas por empresas parceiras.' },
+              { icon: ClipboardList, title: 'Salário transparente', text: 'Identifique rapidamente quais vagas informam remuneração.' },
+              { icon: Send, title: 'Candidatura rápida', text: 'Envie seu currículo em poucos minutos e sem criar conta.' },
+              { icon: Route, title: 'Acompanhamento real', text: 'Consulte cada etapa por um link individual e seguro.' },
+            ].map((benefit) => (
+              <div key={benefit.title} className="rounded-xl border border-surface-200 bg-surface-50 p-5">
+                <benefit.icon className="text-redde-600" size={25} />
+                <h3 className="mt-4 font-black text-ink-900">{benefit.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-ink-500">{benefit.text}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -218,7 +255,7 @@ export function Home() {
         <div className="container-page">
           <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <h2 className="text-3xl font-black text-ink-900">Empresas parceiras estão contratando agora</h2>
+              <h2 className="text-3xl font-black text-ink-900">Empresas verificadas contratando agora</h2>
               <p className="mt-2 max-w-2xl text-ink-500">
                 Conheça empresas com vagas abertas e processos seletivos acompanhados pelo Recruitfy.
               </p>
@@ -239,13 +276,13 @@ export function Home() {
         </div>
       </section>
 
-      <section id="como-funciona" className="bg-white py-12">
+      <section className="bg-white py-12">
         <div className="container-page">
           <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <h2 className="text-3xl font-black text-ink-900">Vagas abertas recentemente</h2>
+              <h2 className="text-3xl font-black text-ink-900">Vagas transparentes em destaque</h2>
               <p className="mt-2 max-w-2xl text-ink-500">
-                Veja as últimas oportunidades publicadas por empresas parceiras.
+                Compare o nível de informação publicado antes de decidir onde se candidatar.
               </p>
             </div>
             <Link to="/vagas" className="inline-flex items-center gap-2 text-sm font-bold text-redde-600">
@@ -256,15 +293,74 @@ export function Home() {
 
           {loading ? (
             <LoadingState label="Carregando vagas..." />
-          ) : recentJobs.length ? (
+          ) : transparentJobs.length ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {recentJobs.map((job) => (
+              {transparentJobs.map((job) => (
                 <JobCard key={job.id} job={job} />
               ))}
             </div>
           ) : (
             <EmptyState title="Nenhuma vaga aberta encontrada." />
           )}
+        </div>
+      </section>
+
+      {companiesWithResponse.length > 0 ? (
+        <section className="bg-surface-50 py-12">
+          <div className="container-page">
+            <div className="mb-7">
+              <span className="text-sm font-black uppercase tracking-[0.14em] text-redde-600">Compromisso mensurável</span>
+              <h2 className="mt-2 text-3xl font-black text-ink-900">Empresas que dão retorno</h2>
+              <p className="mt-2 max-w-2xl text-ink-500">Indicadores calculados com processos seletivos reais concluídos na plataforma.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {companiesWithResponse.map(({ company, metric }) => (
+                <Link key={company.id} to={`/empresa/${company.slug}`} className="rounded-xl border border-surface-200 bg-white p-5 shadow-card transition hover:-translate-y-1 hover:shadow-soft">
+                  <HeartHandshake className="text-redde-600" size={27} />
+                  <h3 className="mt-4 text-lg font-black text-ink-900">{company.name}</h3>
+                  <p className="mt-3 text-2xl font-black text-emerald-700">{metric.response_rate}% com retorno</p>
+                  {metric.average_response_days !== null ? (
+                    <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-ink-500"><Timer size={15} />Prazo médio: {metric.average_response_days} {metric.average_response_days === 1 ? 'dia' : 'dias'}</p>
+                  ) : null}
+                  {metric.last_process_completed_at ? (
+                    <p className="mt-2 text-xs text-ink-400">Último processo concluído em {formatDate(metric.last_process_completed_at)}</p>
+                  ) : null}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {entryLevelJobs.length > 0 ? (
+        <section className="bg-white py-12">
+          <div className="container-page">
+            <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+              <div>
+                <h2 className="text-3xl font-black text-ink-900">Vagas para começar agora</h2>
+                <p className="mt-2 text-ink-500">Primeiro emprego, estágio, jovem aprendiz e oportunidades sem experiência.</p>
+              </div>
+              <Link to="/vagas?busca=primeiro%20emprego" className="inline-flex items-center gap-2 text-sm font-bold text-redde-600">Explorar oportunidades <ArrowRight size={16} /></Link>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {entryLevelJobs.map((job) => <JobCard key={job.id} job={job} />)}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="bg-[#f6edf7] py-12">
+        <div className="container-page grid gap-8 rounded-2xl border border-redde-100 bg-white p-6 shadow-card lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:p-8">
+          <div>
+            <Route className="text-redde-600" size={32} />
+            <h2 className="mt-4 text-3xl font-black text-ink-900">Acompanhe sua candidatura</h2>
+            <p className="mt-3 leading-7 text-ink-500">Cole o código ou o link seguro recebido ao finalizar a candidatura. Nenhuma conta é necessária.</p>
+          </div>
+          <form onSubmit={handleTracking} className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <label className="sr-only" htmlFor="tracking-code">Código ou link de acompanhamento</label>
+            <input id="tracking-code" value={trackingCode} onChange={(event) => setTrackingCode(event.target.value)} required placeholder="Código ou link de acompanhamento" className="h-12 rounded-lg border border-surface-300 bg-white px-4 text-sm font-semibold text-ink-900 outline-none transition focus:border-redde-500 focus:ring-2 focus:ring-redde-100" />
+            <Button type="submit" size="lg"><Search size={17} />Consultar</Button>
+          </form>
         </div>
       </section>
 
@@ -295,12 +391,12 @@ export function Home() {
         </section>
       ) : null}
 
-      <section className="bg-white py-12">
+      <section id="como-funciona" className="bg-white py-12">
         <div className="container-page">
           <div className="mb-7">
             <h2 className="text-3xl font-black text-ink-900">Como funciona o Recruitfy</h2>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 icon: Search,
@@ -316,6 +412,11 @@ export function Home() {
                 icon: Send,
                 title: 'Envie seu currículo',
                 text: 'Candidate-se sem criar conta, de forma simples e segura.',
+              },
+              {
+                icon: Clock3,
+                title: 'Acompanhe o processo',
+                text: 'Consulte o avanço da candidatura por um link individual e seguro.',
               },
             ].map((item) => (
               <div key={item.title} className="rounded-lg border border-surface-200 bg-surface-50 p-6">
@@ -376,7 +477,7 @@ export function Home() {
             { icon: LockKeyhole, text: 'Ambiente seguro para envio de currículo' },
             { icon: Building2, text: 'Empresas parceiras verificadas' },
             { icon: ShieldCheck, text: 'Dados tratados conforme LGPD' },
-            { icon: Sparkles, text: 'Candidatura gratuita para candidatos' },
+            { icon: UserRoundCheck, text: 'Acompanhamento sem criar conta' },
           ].map((item) => (
             <div key={item.text} className="flex items-center gap-3 rounded-lg border border-surface-200 bg-surface-50 p-4">
               <item.icon className="shrink-0 text-redde-600" size={22} />

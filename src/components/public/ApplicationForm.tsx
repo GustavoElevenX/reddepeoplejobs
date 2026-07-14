@@ -74,7 +74,7 @@ export function ApplicationForm({ job }: { job: Job }) {
     setIsSubmitting(true);
     try {
       const resumePath = await uploadResume(resume, job.id);
-      await createApplication({
+      const receipt = await createApplication({
         franchise_id: job.franchise_id,
         job_id: job.id,
         company_id: job.company_id,
@@ -91,7 +91,7 @@ export function ApplicationForm({ job }: { job: Job }) {
         lgpd_consent: values.lgpdConsent,
         source: getApplicationSource(),
       });
-      navigate('/candidatura/sucesso');
+      navigate(`/candidatura/sucesso?protocolo=${encodeURIComponent(receipt.tracking_token)}`);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Não foi possível enviar o currículo. Verifique o arquivo e tente novamente.');
     } finally {
