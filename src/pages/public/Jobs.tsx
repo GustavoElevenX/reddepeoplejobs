@@ -74,7 +74,7 @@ export function Jobs() {
           <span className="text-sm font-black uppercase tracking-[0.14em] text-redde-600">Vagas</span>
           <h1 className="mt-2 text-4xl font-black text-ink-900">Vagas abertas</h1>
           <p className="mt-3 max-w-2xl text-ink-500">
-            Encontre oportunidades abertas em empresas parceiras do Recruitfy e candidate-se sem criar login.
+            Encontre oportunidades abertas em empresas parceiras da Recruitify e candidate-se sem criar login.
           </p>
         </div>
 

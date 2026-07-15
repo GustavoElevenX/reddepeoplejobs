@@ -29,7 +29,7 @@ export function HeroSearch({ companies, loading = false }: HeroSearchProps) {
       <div className="container-page pb-10 pt-28 lg:pb-12 lg:pt-32">
         <div className="mx-auto max-w-4xl text-center">
           <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-white">
-            O portal regional da Recruitfy
+            O portal regional da Recruitify
           </span>
           <h1 className="mt-5 text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">
             Encontre vagas verificadas em São Luís e acompanhe sua candidatura com transparência.

@@ -257,6 +257,11 @@ export type Application = {
   resume_analysis_waived_at: string | null;
   resume_analysis_waiver_reason: string | null;
   resume_analysis_waived_by: string | null;
+  stage_entered_at: string;
+  stage_sla_due_at: string | null;
+  last_stage_changed_by: string | null;
+  hired_at: string | null;
+  current_owner_id: string | null;
   lgpd_consent: boolean;
   source: string | null;
   tracking_token?: string | null;
@@ -317,6 +322,7 @@ export type ApplicationNote = {
   note: string;
   created_by: string;
   created_at: string;
+  visibility: 'internal' | 'shared';
   author?: Pick<Profile, 'id' | 'full_name'>;
 };
 
@@ -326,8 +332,245 @@ export type ApplicationStageHistory = {
   from_stage: ApplicationStage | null;
   to_stage: ApplicationStage;
   moved_by: string | null;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  from_order: number | null;
+  to_order: number | null;
   created_at: string;
   actor?: Pick<Profile, 'id' | 'full_name'>;
+};
+
+export type JobTestType = 'manual' | 'external_link' | 'form' | 'file_upload' | 'score_only';
+export type ApplicationTestStatus =
+  | 'pending'
+  | 'sent'
+  | 'in_progress'
+  | 'completed'
+  | 'approved'
+  | 'failed'
+  | 'waived'
+  | 'cancelled';
+
+export type JobTest = {
+  id: string;
+  franchise_id: string;
+  job_id: string;
+  name: string;
+  description: string | null;
+  instructions: string | null;
+  test_type: JobTestType;
+  provider: string | null;
+  external_url: string | null;
+  passing_score: number | null;
+  is_required: boolean;
+  sort_order: number;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ApplicationTestAssignment = {
+  id: string;
+  franchise_id: string;
+  job_id: string;
+  application_id: string;
+  job_test_id: string;
+  status: ApplicationTestStatus;
+  score: number | null;
+  max_score: number | null;
+  result: string | null;
+  notes: string | null;
+  external_result_url: string | null;
+  attachment_url: string | null;
+  sent_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  waived_at: string | null;
+  waived_by: string | null;
+  waiver_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  job_test?: JobTest;
+};
+
+export type ApplicationDisqualification = {
+  id: string;
+  franchise_id: string | null;
+  job_id: string;
+  application_id: string;
+  from_stage: ApplicationStage;
+  reason: string;
+  details: string | null;
+  disqualified_by: string | null;
+  disqualified_at: string;
+  restored_by: string | null;
+  restored_at: string | null;
+  restore_reason: string | null;
+  created_at: string;
+  application?: Application;
+  actor?: Pick<Profile, 'id' | 'full_name'>;
+};
+
+export type AdmissionStatus =
+  | 'approved'
+  | 'awaiting_documents'
+  | 'scheduled_to_start'
+  | 'started'
+  | 'withdrawn'
+  | 'no_show'
+  | 'cancelled';
+
+export type ApplicationHire = {
+  id: string;
+  franchise_id: string | null;
+  project_id: string | null;
+  job_id: string;
+  company_id: string;
+  application_id: string;
+  hiring_decision_id: string | null;
+  approved_at: string | null;
+  expected_start_date: string | null;
+  actual_start_date: string | null;
+  internal_responsible_name: string | null;
+  internal_responsible_email: string | null;
+  internal_responsible_phone: string | null;
+  admission_status: AdmissionStatus;
+  required_documents: string | null;
+  admission_notes: string | null;
+  withdrawal_reason: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  application?: Application;
+};
+
+export type JobStageSlaSetting = {
+  id: string;
+  franchise_id: string | null;
+  job_id: string;
+  stage: Exclude<ApplicationStage, 'desclassificados'>;
+  sla_days: number;
+  warning_days: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CandidateScreening = {
+  id: string;
+  franchise_id: string;
+  project_id: string | null;
+  job_id: string;
+  application_id: string;
+  status: 'draft' | 'completed' | 'rejected';
+  answers: Record<string, unknown>;
+  mandatory_requirements_confirmed: boolean;
+  salary_compatible: boolean | null;
+  availability_compatible: boolean | null;
+  location_compatible: boolean | null;
+  technical_score: number | null;
+  behavioral_score: number | null;
+  recruiter_notes: string;
+  rejection_reason: string | null;
+  completed_by: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InternalInterview = {
+  id: string;
+  franchise_id: string;
+  project_id: string | null;
+  job_id: string;
+  application_id: string;
+  status: 'draft' | 'scheduled' | 'completed' | 'cancelled';
+  scheduled_at: string | null;
+  interviewed_at: string | null;
+  interviewer_id: string | null;
+  template_snapshot: Record<string, unknown>;
+  questions_answers: unknown[];
+  strengths: string;
+  risks: string;
+  technical_score: number | null;
+  behavioral_score: number | null;
+  communication_score: number | null;
+  culture_score: number | null;
+  recommendation: 'strong_yes' | 'yes' | 'with_reservations' | 'no' | null;
+  conclusion: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProcessFilters = {
+  search?: string;
+  companyId?: string;
+  processStatus?: ProcessStatus;
+  responsible?: string;
+  city?: string;
+  state?: string;
+  contractType?: JobContractType;
+  deadline?: 'open' | 'overdue' | 'next_7_days';
+  hasNewCandidates?: boolean;
+  overdueOnly?: boolean;
+  page?: number;
+  pageSize?: number;
+};
+
+export type CandidateFilters = {
+  search?: string;
+  stages?: ApplicationStage[];
+  scoreMin?: number;
+  scoreMax?: number;
+  resumeAnalysisStatus?: ResumeAnalysisStatus;
+  city?: string;
+  source?: string;
+  tags?: string[];
+  newOnly?: boolean;
+  appliedFrom?: string;
+  appliedTo?: string;
+  sort?: 'score_desc' | 'score_asc' | 'newest' | 'oldest' | 'stale' | 'name';
+};
+
+export type MoveApplicationStagePayload = {
+  applicationId: string;
+  targetStage: ApplicationStage;
+  targetOrder: number;
+  reason?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type ReorderApplicationPayload = {
+  id: string;
+  order: number;
+};
+
+export type BulkMutationResult = {
+  processed: number;
+  completed: number;
+  failed: { applicationId: string; reason: string }[];
+};
+
+export type CandidateWorkspace = {
+  application: Application;
+  screening: CandidateScreening | null;
+  interview: InternalInterview | null;
+  tests: ApplicationTestAssignment[];
+  disqualifications: ApplicationDisqualification[];
+  hire: ApplicationHire | null;
+  history: ApplicationStageHistory[];
+  notes: ApplicationNote[];
+  finalist: {
+    id: string;
+    project_id: string;
+    application_id: string;
+    status: string;
+    franchise_opinion: string | null;
+    ai_report: string | null;
+    ai_report_status: string;
+    ai_report_payload: Record<string, unknown>;
+    franchise_approved_at: string | null;
+  } | null;
 };
 
 export type ProcessComment = {
@@ -337,6 +580,33 @@ export type ProcessComment = {
   created_by: string;
   created_at: string;
   author?: Pick<Profile, 'id' | 'full_name'>;
+};
+
+export type ProcessProjectLink = {
+  id: string;
+  franchise_id: string;
+  client_id: string;
+  job_id: string | null;
+  title: string;
+  stage: string;
+};
+
+export type ProcessDocument = {
+  id: string;
+  franchise_id: string;
+  project_id: string | null;
+  client_id: string | null;
+  application_id: string | null;
+  job_id: string;
+  type: string | null;
+  name: string;
+  url: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type ProcessStageHistoryItem = ApplicationStageHistory & {
+  application?: Pick<Application, 'id' | 'candidate_name' | 'job_id'>;
 };
 
 export type Profile = {

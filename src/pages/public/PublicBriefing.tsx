@@ -63,7 +63,7 @@ export function PublicBriefing() {
     <main className="bg-surface-50 py-10">
       <div className="container-page">
         <Card className="p-6">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-redde-700">Recruitfy</p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-redde-700">Recruitify</p>
           <h1 className="mt-2 text-3xl font-black text-ink-900">Briefing da vaga</h1>
           <p className="mt-2 text-ink-500">Preencha ou revise os dados para a equipe gerar a descrição da vaga.</p>
 

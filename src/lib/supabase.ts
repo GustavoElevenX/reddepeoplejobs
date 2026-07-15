@@ -5,7 +5,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undef
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
-    'Recruitfy exige VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY. O modo local com dados simulados foi removido.',
+    'Recruitify exige VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY. O modo local com dados simulados foi removido.',
   );
 }
 

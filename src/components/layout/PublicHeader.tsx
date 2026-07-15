@@ -39,10 +39,10 @@ export function PublicHeader() {
     >
       {/* Grid de 3 colunas simétricas: logo | nav centralizado | botões */}
       <div className="container-page grid h-16 items-center gap-4" style={{gridTemplateColumns: '1fr auto 1fr'}}>
-        <Link to="/" className="flex items-center gap-3 justify-self-start" aria-label="Recruitfy">
+        <Link to="/" className="flex items-center gap-3 justify-self-start" aria-label="Recruitify">
           <img
             src={logoSrc}
-            alt="Recruitfy"
+            alt="Recruitify"
             className="h-10 w-auto object-contain"
           />
         </Link>

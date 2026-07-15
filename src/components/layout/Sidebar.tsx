@@ -38,6 +38,7 @@ export function Sidebar({ profile }: SidebarProps) {
           { label: 'CRM de vendas', to: '/admin/franqueado/crm', icon: Workflow },
           { label: 'Clientes', to: '/admin/franqueado/clientes', icon: Building2 },
           { label: 'Projetos', to: '/admin/franqueado/projetos', icon: Network },
+          { label: 'Processos seletivos', to: '/franqueado/processos', icon: Workflow },
           { label: 'Vagas', to: '/admin/franqueado/vagas', icon: FileText },
           { label: 'Candidatos', to: '/admin/franqueado/candidatos', icon: UsersRound },
           { label: 'Agenda', to: '/admin/franqueado/agenda', icon: CalendarDays },
@@ -62,7 +63,7 @@ export function Sidebar({ profile }: SidebarProps) {
         <span className="flex h-11 w-36 items-center overflow-hidden">
           <img
             src="/imagens/logo/logo-nova.png"
-            alt="Recruitfy"
+            alt="Recruitify"
             className="h-full w-full object-contain brightness-0 invert"
           />
         </span>

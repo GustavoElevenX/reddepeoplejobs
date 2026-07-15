@@ -1,6 +1,7 @@
 import { addDays, formatISO, isBefore, parseISO } from 'date-fns';
 import { getPersistedApplicationRanking, normalizeRankingDetails } from './ranking';
-import { listApplications, listCompanies, listJobs, upsertCompany, upsertJob, updateApplicationStatus } from './data';
+import { listApplications, listCompanies, listJobs, upsertCompany, upsertJob } from './data';
+import { moveApplicationStage } from './recruitmentPipeline';
 import { makeId } from './ids';
 import { slugify } from './slugify';
 import { supabase } from './supabase';
@@ -1091,7 +1092,9 @@ export async function convertOpportunityToProject(opportunityId: string) {
         stage: 'won',
         converted_project_id: project.id,
     });
-    await sendWorkflowEmail({
+    // O e-mail é auxiliar; a tela pode refletir o projeto assim que os dados
+    // operacionais estiverem persistidos.
+    void sendWorkflowEmail({
         event: 'briefing_link',
         projectId: project.id,
     });
@@ -1386,7 +1389,13 @@ export async function completeCandidateScreening(screeningId: string, payload: P
         ...payload, status: 'completed', rejection_reason: null,
         completed_by: await currentProfileId(), completed_at: todayIso(),
     });
-    await updateApplicationStatus(completed.application_id, 'entrevista');
+    await moveApplicationStage({
+        applicationId: completed.application_id,
+        targetStage: 'testes',
+        targetOrder: 0,
+        reason: 'Triagem manual concluída e aprovada.',
+        metadata: { source: 'project_screening', screening_id: completed.id },
+    });
     await updateRemote<FranchiseProject>('projects', completed.project_id, {
         stage: 'internal_interviews', next_step: 'Agendar entrevista interna',
     });
@@ -1399,7 +1408,13 @@ export async function rejectCandidateInScreening(screeningId: string, reason: st
         status: 'rejected', rejection_reason: reason.trim(), recruiter_notes: reason.trim(),
         completed_by: await currentProfileId(), completed_at: todayIso(),
     });
-    await updateApplicationStatus(rejected.application_id, 'reprovado');
+    await moveApplicationStage({
+        applicationId: rejected.application_id,
+        targetStage: 'desclassificados',
+        targetOrder: 0,
+        reason: reason.trim(),
+        metadata: { source: 'project_screening', screening_id: rejected.id },
+    });
     return rejected;
 }
 export async function getOrCreateInternalInterview(projectId: string, applicationId: string) {
@@ -1444,10 +1459,14 @@ export async function completeInternalInterview(interviewId: string, payload: Pa
             throw new Error('Todas as notas devem estar entre 0 e 10.');
     }
     const completed = await saveInternalInterview(interviewId, { ...payload, status: 'completed' });
-    if (completed.recommendation !== 'no')
-        await updateApplicationStatus(completed.application_id, 'selecionado');
-    else
-        await updateApplicationStatus(completed.application_id, 'reprovado');
+    if (completed.recommendation === 'no')
+        await moveApplicationStage({
+            applicationId: completed.application_id,
+            targetStage: 'desclassificados',
+            targetOrder: 0,
+            reason: completed.conclusion,
+            metadata: { source: 'internal_interview', interview_id: completed.id },
+        });
     return completed;
 }
 export function cancelInternalInterview(interviewId: string) {
@@ -1715,10 +1734,15 @@ export async function saveHiringDecision(finalistId: string, input: Omit<HiringD
                 updated_at: timestamp,
             });
         });
-        await updateApplicationStatus(finalist.application_id, 'aprovado');
     }
     else if (input.decision === 'rejected') {
-        await updateApplicationStatus(finalist.application_id, 'reprovado');
+        await moveApplicationStage({
+            applicationId: finalist.application_id,
+            targetStage: 'desclassificados',
+            targetOrder: 0,
+            reason: input.rejection_reason,
+            metadata: { source: 'client_decision', decision_id: saved.id },
+        });
     }
     return saved;
 }

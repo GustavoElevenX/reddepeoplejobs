@@ -164,7 +164,13 @@ export function FranchiseProjectDetail() {
       <div><Link to="/admin/franqueado/projetos" className="text-sm font-bold text-redde-600">Voltar para projetos</Link>
         <div className="mt-3 flex flex-wrap items-center gap-2"><h1 className="text-3xl font-black text-ink-900">{model.project.title}</h1><Badge>{projectStageLabels[model.project.stage]}</Badge></div>
         <p className="mt-2 text-ink-500">{model.company?.name ?? 'Cliente não informado'}</p></div>
-      <div className="flex gap-2"><Badge>{model.applications.length} candidatos</Badge><Badge>{activeFinalists.length}/3 finalistas</Badge></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge>{model.applications.filter((item) => item.stage === 'qualificacao').length} em triagem</Badge>
+        <Badge>{model.applications.filter((item) => item.stage === 'entrevista').length} entrevistas</Badge>
+        <Badge>{activeFinalists.length}/3 finalistas</Badge>
+        <Badge>{model.applications.filter((item) => item.stage === 'contratacao').length} contratados</Badge>
+        {model.project.job_id ? <Link to={`/franqueado/processos/${model.project.job_id}?tab=selecao`}><Button size="sm"><UsersRound size={16} />Gerenciar candidatos</Button></Link> : null}
+      </div>
     </div>
     {error ? <div className="rounded-lg bg-redde-50 p-3 text-sm font-bold text-redde-700">{error}</div> : null}
     {success ? <div className="rounded-lg bg-green-50 p-3 text-sm font-bold text-green-700">{success}</div> : null}

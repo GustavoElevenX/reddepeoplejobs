@@ -1,7 +1,7 @@
 import { formatISO, startOfMonth, subDays } from 'date-fns';
 import { resolveApplicationStage } from './applicationStages';
 import { supabase } from './supabase';
-import type { Application, ApplicationNote, ApplicationStage, ApplicationStageHistory, ApplicationStatus, Company, CompanyCommercialStatus, CompanyPageStatus, CompanyResponseMetric, CompanyUserAccess, DashboardStats, Franchise, FranchiseDashboardStats, FranchisePerformance, FranchiseStatus, Job, JobContractType, JobDistribution, JobDistributionChannel, JobModality, JobStatus, NetworkDashboardStats, ProcessComment, Profile, PublicApplicationTracking, SiteContent, } from '../types';
+import type { Application, ApplicationNote, ApplicationStage, ApplicationStageHistory, ApplicationStatus, Company, CompanyCommercialStatus, CompanyPageStatus, CompanyResponseMetric, CompanyUserAccess, DashboardStats, Franchise, FranchiseDashboardStats, FranchisePerformance, FranchiseStatus, Job, JobContractType, JobDistribution, JobDistributionChannel, JobModality, JobStatus, NetworkDashboardStats, ProcessComment, ProcessFilters, Profile, PublicApplicationTracking, SiteContent, } from '../types';
 export type UserPermissionInput = {
     can_edit_company_page: boolean;
     can_manage_jobs: boolean;
@@ -52,6 +52,7 @@ type ApplicationFilters = {
     franchiseId?: string;
     companyId?: string;
     jobId?: string;
+    jobIds?: string[];
     status?: ApplicationStatus | 'all';
 };
 const OPTIONAL_JOB_BILLING_COLUMNS = [
@@ -236,6 +237,11 @@ function normalizeApplication(row: ApplicationRow): Application {
         resume_analysis_waived_at: application.resume_analysis_waived_at ?? null,
         resume_analysis_waiver_reason: application.resume_analysis_waiver_reason ?? null,
         resume_analysis_waived_by: application.resume_analysis_waived_by ?? null,
+        stage_entered_at: application.stage_entered_at ?? application.updated_at ?? application.created_at,
+        stage_sla_due_at: application.stage_sla_due_at ?? null,
+        last_stage_changed_by: application.last_stage_changed_by ?? null,
+        hired_at: application.hired_at ?? null,
+        current_owner_id: application.current_owner_id ?? null,
         company: companies ?? undefined,
         job: jobs ?? undefined,
     };
@@ -396,6 +402,42 @@ export async function listJobs(filters: JobFilters = {}) {
     const jobs = (data as JobRow[]).map(normalizeJob);
     return jobs;
 }
+export async function listProcessJobs(
+    filters: ProcessFilters = {},
+    scope: { franchiseId?: string; companyId?: string } = {},
+) {
+    const page = Math.max(filters.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(filters.pageSize ?? 20, 1), 100);
+    const from = (page - 1) * pageSize;
+    let query = supabase.from('jobs').select(`
+      *, companies (id,name,slug,logo_url,segment,city,state,about_text,website_url,legal_name,same_as_url,franchise_id)
+    `, { count: 'exact' });
+    if (scope.franchiseId) query = query.eq('franchise_id', scope.franchiseId);
+    if (scope.companyId) query = query.eq('company_id', scope.companyId);
+    if (filters.companyId) query = query.eq('company_id', filters.companyId);
+    if (filters.processStatus) query = query.eq('process_status', filters.processStatus);
+    if (filters.responsible) query = query.eq('responsible_name', filters.responsible);
+    if (filters.city) query = query.ilike('city', `%${filters.city.replaceAll(',', ' ')}%`);
+    if (filters.state) query = query.eq('state', filters.state);
+    if (filters.contractType) query = query.eq('contract_type', filters.contractType);
+    if (filters.search) {
+        const search = filters.search.replaceAll(',', ' ').trim();
+        query = query.or(`title.ilike.%${search}%,responsible_name.ilike.%${search}%`);
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    if (filters.overdueOnly || filters.deadline === 'overdue') {
+        query = query.lt('application_deadline', today).not('process_status', 'in', '(completed,cancelled)');
+    } else if (filters.deadline === 'next_7_days') {
+        const nextWeek = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+        query = query.gte('application_deadline', today).lte('application_deadline', nextWeek);
+    } else if (filters.deadline === 'open') {
+        query = query.gte('application_deadline', today);
+    }
+    const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, from + pageSize - 1);
+    if (error) throw error;
+    const items = (data as JobRow[]).map(normalizeJob);
+    return { items, total: count ?? items.length, page, pageSize };
+}
 export async function getJobById(jobId: string) {
     const { data, error } = await supabase
         .from('jobs')
@@ -543,6 +585,8 @@ export async function listApplications(filters: ApplicationFilters = {}) {
         query = query.eq('franchise_id', filters.franchiseId);
     if (filters.jobId)
         query = query.eq('job_id', filters.jobId);
+    if (filters.jobIds?.length)
+        query = query.in('job_id', filters.jobIds);
     if (filters.status && filters.status !== 'all')
         query = query.eq('status', filters.status);
     const { data, error } = await query;
@@ -692,8 +736,7 @@ export async function upsertJobDistribution(values: Pick<JobDistribution, 'job_i
         throw error;
     return data as JobDistribution;
 }
-export async function updateApplicationStatus(id: string, status: ApplicationStatus) {
-    const timestamp = new Date().toISOString();
+export async function updateApplicationStatus(id: string, status: ApplicationStatus, reason?: string) {
     const stageByStatus: Partial<Record<ApplicationStatus, ApplicationStage>> = {
         novo: 'qualificacao',
         triagem: 'qualificacao',
@@ -707,9 +750,22 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
         reprovado: 'desclassificados',
     };
     const nextStage = stageByStatus[status];
+    if (nextStage) {
+        const { data, error } = await supabase.rpc('move_application_stage', {
+            application_uuid: id,
+            target_stage: nextStage,
+            target_order: 0,
+            action_reason: reason ?? null,
+            action_metadata: { source: 'status_update', requested_status: status },
+        });
+        if (error)
+            throw error;
+        return normalizeApplication(data as ApplicationRow);
+    }
+    const timestamp = new Date().toISOString();
     const { data, error } = await supabase
         .from('applications')
-        .update({ status, ...(nextStage ? { stage: nextStage } : {}), is_new: false, updated_at: timestamp })
+        .update({ status, is_new: false, updated_at: timestamp })
         .eq('id', id)
         .select('*')
         .single();
@@ -717,25 +773,14 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
         throw error;
     return data as Application;
 }
-const statusByStage: Record<ApplicationStage, ApplicationStatus> = {
-    qualificacao: 'triagem',
-    testes: 'teste',
-    entrevista: 'entrevista',
-    finalistas: 'selecionado',
-    contratacao: 'contratado',
-    desclassificados: 'reprovado',
-};
 export async function updateApplicationStage(id: string, stage: ApplicationStage, kanbanOrder: number, rejectionReason?: string | null) {
-    const timestamp = new Date().toISOString();
-    const payload = {
-        stage,
-        kanban_order: kanbanOrder,
-        status: statusByStage[stage],
-        is_new: false,
-        rejection_reason: stage === 'desclassificados' ? rejectionReason ?? null : null,
-        updated_at: timestamp,
-    };
-    const { data, error } = await supabase.from('applications').update(payload).eq('id', id).select('*').single();
+    const { data, error } = await supabase.rpc('move_application_stage', {
+        application_uuid: id,
+        target_stage: stage,
+        target_order: kanbanOrder,
+        action_reason: rejectionReason ?? null,
+        action_metadata: { source: 'legacy_data_service', manual: true },
+    });
     if (error)
         throw error;
     return normalizeApplication(data as ApplicationRow);
@@ -746,11 +791,11 @@ export async function updateApplicationKanbanOrder(updates: {
 }[]) {
     if (!updates.length)
         return;
-    const client = supabase;
-    const results = await Promise.all(updates.map(({ id, kanbanOrder }) => client.from('applications').update({ kanban_order: kanbanOrder }).eq('id', id)));
-    const failed = results.find((result) => result.error);
-    if (failed?.error)
-        throw failed.error;
+    const { error } = await supabase.rpc('reorder_applications', {
+        application_positions: updates.map(({ id, kanbanOrder }) => ({ id, order: kanbanOrder })),
+    });
+    if (error)
+        throw error;
     return;
 }
 export async function listApplicationNotes(applicationId: string) {
@@ -766,14 +811,18 @@ export async function listApplicationNotes(applicationId: string) {
         return { ...note, author: profiles ?? undefined } as ApplicationNote;
     });
 }
-export async function addApplicationNote(applicationId: string, note: string) {
+export async function addApplicationNote(
+    applicationId: string,
+    note: string,
+    visibility: ApplicationNote['visibility'] = 'internal',
+) {
     const { data: authData } = await supabase.auth.getUser();
     const createdBy = authData.user?.id;
     if (!createdBy)
         throw new Error('Sessão expirada.');
     const { data, error } = await supabase
         .from('application_notes')
-        .insert({ application_id: applicationId, note, created_by: createdBy })
+        .insert({ application_id: applicationId, note, created_by: createdBy, visibility })
         .select('*')
         .single();
     if (error)

@@ -3,7 +3,6 @@ import {
   CalendarClock,
   Download,
   ExternalLink,
-  GraduationCap,
   Mail,
   MapPin,
   Phone,
@@ -19,9 +18,31 @@ import {
 } from '../../lib/data';
 import { applicationStageLabels, formatDate } from '../../lib/formatters';
 import { createResumeSignedUrl } from '../../lib/storage';
-import type { Application, ApplicationNote, ApplicationStage, ApplicationStageHistory } from '../../types';
+import {
+  assignTestsToApplication,
+  completeCandidateScreening,
+  completeInternalInterview,
+  getCandidateWorkspace,
+  getOrCreateCandidateScreening,
+  getOrCreateInternalInterview,
+  generateCandidateFinalistReport,
+  prepareCandidateFinalist,
+  saveCandidateFinalistReport,
+  scheduleInternalInterview,
+  updateTestResult,
+  waiveResumeAnalysis,
+} from '../../lib/recruitmentPipeline';
+import type {
+  Application,
+  ApplicationNote,
+  ApplicationStage,
+  ApplicationStageHistory,
+  ApplicationTestAssignment,
+  CandidateWorkspace,
+} from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { CommentComposer } from './CommentComposer';
@@ -41,16 +62,16 @@ export type CandidateDrawerTab =
   | 'historico';
 
 const tabs: { id: CandidateDrawerTab; label: string }[] = [
-  { id: 'sobre', label: 'Sobre' },
-  { id: 'profissional', label: 'Dados profissionais' },
-  { id: 'diversidade', label: 'Diversidade e inclusão' },
-  { id: 'conhecimentos', label: 'Conhecimentos' },
-  { id: 'experiencias', label: 'Experiências' },
+  { id: 'sobre', label: 'Visão geral' },
   { id: 'curriculo', label: 'Currículo' },
-  { id: 'perguntas', label: 'Perguntas' },
+  { id: 'profissional', label: 'Análise e aderência' },
+  { id: 'perguntas', label: 'Triagem' },
+  { id: 'conhecimentos', label: 'Testes' },
+  { id: 'experiencias', label: 'Entrevista interna' },
+  { id: 'diversidade', label: 'Finalista / parecer' },
   { id: 'comentarios', label: 'Comentários' },
-  { id: 'email', label: 'E-mail' },
   { id: 'arquivos', label: 'Arquivos' },
+  { id: 'email', label: 'Comunicação' },
   { id: 'historico', label: 'Histórico' },
 ];
 
@@ -58,6 +79,8 @@ type CandidateProfileDrawerProps = {
   application: Application | null;
   initialTab?: CandidateDrawerTab;
   canDownload?: boolean;
+  canManage?: boolean;
+  noteVisibility?: ApplicationNote['visibility'];
   onApplicationUpdate?: (application: Application) => void;
   onStageChange?: (application: Application, stage: ApplicationStage) => Promise<void> | void;
   onClose: () => void;
@@ -75,33 +98,142 @@ function EmptyInfo({ children }: { children: string }) {
   return <p className="rounded-xl border border-dashed border-surface-200 p-4 text-sm text-ink-500">{children}</p>;
 }
 
+function toLocalDateTime(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
+function CandidateTestEditor({ assignment, canManage, onSaved }: {
+  assignment: ApplicationTestAssignment;
+  canManage: boolean;
+  onSaved: () => Promise<void>;
+}) {
+  const [status, setStatus] = useState(assignment.status);
+  const [score, setScore] = useState(assignment.score?.toString() ?? '');
+  const [maxScore, setMaxScore] = useState(assignment.max_score?.toString() ?? '');
+  const [notes, setNotes] = useState(assignment.notes ?? '');
+  const [waiverReason, setWaiverReason] = useState(assignment.waiver_reason ?? '');
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (status === 'waived' && !waiverReason.trim()) {
+      window.alert('Informe a justificativa da dispensa.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateTestResult({
+        id: assignment.id,
+        status,
+        score: score === '' ? null : Number(score),
+        max_score: maxScore === '' ? null : Number(maxScore),
+        notes: notes.trim() || null,
+        waiver_reason: status === 'waived' ? waiverReason.trim() : null,
+      });
+      await onSaved();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'NÃ£o foi possÃ­vel salvar o teste.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <div className="grid gap-3 rounded-xl bg-surface-50 p-4">
+    <div className="flex items-start justify-between gap-3">
+      <div><p className="font-bold text-ink-900">{assignment.job_test?.name ?? 'Teste'}</p><p className="text-xs text-ink-500">{assignment.job_test?.description ?? 'Sem descriÃ§Ã£o.'}</p></div>
+      <Badge variant={status === 'approved' ? 'success' : status === 'failed' ? 'danger' : 'warning'}>{status}</Badge>
+    </div>
+    {canManage ? <>
+      <Select label="Resultado" value={status} onChange={(event) => setStatus(event.target.value as ApplicationTestAssignment['status'])} options={[
+        { value: 'pending', label: 'Pendente' }, { value: 'sent', label: 'Enviado' }, { value: 'in_progress', label: 'Em andamento' },
+        { value: 'completed', label: 'ConcluÃ­do' }, { value: 'approved', label: 'Aprovado' }, { value: 'failed', label: 'Reprovado' },
+        { value: 'waived', label: 'Dispensado' }, { value: 'cancelled', label: 'Cancelado' },
+      ]} />
+      <div className="grid gap-3 sm:grid-cols-2"><Input label="Nota" type="number" value={score} onChange={(event) => setScore(event.target.value)} /><Input label="Nota mÃ¡xima" type="number" value={maxScore} onChange={(event) => setMaxScore(event.target.value)} /></div>
+      {status === 'waived' ? <Textarea label="Justificativa da dispensa" value={waiverReason} onChange={(event) => setWaiverReason(event.target.value)} /> : null}
+      <Textarea label="ObservaÃ§Ãµes" value={notes} onChange={(event) => setNotes(event.target.value)} />
+      <Button size="sm" disabled={saving} onClick={save}>{saving ? 'Salvando...' : 'Salvar resultado'}</Button>
+    </> : <p className="text-sm text-ink-600">{assignment.score === null ? 'Sem nota registrada.' : `Nota ${assignment.score}${assignment.max_score ? `/${assignment.max_score}` : ''}`}</p>}
+  </div>;
+}
+
 export function CandidateProfileDrawer({
   application,
   initialTab = 'sobre',
   canDownload = true,
+  canManage = true,
+  noteVisibility = 'internal',
   onApplicationUpdate,
   onStageChange,
   onClose,
 }: CandidateProfileDrawerProps) {
+  const applicationId = application?.id;
+  const initialOpinion = application?.recruiter_opinion ?? '';
   const [activeTab, setActiveTab] = useState<CandidateDrawerTab>(initialTab);
   const [notes, setNotes] = useState<ApplicationNote[]>([]);
   const [history, setHistory] = useState<ApplicationStageHistory[]>([]);
+  const [workspace, setWorkspace] = useState<CandidateWorkspace | null>(null);
   const [opinion, setOpinion] = useState('');
   const [savingOpinion, setSavingOpinion] = useState(false);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [workspaceSaving, setWorkspaceSaving] = useState(false);
+  const [waiverReason, setWaiverReason] = useState('');
+  const [finalistReport, setFinalistReport] = useState('');
 
   useEffect(() => {
-    if (!application) return;
+    if (!applicationId) return;
     setActiveTab(initialTab);
-    setOpinion(application.recruiter_opinion ?? '');
+    setOpinion(initialOpinion);
+    setWorkspaceLoading(true);
+    setWorkspaceError('');
     void Promise.all([
-      listApplicationNotes(application.id).then(setNotes),
-      listApplicationStageHistory(application.id).then(setHistory),
-    ]);
-  }, [application, initialTab]);
+      listApplicationNotes(applicationId),
+      listApplicationStageHistory(applicationId),
+      getCandidateWorkspace(applicationId),
+    ]).then(([noteItems, historyItems, candidateWorkspace]) => {
+      setNotes(noteItems);
+      setHistory(historyItems);
+      setWorkspace(candidateWorkspace);
+      setFinalistReport(candidateWorkspace.finalist?.ai_report ?? candidateWorkspace.finalist?.franchise_opinion ?? '');
+    }).catch((error) => {
+      setWorkspace(null);
+      setWorkspaceError(error instanceof Error ? error.message : 'NÃ£o foi possÃ­vel carregar os dados do candidato.');
+    }).finally(() => setWorkspaceLoading(false));
+  }, [applicationId, initialOpinion, initialTab]);
 
   if (!application) return null;
   const currentApplication = application;
   const score = application.adhesion_score ?? application.match_score ?? 0;
+
+  async function refreshWorkspace() {
+    const candidateWorkspace = await getCandidateWorkspace(currentApplication.id);
+    setWorkspace(candidateWorkspace);
+    setFinalistReport(candidateWorkspace.finalist?.ai_report ?? candidateWorkspace.finalist?.franchise_opinion ?? '');
+    onApplicationUpdate?.({ ...currentApplication, ...candidateWorkspace.application });
+  }
+
+  async function runWorkspaceMutation(action: () => Promise<unknown>) {
+    setWorkspaceSaving(true);
+    setWorkspaceError('');
+    try {
+      await action();
+      await refreshWorkspace();
+    } catch (error) {
+      setWorkspaceError(error instanceof Error ? error.message : 'NÃ£o foi possÃ­vel concluir a operaÃ§Ã£o.');
+    } finally {
+      setWorkspaceSaving(false);
+    }
+  }
+
+  function updateScreeningField(field: string, value: unknown) {
+    setWorkspace((current) => current?.screening ? { ...current, screening: { ...current.screening, [field]: value } } : current);
+  }
+
+  function updateInterviewField(field: string, value: unknown) {
+    setWorkspace((current) => current?.interview ? { ...current, interview: { ...current.interview, [field]: value } } : current);
+  }
 
   async function downloadResume() {
     if (!currentApplication.resume_file_path) {
@@ -200,6 +332,8 @@ export function CandidateProfileDrawer({
         </div>
 
         <div className="p-5">
+          {workspaceLoading ? <p className="mb-4 rounded-xl bg-surface-50 p-3 text-sm font-semibold text-ink-600">Carregando dados operacionais...</p> : null}
+          {workspaceError ? <div className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700"><span>{workspaceError}</span><Button size="sm" variant="secondary" onClick={() => void refreshWorkspace().catch((error) => setWorkspaceError(error instanceof Error ? error.message : 'Falha ao recarregar.'))}>Tentar novamente</Button></div> : null}
           {activeTab === 'sobre' ? (
             <div className="grid gap-4">
               <section className="rounded-xl border border-surface-200 bg-surface-50 p-4">
@@ -220,7 +354,7 @@ export function CandidateProfileDrawer({
                   </div>
                 ))}
               </div>
-              <section className="rounded-xl border border-surface-200 p-4">
+              {canManage ? <section className="rounded-xl border border-surface-200 p-4">
                 <h3 className="font-black text-ink-900">Marcadores</h3>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {application.tags.length ? (
@@ -229,7 +363,7 @@ export function CandidateProfileDrawer({
                     <span className="text-sm text-ink-500">Nenhum marcador aplicado.</span>
                   )}
                 </div>
-              </section>
+              </section> : <section className="rounded-xl border border-surface-200 p-4"><h3 className="font-black text-ink-900">Parecer do recrutador</h3><p className="mt-2 whitespace-pre-wrap text-sm text-ink-700">{opinion || 'Nenhum parecer compartilhado.'}</p></section>}
             </div>
           ) : null}
 
@@ -274,22 +408,17 @@ export function CandidateProfileDrawer({
           {activeTab === 'diversidade' ? (
             <div className="grid gap-4">
               <section className="rounded-xl border border-surface-200 p-4">
-                <h3 className="font-black text-ink-900">Diversidade e inclusão</h3>
-                <p className="mt-2 text-sm leading-6 text-ink-500">
-                  Dados sensíveis devem ser voluntários, usados apenas para políticas de inclusão e nunca como critério
-                  automático de desclassificação.
-                </p>
+                <h3 className="font-black text-ink-900">Parecer do finalista</h3>
+                {workspace?.finalist ? canManage ? <div className="mt-3 grid gap-3"><Textarea label="Parecer para o cliente" rows={8} value={finalistReport} onChange={(event) => setFinalistReport(event.target.value)} /><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={workspaceSaving} onClick={() => void runWorkspaceMutation(async () => { const result = await generateCandidateFinalistReport(workspace.finalist!.project_id, application.id); if (result.finalist?.ai_report) setFinalistReport(result.finalist.ai_report); })}>Gerar parecer</Button><Button variant="secondary" disabled={workspaceSaving || !finalistReport.trim()} onClick={() => void runWorkspaceMutation(() => saveCandidateFinalistReport(workspace.finalist!.id, finalistReport))}>Salvar revisão</Button><Button disabled={workspaceSaving || !finalistReport.trim()} onClick={() => void runWorkspaceMutation(() => saveCandidateFinalistReport(workspace.finalist!.id, finalistReport, true))}>Aprovar parecer</Button></div></div> : <p className="mt-2 text-sm leading-6 text-ink-700">{workspace.finalist.ai_report || workspace.finalist.franchise_opinion || 'Parecer em preparação.'}</p> : canManage ? <div className="mt-3"><Button disabled={workspaceSaving} onClick={() => void runWorkspaceMutation(() => prepareCandidateFinalist(application.id))}>Preparar finalista</Button></div> : <p className="mt-2 text-sm text-ink-500">O parecer ainda não foi preparado.</p>}
               </section>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-surface-200 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-ink-500">Consentimento LGPD</p>
-                  <p className="mt-2 font-black text-ink-900">
-                    {application.lgpd_consent ? 'Registrado' : 'Cadastro interno sem consentimento público'}
-                  </p>
+                  <p className="text-xs font-black uppercase tracking-wide text-ink-500">Status do parecer</p>
+                  <p className="mt-2 font-black text-ink-900">{workspace?.finalist?.ai_report_status ?? 'Pendente'}</p>
                 </div>
                 <div className="rounded-xl border border-surface-200 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-ink-500">Dados demográficos</p>
-                  <p className="mt-2 font-black text-ink-900">Não informados</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-ink-500">Seleção</p>
+                  <p className="mt-2 font-black text-ink-900">{workspace?.finalist?.status ?? 'Ainda não selecionado'}</p>
                 </div>
               </div>
             </div>
@@ -298,53 +427,31 @@ export function CandidateProfileDrawer({
           {activeTab === 'conhecimentos' ? (
             <div className="grid gap-4">
               <section className="rounded-xl border border-surface-200 p-4">
-                <h3 className="font-black text-ink-900">Competências e conhecimentos</h3>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {application.skills.length ? (
-                    application.skills.map((skill) => <Badge key={skill} variant="info">{skill}</Badge>)
-                  ) : (
-                    <span className="text-sm text-ink-500">Nenhuma competência estruturada.</span>
-                  )}
-                </div>
-              </section>
-              <section className="rounded-xl border border-surface-200 p-4">
-                <div className="flex items-center gap-2">
-                  <GraduationCap size={18} className="text-redde-700" />
-                  <h3 className="font-black text-ink-900">Formação acadêmica</h3>
-                </div>
-                <div className="mt-3 grid gap-3">
-                  {application.education.length ? application.education.map((item, index) => (
-                    <div key={`${item.institution}-${index}`} className="rounded-lg bg-surface-50 p-3">
-                      <p className="font-black text-ink-900">{item.course}</p>
-                      <p className="mt-1 text-sm text-ink-500">
-                        {item.institution}
-                        {item.level ? ` · ${item.level}` : ''}
-                        {item.status ? ` · ${item.status}` : ''}
-                      </p>
-                    </div>
-                  )) : <EmptyInfo>Formação acadêmica não informada.</EmptyInfo>}
-                </div>
+                <div className="flex items-center justify-between gap-3"><h3 className="font-black text-ink-900">Testes atribuídos</h3>{canManage ? <Button size="sm" variant="secondary" disabled={workspaceSaving} onClick={() => void runWorkspaceMutation(() => assignTestsToApplication(application.id))}>Atribuir testes da vaga</Button> : null}</div>
+                <div className="mt-3 grid gap-3">{workspace?.tests.length ? workspace.tests.map((assignment) => <CandidateTestEditor key={assignment.id} assignment={assignment} canManage={canManage} onSaved={refreshWorkspace} />) : <EmptyInfo>Nenhum teste atribuído.</EmptyInfo>}</div>
               </section>
             </div>
           ) : null}
 
           {activeTab === 'experiencias' ? (
-            <div className="grid gap-3">
-              {application.experiences.length ? application.experiences.map((experience, index) => (
-                <section key={`${experience.company}-${index}`} className="rounded-xl border border-surface-200 p-4">
-                  <p className="font-black text-ink-900">{experience.role}</p>
-                  <p className="mt-1 text-sm font-semibold text-redde-700">{experience.company}</p>
-                  <p className="mt-1 text-xs text-ink-500">
-                    {experience.start_date ? formatDate(experience.start_date) : 'Início não informado'}
-                    {' até '}
-                    {experience.current ? 'o momento' : experience.end_date ? formatDate(experience.end_date) : 'fim não informado'}
-                  </p>
-                  {experience.description ? (
-                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-ink-700">{experience.description}</p>
-                  ) : null}
-                </section>
-              )) : <EmptyInfo>Experiências profissionais não informadas.</EmptyInfo>}
-            </div>
+            <section className="grid gap-4 rounded-xl border border-surface-200 p-4">
+              <div className="flex items-center justify-between gap-3"><h3 className="font-black text-ink-900">Entrevista interna</h3>{canManage && !workspace?.interview ? <Button size="sm" variant="secondary" disabled={workspaceSaving} onClick={() => void runWorkspaceMutation(() => getOrCreateInternalInterview(application.id))}>Iniciar registro</Button> : null}</div>
+              {workspace?.interview ? <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div><p className="text-xs font-black uppercase text-ink-500">Status</p><p className="mt-1 font-bold">{workspace.interview.status}</p></div>
+                  <div><p className="text-xs font-black uppercase text-ink-500">Agendamento</p><p className="mt-1 font-bold">{formatDateTime(workspace.interview.scheduled_at)}</p></div>
+                </div>
+                {canManage ? <>
+                  <div className="grid gap-3 sm:grid-cols-[1fr_auto]"><Input label="Data e horário" type="datetime-local" value={toLocalDateTime(workspace.interview.scheduled_at)} onInput={(event) => updateInterviewField('scheduled_at', event.currentTarget.value ? new Date(event.currentTarget.value).toISOString() : null)} onChange={(event) => updateInterviewField('scheduled_at', event.target.value ? new Date(event.target.value).toISOString() : null)} /><Button className="self-end" variant="secondary" disabled={workspaceSaving || !workspace.interview.scheduled_at} onClick={() => void runWorkspaceMutation(() => scheduleInternalInterview(application.id, workspace.interview!.scheduled_at!))}>Agendar</Button></div>
+                  <div className="grid gap-3 sm:grid-cols-2"><Input label="Nota técnica" type="number" min="0" max="10" value={workspace.interview.technical_score ?? ''} onChange={(event) => updateInterviewField('technical_score', event.target.value === '' ? null : Number(event.target.value))} /><Input label="Nota comportamental" type="number" min="0" max="10" value={workspace.interview.behavioral_score ?? ''} onChange={(event) => updateInterviewField('behavioral_score', event.target.value === '' ? null : Number(event.target.value))} /><Input label="Comunicação" type="number" min="0" max="10" value={workspace.interview.communication_score ?? ''} onChange={(event) => updateInterviewField('communication_score', event.target.value === '' ? null : Number(event.target.value))} /><Input label="Aderência cultural" type="number" min="0" max="10" value={workspace.interview.culture_score ?? ''} onChange={(event) => updateInterviewField('culture_score', event.target.value === '' ? null : Number(event.target.value))} /></div>
+                  <Textarea label="Pontos fortes" value={workspace.interview.strengths} onChange={(event) => updateInterviewField('strengths', event.target.value)} />
+                  <Textarea label="Riscos" value={workspace.interview.risks} onChange={(event) => updateInterviewField('risks', event.target.value)} />
+                  <Textarea label="Conclusão" value={workspace.interview.conclusion} onChange={(event) => updateInterviewField('conclusion', event.target.value)} />
+                  <Select label="Recomendação" value={workspace.interview.recommendation ?? ''} onChange={(event) => updateInterviewField('recommendation', event.target.value || null)} options={[{ value: '', label: 'Selecione' }, { value: 'strong_yes', label: 'Recomendo fortemente' }, { value: 'yes', label: 'Recomendo' }, { value: 'with_reservations', label: 'Com ressalvas' }, { value: 'no', label: 'Não recomendo' }]} />
+                  <Button disabled={workspaceSaving} onClick={() => void runWorkspaceMutation(() => completeInternalInterview(workspace.interview!))}>{workspaceSaving ? 'Salvando...' : 'Concluir entrevista'}</Button>
+                </> : <div className="grid gap-2 text-sm text-ink-700"><p><strong>Recomendação:</strong> {workspace.interview.recommendation ?? 'Pendente'}</p><p><strong>Conclusão:</strong> {workspace.interview.conclusion || 'Pendente'}</p></div>}
+              </> : <EmptyInfo>Entrevista ainda não iniciada.</EmptyInfo>}
+            </section>
           ) : null}
 
           {activeTab === 'curriculo' ? (
@@ -363,30 +470,36 @@ export function CandidateProfileDrawer({
                 <Download size={17} />
                 {application.resume_file_path ? 'Baixar currículo' : 'Currículo não anexado'}
               </Button>
+              <section className="rounded-xl border border-surface-200 p-4">
+                <h3 className="font-black text-ink-900">Análise do currículo</h3>
+                <p className="mt-1 text-sm text-ink-600">Status: {application.resume_analysis_status}{application.resume_analysis_waived_at ? ' · dispensada com justificativa' : ''}</p>
+                {application.resume_analysis_waiver_reason ? <p className="mt-2 text-sm text-ink-700">{application.resume_analysis_waiver_reason}</p> : null}
+                {canManage && application.resume_analysis_status !== 'completed' && !application.resume_analysis_waived_at ? <div className="mt-3 grid gap-3"><Textarea label="Justificativa da dispensa" value={waiverReason} onChange={(event) => setWaiverReason(event.target.value)} /><Button size="sm" variant="secondary" disabled={workspaceSaving || !waiverReason.trim()} onClick={() => void runWorkspaceMutation(() => waiveResumeAnalysis(application.id, waiverReason))}>Dispensar análise</Button></div> : null}
+              </section>
             </div>
           ) : null}
 
           {activeTab === 'perguntas' ? (
-            <div className="grid gap-3">
-              {[
-                ['Mensagem de apresentação', application.message],
-                ['Disponibilidade', application.availability],
-                ['Pretensão salarial', application.salary_expectation],
-                ['Origem da candidatura', application.source],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-surface-200 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-ink-500">{label}</p>
-                  <p className="mt-2 text-sm text-ink-700">{value || 'Não informado'}</p>
+            <section className="grid gap-4 rounded-xl border border-surface-200 p-4">
+              <div className="flex items-center justify-between gap-3"><h3 className="font-black text-ink-900">Triagem manual</h3>{canManage && !workspace?.screening ? <Button size="sm" variant="secondary" disabled={workspaceSaving} onClick={() => void runWorkspaceMutation(() => getOrCreateCandidateScreening(application.id))}>Iniciar triagem</Button> : null}</div>
+              {workspace?.screening ? canManage ? <>
+                <label className="flex items-center gap-2 text-sm font-bold text-ink-800"><input type="checkbox" checked={workspace.screening.mandatory_requirements_confirmed} onChange={(event) => updateScreeningField('mandatory_requirements_confirmed', event.target.checked)} /> Requisitos obrigatórios confirmados</label>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {([['salary_compatible', 'Compatibilidade salarial'], ['availability_compatible', 'Disponibilidade'], ['location_compatible', 'Localização']] as const).map(([field, label]) => <Select key={field} label={label} value={workspace.screening?.[field] === null ? '' : workspace.screening?.[field] ? 'yes' : 'no'} onChange={(event) => updateScreeningField(field, event.target.value === '' ? null : event.target.value === 'yes')} options={[{ value: '', label: 'Não avaliada' }, { value: 'yes', label: 'Compatível' }, { value: 'no', label: 'Incompatível' }]} />)}
                 </div>
-              ))}
-            </div>
+                <div className="grid gap-3 sm:grid-cols-2"><Input label="Nota técnica" type="number" min="0" max="10" value={workspace.screening.technical_score ?? ''} onChange={(event) => updateScreeningField('technical_score', event.target.value === '' ? null : Number(event.target.value))} /><Input label="Nota comportamental" type="number" min="0" max="10" value={workspace.screening.behavioral_score ?? ''} onChange={(event) => updateScreeningField('behavioral_score', event.target.value === '' ? null : Number(event.target.value))} /></div>
+                <Textarea label="Observações da triagem" value={workspace.screening.recruiter_notes} onChange={(event) => updateScreeningField('recruiter_notes', event.target.value)} />
+                <Textarea label="Motivo da reprovação" value={workspace.screening.rejection_reason ?? ''} onChange={(event) => updateScreeningField('rejection_reason', event.target.value || null)} />
+                <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={workspaceSaving} onClick={() => void runWorkspaceMutation(() => completeCandidateScreening({ ...workspace.screening!, status: 'draft' }))}>Salvar rascunho</Button><Button disabled={workspaceSaving || !workspace.screening.mandatory_requirements_confirmed} onClick={() => void runWorkspaceMutation(() => completeCandidateScreening({ ...workspace.screening!, status: 'completed' }))}>Concluir e aprovar</Button><Button variant="danger" disabled={workspaceSaving || !workspace.screening.rejection_reason?.trim()} onClick={() => void runWorkspaceMutation(() => completeCandidateScreening({ ...workspace.screening!, status: 'rejected' }))}>Reprovar</Button></div>
+              </> : <dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-xs font-black uppercase text-ink-500">Status</dt><dd className="mt-1 font-bold">{workspace.screening.status}</dd></div><div><dt className="text-xs font-black uppercase text-ink-500">Requisitos</dt><dd className="mt-1 font-bold">{workspace.screening.mandatory_requirements_confirmed ? 'Confirmados' : 'Pendentes'}</dd></div></dl> : <EmptyInfo>Triagem manual ainda não iniciada.</EmptyInfo>}
+            </section>
           ) : null}
 
           {activeTab === 'comentarios' ? (
             <div className="grid gap-5">
               <CommentComposer
                 onSubmit={async (comment) => {
-                  await addApplicationNote(application.id, comment);
+                  await addApplicationNote(application.id, comment, noteVisibility);
                   setNotes(await listApplicationNotes(application.id));
                 }}
               />
@@ -394,7 +507,7 @@ export function CandidateProfileDrawer({
                 {notes.map((note) => (
                   <div key={note.id} className="rounded-xl border border-surface-200 p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-black text-ink-900">{note.author?.full_name ?? 'Equipe Recruitfy'}</p>
+                      <p className="flex items-center gap-2 text-sm font-black text-ink-900">{note.author?.full_name ?? 'Equipe Recruitify'}<Badge variant={note.visibility === 'shared' ? 'info' : 'neutral'}>{note.visibility === 'shared' ? 'Compartilhado' : 'Interno'}</Badge></p>
                       <span className="text-xs text-ink-500">{formatDate(note.created_at)}</span>
                     </div>
                     <p className="mt-2 whitespace-pre-wrap text-sm text-ink-700">{note.note}</p>

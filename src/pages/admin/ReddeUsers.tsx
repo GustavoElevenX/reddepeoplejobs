@@ -486,7 +486,7 @@ export function ReddeUsers() {
       <Modal
         open={createOpen}
         title="Criar usuário"
-        description="Crie uma conta interna Recruitfy ou uma conta de cliente com empresa e permissões."
+        description="Crie uma conta interna Recruitify ou uma conta de cliente com empresa e permissões."
         onClose={() => setCreateOpen(false)}
       >
         <form onSubmit={handleCreateUser} className="grid gap-4">

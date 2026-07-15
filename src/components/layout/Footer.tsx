@@ -11,11 +11,11 @@ const companyLinks = [
   { label: 'Sou empresa', to: '/#para-empresas' },
   { label: 'Publicar vagas', to: '/#para-empresas' },
   { label: 'Acessar painel', to: '/admin/login' },
-  { label: 'Falar com o Recruitfy', to: 'mailto:contato@recruitfy.com.br' },
+  { label: 'Falar com a Recruitify', to: 'mailto:contato@recruitfy.com.br' },
 ];
 
 const institutionalLinks = [
-  { label: 'Sobre o Recruitfy', to: '/' },
+  { label: 'Sobre a Recruitify', to: '/' },
   { label: 'Política de privacidade', to: '/#seguranca-lgpd' },
   { label: 'Termos de uso', to: '/#seguranca-lgpd' },
   { label: 'LGPD', to: '/#seguranca-lgpd' },
@@ -38,7 +38,7 @@ export function Footer() {
           <div className="flex h-12 w-40 items-center overflow-hidden">
             <img
               src="/imagens/logo/logo-nova.png"
-              alt="Recruitfy"
+              alt="Recruitify"
               className="h-full w-full object-contain"
             />
           </div>

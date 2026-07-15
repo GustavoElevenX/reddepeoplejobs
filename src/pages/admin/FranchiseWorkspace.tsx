@@ -392,11 +392,13 @@ function LeadModal({
 function FormalizationModal({
   opportunity,
   open,
+  submitting,
   onClose,
   onConfirm,
 }: {
   opportunity: SalesOpportunity | null;
   open: boolean;
+  submitting: boolean;
   onClose: () => void;
   onConfirm: (values: Partial<SalesOpportunity>) => void;
 }) {
@@ -490,9 +492,9 @@ function FormalizationModal({
             Pendências: {formalizationMissing.join(', ')}.
           </div>
         ) : null}
-        <Button type="submit" disabled={formalizationMissing.length > 0}>
+        <Button type="submit" disabled={formalizationMissing.length > 0 || submitting}>
           <BriefcaseBusiness size={18} />
-          Marcar ganho e iniciar projeto
+          {submitting ? 'Iniciando projeto...' : 'Marcar ganho e iniciar projeto'}
         </Button>
       </form>
     </Modal>
@@ -680,6 +682,7 @@ export function FranchiseWorkspace() {
   const [loading, setLoading] = useState(true);
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [formalizingOpportunityId, setFormalizingOpportunityId] = useState<string | null>(null);
+  const [convertingOpportunity, setConvertingOpportunity] = useState(false);
   const [briefingProjectId, setBriefingProjectId] = useState<string | null>(null);
   const [descriptionId, setDescriptionId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -724,7 +727,10 @@ export function FranchiseWorkspace() {
       activeProjects: data.projects.filter((item) => item.stage !== 'completed').length,
       openJobs: data.jobs.filter((item) => item.status === 'open').length,
       applications: data.applications.length,
-      screening: data.applications.filter((item) => ['novo', 'triagem', 'em_analise'].includes(item.status)).length,
+      screening: data.applications.filter((item) => item.stage === 'qualificacao').length,
+      internalInterviews: data.applications.filter((item) => item.stage === 'entrevista').length,
+      finalists: data.applications.filter((item) => item.stage === 'finalistas').length,
+      hired: data.applications.filter((item) => item.stage === 'contratacao').length,
       waitingClient: data.projects.filter((item) => item.stage === 'waiting_client').length,
       interviews: data.schedules.length,
       approved: data.hiringDecisions.filter((item) => item.decision === 'approved').length,
@@ -755,7 +761,13 @@ export function FranchiseWorkspace() {
       await action();
       await refresh();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Nao foi possivel concluir a acao.');
+      const message =
+        actionError instanceof Error
+          ? actionError.message
+          : actionError && typeof actionError === 'object' && 'message' in actionError
+            ? String(actionError.message)
+            : 'Não foi possível concluir a ação.';
+      setError(message);
     }
   }
 
@@ -812,6 +824,9 @@ export function FranchiseWorkspace() {
         <AdminStatCard title="Vagas abertas" value={stats.openJobs} icon={FileText} />
         <AdminStatCard title="Candidatos recebidos" value={stats.applications} icon={UsersRound} />
         <AdminStatCard title="Candidatos em triagem" value={stats.screening} icon={ClipboardCheck} />
+        <AdminStatCard title="Entrevistas internas" value={stats.internalInterviews} icon={CalendarDays} />
+        <AdminStatCard title="Finalistas" value={stats.finalists} icon={Send} />
+        <AdminStatCard title="Contratados" value={stats.hired} icon={CheckCircle2} />
         <AdminStatCard title="Finalistas aguardando cliente" value={stats.waitingClient} icon={Send} />
         <AdminStatCard title="Entrevistas agendadas" value={stats.interviews} icon={CalendarDays} />
         <AdminStatCard title="Candidatos aprovados" value={stats.approved} icon={CheckCircle2} />
@@ -1914,8 +1929,8 @@ export function FranchiseWorkspace() {
         open={leadModalOpen}
         onClose={() => setLeadModalOpen(false)}
         onSave={(values) =>
-          safeAction(() => {
-            createSalesOpportunity(profile.franchise_id!, values as Partial<SalesOpportunity> & Pick<SalesOpportunity, 'company_name' | 'contact_name' | 'contact_phone' | 'contact_email' | 'service_name'>);
+          safeAction(async () => {
+            await createSalesOpportunity(profile.franchise_id!, values as Partial<SalesOpportunity> & Pick<SalesOpportunity, 'company_name' | 'contact_name' | 'contact_phone' | 'contact_email' | 'service_name'>);
             setLeadModalOpen(false);
           })
         }
@@ -1924,15 +1939,20 @@ export function FranchiseWorkspace() {
       <FormalizationModal
         open={Boolean(formalizingOpportunityId)}
         opportunity={formalizingOpportunity}
-        onClose={() => setFormalizingOpportunityId(null)}
-        onConfirm={(values) =>
-          safeAction(async () => {
+        submitting={convertingOpportunity}
+        onClose={() => {
+          if (!convertingOpportunity) setFormalizingOpportunityId(null);
+        }}
+        onConfirm={(values) => {
+          if (convertingOpportunity) return;
+          setConvertingOpportunity(true);
+          void safeAction(async () => {
             if (!formalizingOpportunity) throw new Error('Oportunidade não encontrada.');
             await updateSalesOpportunity(formalizingOpportunity.id, values);
             await convertOpportunityToProject(formalizingOpportunity.id);
             setFormalizingOpportunityId(null);
-          })
-        }
+          }).finally(() => setConvertingOpportunity(false));
+        }}
       />
 
       <BriefingModal

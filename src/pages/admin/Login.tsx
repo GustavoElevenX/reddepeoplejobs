@@ -53,7 +53,7 @@ export function Login() {
           </span>
           <h1 className="mt-4 text-3xl font-black text-ink-900">Acesso à plataforma</h1>
           <p className="mt-2 text-sm leading-6 text-ink-500">
-            Plataforma Recruitfy para gestão de recrutamento, seleção e operação dos franqueados.
+            Plataforma Recruitify para gestão de recrutamento, seleção e operação dos franqueados.
           </p>
         </div>
 

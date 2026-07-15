@@ -429,7 +429,7 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
 
         <label className="flex items-center gap-3 rounded-lg bg-white p-3 text-sm font-semibold text-ink-700">
           <input type="checkbox" className="h-4 w-4 accent-redde-500" {...register('direct_apply')} />
-          Candidatura direta pela Recruitfy
+          Candidatura direta pela Recruitify
         </label>
 
         <div className="grid gap-4 md:grid-cols-2">

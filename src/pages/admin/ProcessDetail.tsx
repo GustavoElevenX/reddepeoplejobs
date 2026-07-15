@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { CandidateKanbanBoard } from '../../components/admin/CandidateKanbanBoard';
 import type { CandidateKanbanAction } from '../../components/admin/CandidateKanbanCard';
 import {
   CandidateProfileDrawer,
@@ -25,6 +24,15 @@ import { HistoryTimeline } from '../../components/admin/HistoryTimeline';
 import { JobForm, type JobFormValues } from '../../components/admin/JobForm';
 import { ProcessHeader } from '../../components/admin/ProcessHeader';
 import { ProcessTabs } from '../../components/admin/ProcessTabs';
+import { ProcessDisqualifiedTab } from '../../components/admin/processes/ProcessDisqualifiedTab';
+import { ProcessActivityPanel } from '../../components/admin/processes/ProcessActivityPanel';
+import { ProcessBillingTab } from '../../components/admin/processes/ProcessBillingTab';
+import { ProcessHiredTab } from '../../components/admin/processes/ProcessHiredTab';
+import { ProcessHuntingTab } from '../../components/admin/processes/ProcessHuntingTab';
+import { ProcessJobTestsPanel } from '../../components/admin/processes/ProcessJobTestsPanel';
+import { ProcessRequisitionTab } from '../../components/admin/processes/ProcessRequisitionTab';
+import { ProcessScreeningTab } from '../../components/admin/processes/ProcessScreeningTab';
+import { ProcessSelectionTab } from '../../components/admin/processes/ProcessSelectionTab';
 import { ActionMenu, ActionMenuItem } from '../../components/admin/ActionMenu';
 import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
@@ -48,13 +56,22 @@ import {
   listApplications,
   listCompanies,
   listProcessComments,
-  updateApplicationKanbanOrder,
-  updateApplicationDetails,
-  updateApplicationStage,
   upsertJob,
 } from '../../lib/data';
 import { toJobPayload } from '../../lib/formPayloads';
+import { analyzeCandidateResume } from '../../lib/franchiseOps';
 import { isProcessTab, processTabs, type ProcessTab } from '../../lib/processTabs';
+import {
+  bulkMoveApplications,
+  createProcessDocument,
+  linkProjectToJob,
+  listProcessDocuments,
+  listProcessProjectLinks,
+  listProcessStageHistory,
+  moveApplicationStage,
+  scheduleInternalInterview,
+} from '../../lib/recruitmentPipeline';
+import { createFranchiseFileSignedUrl, uploadFranchiseFile } from '../../lib/storage';
 import {
   applicationStageLabels,
   contractTypeLabels,
@@ -63,7 +80,7 @@ import {
   modalityLabels,
 } from '../../lib/formatters';
 import { useAdminProfile } from '../../routes/ProtectedRoute';
-import type { Application, ApplicationStage, Company, Job, ProcessComment, ProcessStatus } from '../../types';
+import type { Application, ApplicationStage, Company, Job, ProcessComment, ProcessDocument, ProcessProjectLink, ProcessStageHistoryItem, ProcessStatus } from '../../types';
 import type { ProcessScope } from './Processes';
 
 type ProcessDetailProps = {
@@ -116,27 +133,6 @@ function formatCurrency(value?: number | null) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
-function CandidateMiniCard({ application, onClick }: { application: Application; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full rounded-xl border border-surface-200 bg-white p-4 text-left transition hover:border-redde-200 hover:shadow-card"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-black text-ink-900">{application.candidate_name}</p>
-          <p className="mt-1 text-sm text-ink-500">{application.candidate_city ?? 'Localização não informada'}</p>
-        </div>
-        <Badge variant="info">{application.adhesion_score ?? application.match_score ?? 0}%</Badge>
-      </div>
-      {application.rejection_reason ? (
-        <p className="mt-3 text-sm text-ink-500">{application.rejection_reason}</p>
-      ) : null}
-    </button>
-  );
-}
-
 export function ProcessDetail({ scope }: ProcessDetailProps) {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -157,11 +153,19 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
   const [canManage, setCanManage] = useState(scope !== 'company');
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [projectLink, setProjectLink] = useState<ProcessProjectLink | null>(null);
+  const [availableProjects, setAvailableProjects] = useState<ProcessProjectLink[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [documents, setDocuments] = useState<ProcessDocument[]>([]);
+  const [processHistory, setProcessHistory] = useState<ProcessStageHistoryItem[]>([]);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     setForbidden(false);
+    setLoadError('');
     try {
       const process = await getJobById(id);
       if (!process) {
@@ -187,17 +191,27 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
         setCanManage(true);
       }
 
-      const [applicationData, talentData, commentData, companyData] = await Promise.all([
+      const [applicationData, talentData, commentData, companyData, projectData, documentData, historyData] = await Promise.all([
         listApplications({ jobId: process.id }),
         listApplications({ franchiseId: process.franchise_id ?? undefined }),
         listProcessComments(process.id).catch(() => []),
         listCompanies({ franchiseId: process.franchise_id ?? undefined }),
+        listProcessProjectLinks(process).catch(() => ({ linked: null, available: [] })),
+        listProcessDocuments(process.id).catch(() => []),
+        listProcessStageHistory(process.id).catch(() => []),
       ]);
       setJob(process);
       setApplications(applicationData);
       setTalentPool(talentData);
       setComments(commentData);
       setCompanies(companyData);
+      setProjectLink(projectData.linked);
+      setAvailableProjects(projectData.available);
+      setSelectedProjectId(projectData.available[0]?.id ?? '');
+      setDocuments(documentData);
+      setProcessHistory(historyData);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o processo seletivo.');
     } finally {
       setLoading(false);
     }
@@ -246,6 +260,9 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
       triagem: screening.length,
       selecao: activeApplications.length,
       desclassificados: disqualified.length,
+      contratados: applications.filter(
+        (application) => resolveApplicationStage(application) === 'contratacao',
+      ).length,
       faturamento: applications.filter(
         (application) => resolveApplicationStage(application) === 'contratacao',
       ).length,
@@ -271,6 +288,11 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
     positions: { id: string; kanbanOrder: number }[] = [],
   ) {
     let rejectionReason: string | null = null;
+    const skippingTests = resolveApplicationStage(application) === 'testes' && stage === 'entrevista';
+    if (skippingTests && !window.confirm('Confirmar avanço para entrevista? Se a vaga não possui testes obrigatórios, esta confirmação ficará registrada no histórico.')) {
+      await load();
+      return;
+    }
     if (stage === 'desclassificados' && application.stage !== 'desclassificados') {
       rejectionReason = window.prompt('Informe o motivo da desclassificação:')?.trim() || null;
       if (!rejectionReason) {
@@ -278,10 +300,26 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
         return;
       }
     }
-    const updated = await updateApplicationStage(application.id, stage, order, rejectionReason);
-    await updateApplicationKanbanOrder(positions.filter((item) => item.id !== application.id));
-    setApplications((current) => current.map((item) => (item.id === application.id ? { ...item, ...updated } : item)));
-    setSelectedCandidate((current) => (current?.id === application.id ? { ...current, ...updated } : current));
+    try {
+      const updated = await moveApplicationStage({
+        applicationId: application.id,
+        targetStage: stage,
+        targetOrder: order,
+        reason: rejectionReason,
+        metadata: {
+          source: 'process_detail',
+          manual: true,
+          skip_tests: skippingTests,
+          requested_positions: positions.length,
+        },
+      });
+      setApplications((current) => current.map((item) => (item.id === application.id ? { ...item, ...updated } : item)));
+      setSelectedCandidate((current) => (current?.id === application.id ? { ...current, ...updated } : current));
+      setProcessHistory(await listProcessStageHistory(application.job_id));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Não foi possível movimentar o candidato.');
+      await load();
+    }
   }
 
   async function scheduleInterview(application: Application, date?: string) {
@@ -293,10 +331,13 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
       window.alert('Informe uma data e hora válidas.');
       return;
     }
-    const updated = await updateApplicationDetails(application.id, {
-      interview_scheduled_at: parsed.toISOString(),
-    });
-    setApplications((current) => current.map((item) => (item.id === application.id ? { ...item, ...updated } : item)));
+    try {
+      const interview = await scheduleInternalInterview(application.id, parsed.toISOString());
+      setApplications((current) => current.map((item) => item.id === application.id ? { ...item, interview_scheduled_at: interview.scheduled_at } : item));
+      setSelectedCandidate((current) => current?.id === application.id ? { ...current, interview_scheduled_at: interview.scheduled_at } : current);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Não foi possível agendar a entrevista.');
+    }
   }
 
   async function handleCandidateAction(application: Application, action: CandidateKanbanAction) {
@@ -350,12 +391,9 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
         window.alert('O motivo da desclassificação é obrigatório.');
         return;
       }
-      for (const application of selected) {
-        const updated = await updateApplicationStage(application.id, 'desclassificados', 0, reason);
-        setApplications((current) =>
-          current.map((item) => (item.id === application.id ? { ...item, ...updated } : item)),
-        );
-      }
+      const result = await bulkMoveApplications(selected, 'desclassificados', reason);
+      window.alert(`${result.processed} processados\n${result.completed} concluídos${result.failed.length ? `\n${result.failed.length} não movimentados:\n${result.failed.map((item) => item.reason).join('\n')}` : ''}`);
+      await load();
       return;
     }
     for (const application of selected) {
@@ -375,7 +413,56 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
     setEditOpen(false);
   }
 
+  async function handleProjectLink() {
+    if (!job || !selectedProjectId) return;
+    try {
+      const linked = await linkProjectToJob(selectedProjectId, job.id);
+      setProjectLink(linked);
+      setAvailableProjects((current) => current.filter((project) => project.id !== linked.id));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Não foi possível vincular o projeto.');
+    }
+  }
+
+  async function handleDocumentUpload(file: File) {
+    if (!job?.franchise_id) {
+      window.alert('O processo precisa estar vinculado a uma unidade para receber arquivos.');
+      return;
+    }
+    setUploadingDocument(true);
+    try {
+      const path = await uploadFranchiseFile(file, job.franchise_id, `processos-${job.id}`);
+      await createProcessDocument({
+        franchise_id: job.franchise_id,
+        project_id: projectLink?.id ?? null,
+        client_id: job.company_id,
+        application_id: null,
+        job_id: job.id,
+        type: file.type || 'application/octet-stream',
+        name: file.name,
+        url: path,
+        notes: null,
+      });
+      setDocuments(await listProcessDocuments(job.id));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Não foi possível enviar o arquivo.');
+    } finally {
+      setUploadingDocument(false);
+    }
+  }
+
+  async function openDocument(document: ProcessDocument) {
+    if (!document.url) return;
+    try {
+      const url = await createFranchiseFileSignedUrl(document.url);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Não foi possível abrir o arquivo.');
+    }
+  }
+
   if (loading) return <LoadingState label="Carregando processo seletivo..." />;
+  if (loadError) return <div className="grid gap-4 rounded-xl border border-red-200 bg-red-50 p-6"><p className="font-bold text-red-700">{loadError}</p><Button className="w-fit" variant="secondary" onClick={() => void load()}>Tentar novamente</Button></div>;
   if (forbidden) return <EmptyState title="Você não tem acesso a este processo seletivo." />;
   if (!job) return <EmptyState title="Processo seletivo não encontrado." />;
 
@@ -416,7 +503,7 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
                     <UserPlus size={16} />
                     Adicionar candidato
                   </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
+                  <Button variant="secondary" size="sm" aria-label="Configurar processo" onClick={() => setEditOpen(true)}>
                     <Settings size={16} />
                   </Button>
                   <ActionMenu label="icon">
@@ -444,7 +531,7 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
       </section>
 
       {activeTab === 'requisicao' ? (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <ProcessRequisitionTab>
           <div className="grid content-start gap-3">
             <RequirementSection title="Cliente e negociação" open onEdit={canManage ? () => setEditOpen(true) : undefined}>
               <dl className="grid gap-3 sm:grid-cols-2">
@@ -479,6 +566,9 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
                 </div>
               </dl>
             </RequirementSection>
+            <RequirementSection title="Projeto operacional">
+              {projectLink ? <div><p className="font-black text-ink-900">{projectLink.title}</p><p className="mt-1 text-ink-500">Projeto vinculado a este processo · etapa {projectLink.stage}</p></div> : availableProjects.length && canManage ? <div className="grid gap-3"><p>Nenhum projeto está vinculado. Selecione um projeto do mesmo cliente:</p><div className="flex flex-col gap-2 sm:flex-row"><select className="min-h-11 flex-1 rounded-xl border border-surface-200 bg-white px-3" value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>{availableProjects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select><Button onClick={() => void handleProjectLink()}>Vincular projeto</Button></div></div> : <p>{canManage ? 'Não existe projeto disponível para este cliente.' : 'Nenhum projeto operacional vinculado.'}</p>}
+            </RequirementSection>
             <RequirementSection title="Responsáveis" onEdit={canManage ? () => setEditOpen(true) : undefined}>
               <p>{job.responsible_name ?? 'Responsável ainda não definido.'}</p>
             </RequirementSection>
@@ -497,9 +587,10 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
             <RequirementSection title="Configurações" onEdit={canManage ? () => setEditOpen(true) : undefined}>
               <p className="whitespace-pre-wrap">{job.internal_notes ?? 'Nenhuma observação interna.'}</p>
             </RequirementSection>
+            <ProcessJobTestsPanel jobId={job.id} franchiseId={job.franchise_id} canManage={canManage} />
           </div>
 
-          <Card className="h-fit overflow-hidden">
+          <ProcessActivityPanel>
             <div className="grid grid-cols-4 border-b border-surface-200">
               {[
                 ['comments', 'Comentários'],
@@ -534,7 +625,7 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
                       <div key={comment.id} className="rounded-lg bg-surface-50 p-3">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-black text-ink-900">
-                            {comment.author?.full_name ?? 'Equipe Recruitfy'}
+                            {comment.author?.full_name ?? 'Equipe Recruitify'}
                           </p>
                           <span className="text-xs text-ink-500">{formatDate(comment.created_at)}</span>
                         </div>
@@ -547,19 +638,20 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
               ) : null}
               {sideTab === 'files' ? (
                 <div className="grid gap-3 text-sm text-ink-500">
-                  <Paperclip className="text-redde-700" />
-                  <p>{applications.length} currículos vinculados ao processo.</p>
-                  <p>Arquivos adicionais poderão ser centralizados nesta área.</p>
+                  <div className="flex items-center justify-between gap-3"><p className="flex items-center gap-2 font-black text-ink-900"><Paperclip size={18} className="text-redde-700" />Arquivos da requisição</p>{canManage ? <label className="cursor-pointer rounded-lg bg-redde-700 px-3 py-2 text-xs font-black text-white hover:bg-redde-800"><input className="hidden" type="file" disabled={uploadingDocument} onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleDocumentUpload(file); event.currentTarget.value = ''; }} />{uploadingDocument ? 'Enviando...' : 'Adicionar arquivo'}</label> : null}</div>
+                  {documents.map((document) => <button key={document.id} type="button" className="flex items-center justify-between rounded-lg border border-surface-200 p-3 text-left hover:bg-surface-50" onClick={() => void openDocument(document)}><span><span className="block font-bold text-ink-900">{document.name}</span><span className="text-xs text-ink-500">{formatDate(document.created_at)}</span></span><FileText size={17} /></button>)}
+                  {!documents.length ? <p>Nenhum arquivo adicional enviado.</p> : null}
+                  <p>{applications.length} currículos permanecem vinculados aos respectivos candidatos.</p>
                 </div>
               ) : null}
               {sideTab === 'history' ? (
                 <HistoryTimeline
                   items={[
-                    ...applications.slice(0, 8).map((application) => ({
-                      id: application.id,
-                      title: `${application.candidate_name} · ${applicationStageLabels[application.stage]}`,
-                      description: 'Última atualização do candidato',
-                      createdAt: application.updated_at,
+                    ...processHistory.map((event) => ({
+                      id: event.id,
+                      title: `${event.application?.candidate_name ?? 'Candidato'} · ${applicationStageLabels[event.to_stage]}`,
+                      description: event.reason || (event.from_stage ? `Etapa anterior: ${applicationStageLabels[event.from_stage]}` : 'Entrada no processo'),
+                      createdAt: event.created_at,
                     })),
                     {
                       id: `process-${job.id}`,
@@ -578,12 +670,12 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
                 </div>
               ) : null}
             </div>
-          </Card>
-        </div>
+          </ProcessActivityPanel>
+        </ProcessRequisitionTab>
       ) : null}
 
       {activeTab === 'hunting' ? (
-        <div className="grid gap-4">
+        <ProcessHuntingTab>
           <Card className="p-5">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
               <div>
@@ -664,66 +756,55 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
           {!huntingCandidates.length ? (
             <EmptyState title={talentSearch ? 'Nenhum perfil encontrado para esta busca.' : 'Não há outros perfis disponíveis no banco de talentos.'} />
           ) : null}
-        </div>
+        </ProcessHuntingTab>
       ) : null}
 
       {activeTab === 'triagem' ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {screening.map((application) => (
-            <CandidateMiniCard
-              key={application.id}
-              application={application}
-              onClick={() => {
-                setCandidateDrawerTab('sobre');
-                setSelectedCandidate(application);
-              }}
-            />
-          ))}
-          {!screening.length ? <EmptyState title="Nenhum candidato aguardando triagem." /> : null}
-        </div>
+        <ProcessScreeningTab
+          applications={screening}
+          canManage={canManage}
+          onOpen={(application) => { setCandidateDrawerTab('sobre'); setSelectedCandidate(application); }}
+          onAnalyze={async (application) => {
+            try { await analyzeCandidateResume(application.id); await load(); }
+            catch (error) { window.alert(error instanceof Error ? error.message : 'Falha ao analisar o currículo.'); }
+          }}
+          onAdvance={(selected) => handleBulkAction(selected, 'next')}
+          onDisqualify={(selected) => handleBulkAction(selected, 'disqualify')}
+        />
       ) : null}
 
       {activeTab === 'selecao' ? (
-        <div className="grid min-w-0 max-w-full gap-4">
-          {!activeApplications.length ? (
-            <div className="rounded-xl border border-redde-100 bg-redde-50 px-4 py-3 text-sm font-semibold text-redde-700">
-              Ainda não há candidatos ativos neste processo.
-            </div>
-          ) : null}
-          <CandidateKanbanBoard
-            applications={activeApplications}
-            canManage={canManage}
-            onOpenCandidate={(application) => {
-              setCandidateDrawerTab('sobre');
-              setSelectedCandidate(application);
-            }}
-            onCandidateAction={handleCandidateAction}
-            onBulkAction={handleBulkAction}
-            onMoveCandidate={(application, stage, order, positions) =>
-              moveCandidate(application, stage, order, positions)
-            }
-          />
-        </div>
+        <ProcessSelectionTab
+          applications={activeApplications}
+          canManage={canManage}
+          onOpenCandidate={(application) => { setCandidateDrawerTab('sobre'); setSelectedCandidate(application); }}
+          onCandidateAction={handleCandidateAction}
+          onBulkAction={handleBulkAction}
+          onMoveCandidate={(application, stage, order, positions) => moveCandidate(application, stage, order, positions)}
+        />
       ) : null}
 
       {activeTab === 'desclassificados' ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {disqualified.map((application) => (
-            <CandidateMiniCard
-              key={application.id}
-              application={application}
-              onClick={() => {
-                setCandidateDrawerTab('sobre');
-                setSelectedCandidate(application);
-              }}
-            />
-          ))}
-          {!disqualified.length ? <EmptyState title="Nenhum candidato desclassificado." /> : null}
-        </div>
+        <ProcessDisqualifiedTab
+          jobId={job.id}
+          applications={disqualified}
+          canManage={canManage}
+          onOpen={(application) => { setCandidateDrawerTab('sobre'); setSelectedCandidate(application); }}
+          onChanged={load}
+        />
+      ) : null}
+
+      {activeTab === 'contratados' ? (
+        <ProcessHiredTab
+          jobId={job.id}
+          fallbackApplications={applications.filter((application) => resolveApplicationStage(application) === 'contratacao')}
+          canManage={canManage}
+          onOpen={(application) => { setCandidateDrawerTab('sobre'); setSelectedCandidate(application); }}
+        />
       ) : null}
 
       {activeTab === 'faturamento' ? (
-        <div className="grid gap-4">
+        <ProcessBillingTab>
           <div className="grid gap-4 md:grid-cols-3">
             {[
               {
@@ -837,13 +918,15 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
               ) : null}
             </div>
           </Card>
-        </div>
+        </ProcessBillingTab>
       ) : null}
 
       <CandidateProfileDrawer
         application={selectedCandidate}
         initialTab={candidateDrawerTab}
         canDownload={canDownload}
+        canManage={canManage}
+        noteVisibility={scope === 'company' ? 'shared' : 'internal'}
         onApplicationUpdate={(updated) => {
           setApplications((current) => current.map((item) => (item.id === updated.id ? updated : item)));
           setSelectedCandidate(updated);
