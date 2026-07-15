@@ -48,6 +48,7 @@ create table if not exists public.projects (
   updated_at timestamptz not null default now()
 );
 
+alter table public.sales_opportunities drop constraint if exists sales_opportunities_converted_project_id_fkey;
 alter table public.sales_opportunities
   add constraint sales_opportunities_converted_project_id_fkey
   foreign key (converted_project_id) references public.projects(id) on delete set null;
@@ -362,166 +363,199 @@ alter table public.ai_logs enable row level security;
 alter table public.franchise_workflow_settings enable row level security;
 alter table public.email_logs enable row level security;
 
+drop policy if exists "Admin master can manage sales opportunities" on public.sales_opportunities;
 create policy "Admin master can manage sales opportunities"
 on public.sales_opportunities for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own sales opportunities" on public.sales_opportunities;
 create policy "Franchisees can manage own sales opportunities"
 on public.sales_opportunities for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage projects" on public.projects;
 create policy "Admin master can manage projects"
 on public.projects for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own projects" on public.projects;
 create policy "Franchisees can manage own projects"
 on public.projects for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage job briefings" on public.job_briefings;
 create policy "Admin master can manage job briefings"
 on public.job_briefings for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own job briefings" on public.job_briefings;
 create policy "Franchisees can manage own job briefings"
 on public.job_briefings for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage job descriptions" on public.job_descriptions;
 create policy "Admin master can manage job descriptions"
 on public.job_descriptions for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own job descriptions" on public.job_descriptions;
 create policy "Franchisees can manage own job descriptions"
 on public.job_descriptions for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage contracts" on public.contracts;
 create policy "Admin master can manage contracts"
 on public.contracts for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own contracts" on public.contracts;
 create policy "Franchisees can manage own contracts"
 on public.contracts for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage service orders" on public.service_orders;
 create policy "Admin master can manage service orders"
 on public.service_orders for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own service orders" on public.service_orders;
 create policy "Franchisees can manage own service orders"
 on public.service_orders for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage accounts receivable" on public.accounts_receivable;
 create policy "Admin master can manage accounts receivable"
 on public.accounts_receivable for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own accounts receivable" on public.accounts_receivable;
 create policy "Franchisees can manage own accounts receivable"
 on public.accounts_receivable for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage accounts payable" on public.accounts_payable;
 create policy "Admin master can manage accounts payable"
 on public.accounts_payable for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own accounts payable" on public.accounts_payable;
 create policy "Franchisees can manage own accounts payable"
 on public.accounts_payable for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage invoices" on public.invoices;
 create policy "Admin master can manage invoices"
 on public.invoices for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own invoices" on public.invoices;
 create policy "Franchisees can manage own invoices"
 on public.invoices for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage finalists" on public.finalists;
 create policy "Admin master can manage finalists"
 on public.finalists for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own finalists" on public.finalists;
 create policy "Franchisees can manage own finalists"
 on public.finalists for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage schedules" on public.client_interview_schedules;
 create policy "Admin master can manage schedules"
 on public.client_interview_schedules for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own schedules" on public.client_interview_schedules;
 create policy "Franchisees can manage own schedules"
 on public.client_interview_schedules for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage hiring decisions" on public.hiring_decisions;
 create policy "Admin master can manage hiring decisions"
 on public.hiring_decisions for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own hiring decisions" on public.hiring_decisions;
 create policy "Franchisees can manage own hiring decisions"
 on public.hiring_decisions for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage nps" on public.nps_responses;
 create policy "Admin master can manage nps"
 on public.nps_responses for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own nps" on public.nps_responses;
 create policy "Franchisees can manage own nps"
 on public.nps_responses for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage post sale" on public.post_sale_tasks;
 create policy "Admin master can manage post sale"
 on public.post_sale_tasks for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own post sale" on public.post_sale_tasks;
 create policy "Franchisees can manage own post sale"
 on public.post_sale_tasks for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage documents" on public.documents;
 create policy "Admin master can manage documents"
 on public.documents for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own documents" on public.documents;
 create policy "Franchisees can manage own documents"
 on public.documents for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage chat conversations" on public.chat_conversations;
 create policy "Admin master can manage chat conversations"
 on public.chat_conversations for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own chat conversations" on public.chat_conversations;
 create policy "Franchisees can manage own chat conversations"
 on public.chat_conversations for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage chat messages" on public.chat_messages;
 create policy "Admin master can manage chat messages"
 on public.chat_messages for all
 using (
@@ -541,40 +575,48 @@ with check (
   )
 );
 
+drop policy if exists "Admin master can manage notification tasks" on public.notification_tasks;
 create policy "Admin master can manage notification tasks"
 on public.notification_tasks for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own notification tasks" on public.notification_tasks;
 create policy "Franchisees can manage own notification tasks"
 on public.notification_tasks for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage ai logs" on public.ai_logs;
 create policy "Admin master can manage ai logs"
 on public.ai_logs for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can read own ai logs" on public.ai_logs;
 create policy "Franchisees can read own ai logs"
 on public.ai_logs for select
 using (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage workflow settings" on public.franchise_workflow_settings;
 create policy "Admin master can manage workflow settings"
 on public.franchise_workflow_settings for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own workflow settings" on public.franchise_workflow_settings;
 create policy "Franchisees can manage own workflow settings"
 on public.franchise_workflow_settings for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage email logs" on public.email_logs;
 create policy "Admin master can manage email logs"
 on public.email_logs for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can read own email logs" on public.email_logs;
 create policy "Franchisees can read own email logs"
 on public.email_logs for select
 using (franchise_id = public.current_user_franchise_id());

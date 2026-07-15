@@ -10,6 +10,7 @@ alter table public.jobs
   drop constraint if exists jobs_approved_positions_check,
   drop constraint if exists jobs_process_status_check;
 
+alter table public.jobs drop constraint if exists jobs_open_positions_check;
 alter table public.jobs
   add constraint jobs_open_positions_check check (open_positions >= 1),
   add constraint jobs_approved_positions_check check (approved_positions >= 0),
@@ -40,6 +41,7 @@ alter table public.applications
   drop constraint if exists applications_match_score_check,
   drop constraint if exists applications_adhesion_score_check;
 
+alter table public.applications drop constraint if exists applications_stage_check;
 alter table public.applications
   add constraint applications_stage_check
     check (stage in ('qualificacao', 'testes', 'entrevista', 'finalistas', 'contratacao', 'desclassificados')),
@@ -125,10 +127,12 @@ alter table public.application_stage_history enable row level security;
 alter table public.process_comments enable row level security;
 
 drop policy if exists "Admins can read stage history" on public.application_stage_history;
+drop policy if exists "Admins can read stage history" on public.application_stage_history;
 create policy "Admins can read stage history"
 on public.application_stage_history for select
 using (public.is_redde_admin());
 
+drop policy if exists "Franchisees can read own stage history" on public.application_stage_history;
 drop policy if exists "Franchisees can read own stage history" on public.application_stage_history;
 create policy "Franchisees can read own stage history"
 on public.application_stage_history for select
@@ -142,6 +146,7 @@ using (
 );
 
 drop policy if exists "Company users can read own stage history" on public.application_stage_history;
+drop policy if exists "Company users can read own stage history" on public.application_stage_history;
 create policy "Company users can read own stage history"
 on public.application_stage_history for select
 using (
@@ -154,11 +159,13 @@ using (
 );
 
 drop policy if exists "Admins can manage process comments" on public.process_comments;
+drop policy if exists "Admins can manage process comments" on public.process_comments;
 create policy "Admins can manage process comments"
 on public.process_comments for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "Franchisees can read own process comments" on public.process_comments;
 drop policy if exists "Franchisees can read own process comments" on public.process_comments;
 create policy "Franchisees can read own process comments"
 on public.process_comments for select
@@ -171,6 +178,7 @@ using (
   )
 );
 
+drop policy if exists "Franchisees can insert own process comments" on public.process_comments;
 drop policy if exists "Franchisees can insert own process comments" on public.process_comments;
 create policy "Franchisees can insert own process comments"
 on public.process_comments for insert
@@ -185,6 +193,7 @@ with check (
 );
 
 drop policy if exists "Company users can read own process comments" on public.process_comments;
+drop policy if exists "Company users can read own process comments" on public.process_comments;
 create policy "Company users can read own process comments"
 on public.process_comments for select
 using (
@@ -196,6 +205,7 @@ using (
   )
 );
 
+drop policy if exists "Company users can insert own process comments" on public.process_comments;
 drop policy if exists "Company users can insert own process comments" on public.process_comments;
 create policy "Company users can insert own process comments"
 on public.process_comments for insert
@@ -210,6 +220,7 @@ with check (
 );
 
 drop policy if exists "Franchisees can read own application notes" on public.application_notes;
+drop policy if exists "Franchisees can read own application notes" on public.application_notes;
 create policy "Franchisees can read own application notes"
 on public.application_notes for select
 using (
@@ -221,6 +232,7 @@ using (
   )
 );
 
+drop policy if exists "Franchisees can insert own application notes" on public.application_notes;
 drop policy if exists "Franchisees can insert own application notes" on public.application_notes;
 create policy "Franchisees can insert own application notes"
 on public.application_notes for insert

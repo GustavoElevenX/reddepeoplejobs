@@ -12,6 +12,7 @@ alter table public.jobs
   drop constraint if exists jobs_billing_status_check,
   drop constraint if exists jobs_franchise_commission_check;
 
+alter table public.jobs drop constraint if exists jobs_billing_amount_check;
 alter table public.jobs
   add constraint jobs_billing_amount_check
     check (billing_amount is null or billing_amount >= 0),
@@ -34,6 +35,7 @@ alter table public.applications
   drop constraint if exists applications_education_array_check,
   drop constraint if exists applications_experiences_array_check;
 
+alter table public.applications drop constraint if exists applications_education_array_check;
 alter table public.applications
   add constraint applications_education_array_check
     check (jsonb_typeof(education) = 'array'),
@@ -45,15 +47,18 @@ create index if not exists applications_interview_schedule_idx
   where interview_scheduled_at is not null;
 
 drop policy if exists "Admins can insert applications" on public.applications;
+drop policy if exists "Admins can insert applications" on public.applications;
 create policy "Admins can insert applications"
 on public.applications for insert
 with check (public.is_redde_admin());
 
 drop policy if exists "Franchisees can insert own applications" on public.applications;
+drop policy if exists "Franchisees can insert own applications" on public.applications;
 create policy "Franchisees can insert own applications"
 on public.applications for insert
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Company managers can insert own applications" on public.applications;
 drop policy if exists "Company managers can insert own applications" on public.applications;
 create policy "Company managers can insert own applications"
 on public.applications for insert
@@ -68,6 +73,7 @@ with check (
 );
 
 drop policy if exists "Company users can update own applications" on public.applications;
+drop policy if exists "Company managers can update own applications" on public.applications;
 create policy "Company managers can update own applications"
 on public.applications for update
 using (

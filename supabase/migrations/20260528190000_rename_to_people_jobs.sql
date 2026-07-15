@@ -24,6 +24,7 @@ where
 
 drop policy if exists "Company users can manage own company assets" on storage.objects;
 
+drop policy if exists "Company users can manage own company assets" on storage.objects;
 create policy "Company users can manage own company assets"
 on storage.objects for all
 using (

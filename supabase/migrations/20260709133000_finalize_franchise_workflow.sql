@@ -37,21 +37,25 @@ drop policy if exists "Franchisees can manage own workflow settings" on public.f
 drop policy if exists "Admin master can manage email logs" on public.email_logs;
 drop policy if exists "Franchisees can read own email logs" on public.email_logs;
 
+drop policy if exists "Admin master can manage workflow settings" on public.franchise_workflow_settings;
 create policy "Admin master can manage workflow settings"
 on public.franchise_workflow_settings for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can manage own workflow settings" on public.franchise_workflow_settings;
 create policy "Franchisees can manage own workflow settings"
 on public.franchise_workflow_settings for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Admin master can manage email logs" on public.email_logs;
 create policy "Admin master can manage email logs"
 on public.email_logs for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can read own email logs" on public.email_logs;
 create policy "Franchisees can read own email logs"
 on public.email_logs for select
 using (franchise_id = public.current_user_franchise_id());

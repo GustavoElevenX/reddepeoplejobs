@@ -12,6 +12,7 @@ alter table public.jobs
   drop constraint if exists jobs_billing_status_check,
   drop constraint if exists jobs_franchise_commission_check;
 
+alter table public.jobs drop constraint if exists jobs_billing_amount_check;
 alter table public.jobs
   add constraint jobs_billing_amount_check
     check (billing_amount is null or billing_amount >= 0),

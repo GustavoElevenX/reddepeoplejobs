@@ -1,4 +1,4 @@
-﻿create extension if not exists pgcrypto;
+create extension if not exists pgcrypto;
 
 do $$
 begin
@@ -309,10 +309,12 @@ alter table public.site_contents enable row level security;
 alter table public.audit_logs enable row level security;
 
 drop policy if exists "Users can read their own profile" on public.profiles;
+drop policy if exists "Users can read their own profile" on public.profiles;
 create policy "Users can read their own profile"
 on public.profiles for select
 using (id = auth.uid());
 
+drop policy if exists "People Jobs admins can manage all profiles" on public.profiles;
 drop policy if exists "People Jobs admins can manage all profiles" on public.profiles;
 create policy "People Jobs admins can manage all profiles"
 on public.profiles for all
@@ -320,10 +322,12 @@ using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
 drop policy if exists "Public can read published companies" on public.companies;
+drop policy if exists "Public can read published companies" on public.companies;
 create policy "Public can read published companies"
 on public.companies for select
 using (page_status = 'published');
 
+drop policy if exists "People Jobs admins can manage all companies" on public.companies;
 drop policy if exists "People Jobs admins can manage all companies" on public.companies;
 create policy "People Jobs admins can manage all companies"
 on public.companies for all
@@ -331,10 +335,12 @@ using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
 drop policy if exists "Company users can read their own company" on public.companies;
+drop policy if exists "Company users can read their own company" on public.companies;
 create policy "Company users can read their own company"
 on public.companies for select
 using (public.has_company_access(id));
 
+drop policy if exists "Company admins can update their own company when allowed" on public.companies;
 drop policy if exists "Company admins can update their own company when allowed" on public.companies;
 create policy "Company admins can update their own company when allowed"
 on public.companies for update
@@ -364,16 +370,19 @@ with check (
 );
 
 drop policy if exists "People Jobs admins can manage company access" on public.company_user_access;
+drop policy if exists "People Jobs admins can manage company access" on public.company_user_access;
 create policy "People Jobs admins can manage company access"
 on public.company_user_access for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
 drop policy if exists "Company users can read own access" on public.company_user_access;
+drop policy if exists "Company users can read own access" on public.company_user_access;
 create policy "Company users can read own access"
 on public.company_user_access for select
 using (user_id = auth.uid());
 
+drop policy if exists "Public can read open jobs from published companies" on public.jobs;
 drop policy if exists "Public can read open jobs from published companies" on public.jobs;
 create policy "Public can read open jobs from published companies"
 on public.jobs for select
@@ -387,16 +396,19 @@ using (
 );
 
 drop policy if exists "People Jobs admins can manage all jobs" on public.jobs;
+drop policy if exists "People Jobs admins can manage all jobs" on public.jobs;
 create policy "People Jobs admins can manage all jobs"
 on public.jobs for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
 drop policy if exists "Company users can read own jobs" on public.jobs;
+drop policy if exists "Company users can read own jobs" on public.jobs;
 create policy "Company users can read own jobs"
 on public.jobs for select
 using (public.has_company_access(company_id));
 
+drop policy if exists "Company users can manage own jobs when allowed" on public.jobs;
 drop policy if exists "Company users can manage own jobs when allowed" on public.jobs;
 create policy "Company users can manage own jobs when allowed"
 on public.jobs for all
@@ -420,6 +432,7 @@ with check (
 );
 
 drop policy if exists "Public can insert applications" on public.applications;
+drop policy if exists "Public can insert applications" on public.applications;
 create policy "Public can insert applications"
 on public.applications for insert
 with check (
@@ -434,16 +447,19 @@ with check (
 );
 
 drop policy if exists "People Jobs admins can read all applications" on public.applications;
+drop policy if exists "People Jobs admins can read all applications" on public.applications;
 create policy "People Jobs admins can read all applications"
 on public.applications for select
 using (public.is_redde_admin());
 
+drop policy if exists "People Jobs admins can update all applications" on public.applications;
 drop policy if exists "People Jobs admins can update all applications" on public.applications;
 create policy "People Jobs admins can update all applications"
 on public.applications for update
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "Company users can read own applications" on public.applications;
 drop policy if exists "Company users can read own applications" on public.applications;
 create policy "Company users can read own applications"
 on public.applications for select
@@ -458,6 +474,7 @@ using (
   )
 );
 
+drop policy if exists "Company users can update own applications" on public.applications;
 drop policy if exists "Company users can update own applications" on public.applications;
 create policy "Company users can update own applications"
 on public.applications for update
@@ -474,11 +491,13 @@ using (
 with check (public.has_company_access(company_id));
 
 drop policy if exists "People Jobs admins can manage application notes" on public.application_notes;
+drop policy if exists "People Jobs admins can manage application notes" on public.application_notes;
 create policy "People Jobs admins can manage application notes"
 on public.application_notes for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "Company users can read notes for own applications" on public.application_notes;
 drop policy if exists "Company users can read notes for own applications" on public.application_notes;
 create policy "Company users can read notes for own applications"
 on public.application_notes for select
@@ -492,6 +511,7 @@ using (
 );
 
 drop policy if exists "Company users can insert notes for own applications" on public.application_notes;
+drop policy if exists "Company users can insert notes for own applications" on public.application_notes;
 create policy "Company users can insert notes for own applications"
 on public.application_notes for insert
 with check (
@@ -504,10 +524,12 @@ with check (
 );
 
 drop policy if exists "Public can read active site contents" on public.site_contents;
+drop policy if exists "Public can read active site contents" on public.site_contents;
 create policy "Public can read active site contents"
 on public.site_contents for select
 using (is_active = true);
 
+drop policy if exists "People Jobs admins can manage site contents" on public.site_contents;
 drop policy if exists "People Jobs admins can manage site contents" on public.site_contents;
 create policy "People Jobs admins can manage site contents"
 on public.site_contents for all
@@ -515,10 +537,12 @@ using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
 drop policy if exists "People Jobs admins can read audit logs" on public.audit_logs;
+drop policy if exists "People Jobs admins can read audit logs" on public.audit_logs;
 create policy "People Jobs admins can read audit logs"
 on public.audit_logs for select
 using (public.is_redde_admin());
 
+drop policy if exists "People Jobs admins can insert audit logs" on public.audit_logs;
 drop policy if exists "People Jobs admins can insert audit logs" on public.audit_logs;
 create policy "People Jobs admins can insert audit logs"
 on public.audit_logs for insert
@@ -531,16 +555,19 @@ values
 on conflict (id) do update set public = excluded.public;
 
 drop policy if exists "Company assets are public" on storage.objects;
+drop policy if exists "Company assets are public" on storage.objects;
 create policy "Company assets are public"
 on storage.objects for select
 using (bucket_id = 'company-assets');
 
+drop policy if exists "People Jobs admins can manage company assets" on storage.objects;
 drop policy if exists "People Jobs admins can manage company assets" on storage.objects;
 create policy "People Jobs admins can manage company assets"
 on storage.objects for all
 using (bucket_id = 'company-assets' and public.is_redde_admin())
 with check (bucket_id = 'company-assets' and public.is_redde_admin());
 
+drop policy if exists "Company users can manage own company assets" on storage.objects;
 drop policy if exists "Company users can manage own company assets" on storage.objects;
 create policy "Company users can manage own company assets"
 on storage.objects for all
@@ -578,10 +605,12 @@ with check (
 );
 
 drop policy if exists "Public can upload resumes" on storage.objects;
+drop policy if exists "Public can upload resumes" on storage.objects;
 create policy "Public can upload resumes"
 on storage.objects for insert
 with check (bucket_id = 'resumes');
 
+drop policy if exists "Authorized users can read resumes" on storage.objects;
 drop policy if exists "Authorized users can read resumes" on storage.objects;
 create policy "Authorized users can read resumes"
 on storage.objects for select

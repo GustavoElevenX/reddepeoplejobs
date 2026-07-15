@@ -24,6 +24,7 @@ alter table public.companies
 alter table public.jobs
   drop constraint if exists jobs_salary_range_check;
 
+alter table public.jobs drop constraint if exists jobs_salary_range_check;
 alter table public.jobs
   add constraint jobs_salary_range_check
   check (salary_min is null or salary_max is null or salary_min <= salary_max);
@@ -93,11 +94,13 @@ for each row execute function public.set_updated_at();
 
 alter table public.job_distribution_channels enable row level security;
 
+drop policy if exists "People Jobs admins can manage job distribution" on public.job_distribution_channels;
 create policy "People Jobs admins can manage job distribution"
 on public.job_distribution_channels for all
 using (public.is_redde_admin())
 with check (public.is_redde_admin());
 
+drop policy if exists "Company users can read own job distribution" on public.job_distribution_channels;
 create policy "Company users can read own job distribution"
 on public.job_distribution_channels for select
 using (
@@ -109,6 +112,7 @@ using (
   )
 );
 
+drop policy if exists "Company users can manage own job distribution" on public.job_distribution_channels;
 create policy "Company users can manage own job distribution"
 on public.job_distribution_channels for all
 using (

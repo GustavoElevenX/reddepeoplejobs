@@ -237,6 +237,7 @@ execute function public.cascade_job_scope();
 alter table public.franchises enable row level security;
 
 drop policy if exists "Public can read published companies" on public.companies;
+drop policy if exists "Public can read published companies" on public.companies;
 create policy "Public can read published companies"
 on public.companies for select
 using (
@@ -249,6 +250,7 @@ using (
   )
 );
 
+drop policy if exists "Public can read open jobs from published companies" on public.jobs;
 drop policy if exists "Public can read open jobs from published companies" on public.jobs;
 create policy "Public can read open jobs from published companies"
 on public.jobs for select
@@ -264,6 +266,7 @@ using (
   )
 );
 
+drop policy if exists "Public can insert applications" on public.applications;
 drop policy if exists "Public can insert applications" on public.applications;
 create policy "Public can insert applications"
 on public.applications for insert
@@ -282,6 +285,7 @@ with check (
   )
 );
 
+drop policy if exists "Company admins can update their own company when allowed" on public.companies;
 drop policy if exists "Company admins can update their own company when allowed" on public.companies;
 create policy "Company admins can update their own company when allowed"
 on public.companies for update
@@ -310,6 +314,7 @@ with check (
   )
 );
 
+drop policy if exists "Company users can manage own company assets" on storage.objects;
 drop policy if exists "Company users can manage own company assets" on storage.objects;
 create policy "Company users can manage own company assets"
 on storage.objects for all
@@ -344,34 +349,41 @@ with check (
   )
 );
 
+drop policy if exists "Admin master can manage franchises" on public.franchises;
 create policy "Admin master can manage franchises"
 on public.franchises for all
 using (public.is_admin_master())
 with check (public.is_admin_master());
 
+drop policy if exists "Franchisees can read own franchise" on public.franchises;
 create policy "Franchisees can read own franchise"
 on public.franchises for select
 using (id = public.current_user_franchise_id());
 
+drop policy if exists "Franchisees can manage own companies" on public.companies;
 create policy "Franchisees can manage own companies"
 on public.companies for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Franchisees can manage own jobs" on public.jobs;
 create policy "Franchisees can manage own jobs"
 on public.jobs for all
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Franchisees can read own applications" on public.applications;
 create policy "Franchisees can read own applications"
 on public.applications for select
 using (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Franchisees can update own applications" on public.applications;
 create policy "Franchisees can update own applications"
 on public.applications for update
 using (franchise_id = public.current_user_franchise_id())
 with check (franchise_id = public.current_user_franchise_id());
 
+drop policy if exists "Franchisees can read own distribution" on public.job_distribution_channels;
 create policy "Franchisees can read own distribution"
 on public.job_distribution_channels for select
 using (
@@ -383,6 +395,7 @@ using (
   )
 );
 
+drop policy if exists "Franchisees can manage own distribution" on public.job_distribution_channels;
 create policy "Franchisees can manage own distribution"
 on public.job_distribution_channels for all
 using (
@@ -402,6 +415,7 @@ with check (
   )
 );
 
+drop policy if exists "Franchisees can manage own company assets" on storage.objects;
 create policy "Franchisees can manage own company assets"
 on storage.objects for all
 using (
