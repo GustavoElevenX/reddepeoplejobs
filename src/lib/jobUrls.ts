@@ -1,4 +1,18 @@
-export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? 'https://recruitfy.com.br').replace(/\/+$/, '');
+export function normalizeSiteUrl(value?: string) {
+  const fallback = 'https://recruitfy.com.br';
+  const raw = (value ?? fallback).trim().replace(/\/+$/, '');
+  const repaired = raw
+    .replace(/^https\/\//i, 'https://')
+    .replace(/^http\/\//i, 'http://');
+
+  try {
+    return new URL(repaired.includes('://') ? repaired : `https://${repaired}`).origin;
+  } catch {
+    return fallback;
+  }
+}
+
+export const SITE_URL = normalizeSiteUrl(import.meta.env.VITE_SITE_URL);
 
 export function getJobPath(companySlug: string, jobSlug: string) {
   return `/empresa/${encodeURIComponent(companySlug)}/vagas/${encodeURIComponent(jobSlug)}`;

@@ -44,7 +44,7 @@ export function PublicBriefing() {
   }, [token]);
 
   if (loading) return <LoadingState label="Carregando briefing..." />;
-  if (!token || !briefing || !form) return <EmptyState title="Link de briefing inválido ou expirado." />;
+  if (!token || !briefing || !form) return <EmptyState title="Endereço do levantamento da vaga inválido ou expirado." />;
 
   const update = (key: keyof BriefingPayload, value: string) => setForm({ ...form, [key]: value });
 
@@ -64,12 +64,12 @@ export function PublicBriefing() {
       <div className="container-page">
         <Card className="p-6">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-redde-700">Recruitify</p>
-          <h1 className="mt-2 text-3xl font-black text-ink-900">Briefing da vaga</h1>
+          <h1 className="mt-2 text-3xl font-black text-ink-900">Levantamento da vaga</h1>
           <p className="mt-2 text-ink-500">Preencha ou revise os dados para a equipe gerar a descrição da vaga.</p>
 
           {saved ? (
             <div className="mt-5 rounded-lg bg-redde-50 px-4 py-3 text-sm font-semibold text-redde-700">
-              Briefing salvo com sucesso.
+              Levantamento salvo com sucesso.
             </div>
           ) : null}
           {error ? <div className="mt-5 rounded-lg bg-redde-50 px-4 py-3 text-sm font-semibold text-redde-700">{error}</div> : null}
@@ -115,7 +115,7 @@ export function PublicBriefing() {
                   { label: 'PJ', value: 'pj' },
                   { label: 'Estágio', value: 'estagio' },
                   { label: 'Temporário', value: 'temporario' },
-                  { label: 'Freelancer', value: 'freelancer' },
+                  { label: 'Autônomo', value: 'freelancer' },
                   { label: 'Outro', value: 'outro' },
                 ]}
               />
@@ -160,7 +160,7 @@ export function PublicBriefing() {
               </Button>
               <Button type="button" onClick={() => submit(true)}>
                 <CheckCircle2 size={18} />
-                Enviar briefing
+                Enviar levantamento
               </Button>
             </div>
           </form>

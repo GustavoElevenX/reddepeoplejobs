@@ -34,15 +34,15 @@ export function Sidebar({ profile }: SidebarProps) {
       ]
     : franchisee
       ? [
-          { label: 'Dashboard', to: '/admin/franqueado', icon: LayoutDashboard },
-          { label: 'CRM de vendas', to: '/admin/franqueado/crm', icon: Workflow },
+          { label: 'Painel', to: '/admin/franqueado', icon: LayoutDashboard },
+          { label: 'Gestão de vendas', to: '/admin/franqueado/crm', icon: Workflow },
           { label: 'Clientes', to: '/admin/franqueado/clientes', icon: Building2 },
           { label: 'Projetos', to: '/admin/franqueado/projetos', icon: Network },
           { label: 'Processos seletivos', to: '/franqueado/processos', icon: Workflow },
           { label: 'Vagas', to: '/admin/franqueado/vagas', icon: FileText },
           { label: 'Candidatos', to: '/admin/franqueado/candidatos', icon: UsersRound },
           { label: 'Agenda', to: '/admin/franqueado/agenda', icon: CalendarDays },
-          { label: 'Chat', to: '/admin/franqueado/chat', icon: MessageSquareText },
+          { label: 'Conversas', to: '/admin/franqueado/chat', icon: MessageSquareText },
           { label: 'Contratos', to: '/admin/franqueado/contratos', icon: FileText },
           { label: 'Financeiro', to: '/admin/franqueado/financeiro', icon: BadgeDollarSign },
           { label: 'Notas fiscais', to: '/admin/franqueado/notas-fiscais', icon: ReceiptText },

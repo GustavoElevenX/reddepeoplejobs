@@ -304,7 +304,7 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
             { label: 'PJ', value: 'pj' },
             { label: 'Estágio', value: 'estagio' },
             { label: 'Temporário', value: 'temporario' },
-            { label: 'Freelancer', value: 'freelancer' },
+            { label: 'Autônomo', value: 'freelancer' },
             { label: 'Outro', value: 'outro' },
           ]}
         />
@@ -434,7 +434,7 @@ export function JobForm({ job, companies, fixedCompanyId, onSubmit, submitLabel 
 
         <div className="grid gap-4 md:grid-cols-2">
           <Input
-            label="Link externo de candidatura"
+            label="Endereço externo de candidatura"
             placeholder="https://..."
             {...register('external_apply_url')}
             error={errors.external_apply_url?.message}

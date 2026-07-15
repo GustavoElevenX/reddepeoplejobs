@@ -9,7 +9,7 @@ export type ProcessTab =
 
 export const processTabs: { id: ProcessTab; label: string }[] = [
   { id: 'requisicao', label: 'Requisição' },
-  { id: 'hunting', label: 'Hunting' },
+  { id: 'hunting', label: 'Busca ativa' },
   { id: 'triagem', label: 'Triagem' },
   { id: 'selecao', label: 'Seleção' },
   { id: 'desclassificados', label: 'Desclassificados' },

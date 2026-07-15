@@ -16,7 +16,7 @@ import {
   listApplicationStageHistory,
   updateApplicationDetails,
 } from '../../lib/data';
-import { applicationStageLabels, formatDate } from '../../lib/formatters';
+import { applicationStageLabels, formatDate, formatOperationalValue } from '../../lib/formatters';
 import { createResumeSignedUrl } from '../../lib/storage';
 import {
   assignTestsToApplication,
@@ -414,11 +414,11 @@ export function CandidateProfileDrawer({
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-surface-200 p-4">
                   <p className="text-xs font-black uppercase tracking-wide text-ink-500">Status do parecer</p>
-                  <p className="mt-2 font-black text-ink-900">{workspace?.finalist?.ai_report_status ?? 'Pendente'}</p>
+                  <p className="mt-2 font-black text-ink-900">{formatOperationalValue(workspace?.finalist?.ai_report_status, 'Pendente')}</p>
                 </div>
                 <div className="rounded-xl border border-surface-200 p-4">
                   <p className="text-xs font-black uppercase tracking-wide text-ink-500">Seleção</p>
-                  <p className="mt-2 font-black text-ink-900">{workspace?.finalist?.status ?? 'Ainda não selecionado'}</p>
+                  <p className="mt-2 font-black text-ink-900">{formatOperationalValue(workspace?.finalist?.status, 'Ainda não selecionado')}</p>
                 </div>
               </div>
             </div>
@@ -438,7 +438,7 @@ export function CandidateProfileDrawer({
               <div className="flex items-center justify-between gap-3"><h3 className="font-black text-ink-900">Entrevista interna</h3>{canManage && !workspace?.interview ? <Button size="sm" variant="secondary" disabled={workspaceSaving} onClick={() => void runWorkspaceMutation(() => getOrCreateInternalInterview(application.id))}>Iniciar registro</Button> : null}</div>
               {workspace?.interview ? <>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div><p className="text-xs font-black uppercase text-ink-500">Status</p><p className="mt-1 font-bold">{workspace.interview.status}</p></div>
+                  <div><p className="text-xs font-black uppercase text-ink-500">Situação</p><p className="mt-1 font-bold">{formatOperationalValue(workspace.interview.status)}</p></div>
                   <div><p className="text-xs font-black uppercase text-ink-500">Agendamento</p><p className="mt-1 font-bold">{formatDateTime(workspace.interview.scheduled_at)}</p></div>
                 </div>
                 {canManage ? <>
@@ -472,7 +472,7 @@ export function CandidateProfileDrawer({
               </Button>
               <section className="rounded-xl border border-surface-200 p-4">
                 <h3 className="font-black text-ink-900">Análise do currículo</h3>
-                <p className="mt-1 text-sm text-ink-600">Status: {application.resume_analysis_status}{application.resume_analysis_waived_at ? ' · dispensada com justificativa' : ''}</p>
+                <p className="mt-1 text-sm text-ink-600">Situação: {formatOperationalValue(application.resume_analysis_status)}{application.resume_analysis_waived_at ? ' · dispensada com justificativa' : ''}</p>
                 {application.resume_analysis_waiver_reason ? <p className="mt-2 text-sm text-ink-700">{application.resume_analysis_waiver_reason}</p> : null}
                 {canManage && application.resume_analysis_status !== 'completed' && !application.resume_analysis_waived_at ? <div className="mt-3 grid gap-3"><Textarea label="Justificativa da dispensa" value={waiverReason} onChange={(event) => setWaiverReason(event.target.value)} /><Button size="sm" variant="secondary" disabled={workspaceSaving || !waiverReason.trim()} onClick={() => void runWorkspaceMutation(() => waiveResumeAnalysis(application.id, waiverReason))}>Dispensar análise</Button></div> : null}
               </section>
@@ -491,7 +491,7 @@ export function CandidateProfileDrawer({
                 <Textarea label="Observações da triagem" value={workspace.screening.recruiter_notes} onChange={(event) => updateScreeningField('recruiter_notes', event.target.value)} />
                 <Textarea label="Motivo da reprovação" value={workspace.screening.rejection_reason ?? ''} onChange={(event) => updateScreeningField('rejection_reason', event.target.value || null)} />
                 <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={workspaceSaving} onClick={() => void runWorkspaceMutation(() => completeCandidateScreening({ ...workspace.screening!, status: 'draft' }))}>Salvar rascunho</Button><Button disabled={workspaceSaving || !workspace.screening.mandatory_requirements_confirmed} onClick={() => void runWorkspaceMutation(() => completeCandidateScreening({ ...workspace.screening!, status: 'completed' }))}>Concluir e aprovar</Button><Button variant="danger" disabled={workspaceSaving || !workspace.screening.rejection_reason?.trim()} onClick={() => void runWorkspaceMutation(() => completeCandidateScreening({ ...workspace.screening!, status: 'rejected' }))}>Reprovar</Button></div>
-              </> : <dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-xs font-black uppercase text-ink-500">Status</dt><dd className="mt-1 font-bold">{workspace.screening.status}</dd></div><div><dt className="text-xs font-black uppercase text-ink-500">Requisitos</dt><dd className="mt-1 font-bold">{workspace.screening.mandatory_requirements_confirmed ? 'Confirmados' : 'Pendentes'}</dd></div></dl> : <EmptyInfo>Triagem manual ainda não iniciada.</EmptyInfo>}
+              </> : <dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-xs font-black uppercase text-ink-500">Situação</dt><dd className="mt-1 font-bold">{formatOperationalValue(workspace.screening.status)}</dd></div><div><dt className="text-xs font-black uppercase text-ink-500">Requisitos</dt><dd className="mt-1 font-bold">{workspace.screening.mandatory_requirements_confirmed ? 'Confirmados' : 'Pendentes'}</dd></div></dl> : <EmptyInfo>Triagem manual ainda não iniciada.</EmptyInfo>}
             </section>
           ) : null}
 

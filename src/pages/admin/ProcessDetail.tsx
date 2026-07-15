@@ -77,6 +77,7 @@ import {
   contractTypeLabels,
   formatDate,
   formatJobSalary,
+  formatOperationalValue,
   modalityLabels,
 } from '../../lib/formatters';
 import { useAdminProfile } from '../../routes/ProtectedRoute';
@@ -491,7 +492,7 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
                 size="sm"
                 onClick={async () => {
                   await navigator.clipboard.writeText(window.location.href);
-                  window.alert('Link do processo copiado.');
+                  window.alert('Endereço do processo copiado.');
                 }}
               >
                 <Share2 size={16} />
@@ -567,7 +568,7 @@ export function ProcessDetail({ scope }: ProcessDetailProps) {
               </dl>
             </RequirementSection>
             <RequirementSection title="Projeto operacional">
-              {projectLink ? <div><p className="font-black text-ink-900">{projectLink.title}</p><p className="mt-1 text-ink-500">Projeto vinculado a este processo · etapa {projectLink.stage}</p></div> : availableProjects.length && canManage ? <div className="grid gap-3"><p>Nenhum projeto está vinculado. Selecione um projeto do mesmo cliente:</p><div className="flex flex-col gap-2 sm:flex-row"><select className="min-h-11 flex-1 rounded-xl border border-surface-200 bg-white px-3" value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>{availableProjects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select><Button onClick={() => void handleProjectLink()}>Vincular projeto</Button></div></div> : <p>{canManage ? 'Não existe projeto disponível para este cliente.' : 'Nenhum projeto operacional vinculado.'}</p>}
+              {projectLink ? <div><p className="font-black text-ink-900">{projectLink.title}</p><p className="mt-1 text-ink-500">Projeto vinculado a este processo · etapa {formatOperationalValue(projectLink.stage)}</p></div> : availableProjects.length && canManage ? <div className="grid gap-3"><p>Nenhum projeto está vinculado. Selecione um projeto do mesmo cliente:</p><div className="flex flex-col gap-2 sm:flex-row"><select className="min-h-11 flex-1 rounded-xl border border-surface-200 bg-white px-3" value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>{availableProjects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}</select><Button onClick={() => void handleProjectLink()}>Vincular projeto</Button></div></div> : <p>{canManage ? 'Não existe projeto disponível para este cliente.' : 'Nenhum projeto operacional vinculado.'}</p>}
             </RequirementSection>
             <RequirementSection title="Responsáveis" onEdit={canManage ? () => setEditOpen(true) : undefined}>
               <p>{job.responsible_name ?? 'Responsável ainda não definido.'}</p>

@@ -112,7 +112,7 @@ export function Jobs() {
               { label: 'PJ', value: 'pj' },
               { label: 'Estágio', value: 'estagio' },
               { label: 'Temporário', value: 'temporario' },
-              { label: 'Freelancer', value: 'freelancer' },
+              { label: 'Autônomo', value: 'freelancer' },
             ]}
           />
         </div>

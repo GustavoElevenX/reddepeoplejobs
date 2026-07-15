@@ -10,8 +10,8 @@ import { Textarea } from '../../ui/Textarea';
 
 type Props = { jobId: string; franchiseId: string | null; canManage: boolean };
 const typeOptions: { label: string; value: JobTestType }[] = [
-  { label: 'Manual', value: 'manual' }, { label: 'Link externo', value: 'external_link' },
-  { label: 'Formulário', value: 'form' }, { label: 'Upload de arquivo', value: 'file_upload' },
+  { label: 'Manual', value: 'manual' }, { label: 'Endereço externo', value: 'external_link' },
+  { label: 'Formulário', value: 'form' }, { label: 'Envio de arquivo', value: 'file_upload' },
   { label: 'Somente nota', value: 'score_only' },
 ];
 const emptyForm = { id: '', name: '', type: 'manual' as JobTestType, passingScore: '', required: true, description: '', instructions: '', externalUrl: '' };

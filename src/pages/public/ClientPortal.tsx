@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
 import { Modal } from '../../components/ui/Modal';
+import { formatOperationalValue } from '../../lib/formatters';
 import {
   finalizeHiringDecisions,
   getClientPortal,
@@ -60,7 +61,7 @@ export function ClientPortal() {
   }
 
   if (loading) return <LoadingState label="Carregando portal do cliente..." />;
-  if (!data) return <EmptyState title="Portal não encontrado ou link inválido." />;
+  if (!data) return <EmptyState title="Portal não encontrado ou endereço inválido." />;
 
   const selected = data.finalists.find((item) => item.id === selectedFinalist) ?? null;
   const decisionSelected = data.finalists.find((item) => item.id === decisionFinalist) ?? null;
@@ -95,7 +96,7 @@ export function ClientPortal() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-xl font-black text-ink-900">{application?.candidate_name ?? 'Candidato'}</h2>
-                        <Badge>{finalist.status}</Badge>
+                        <Badge>{formatOperationalValue(finalist.status)}</Badge>
                       </div>
                       <p className="mt-4 whitespace-pre-line text-sm leading-6 text-ink-700">{finalist.ai_report}</p>
                       {schedule ? (
@@ -103,7 +104,7 @@ export function ClientPortal() {
                           Entrevista: {schedule.date} às {schedule.time} · {schedule.candidate_confirmed_at ? 'presença confirmada' : 'aguardando confirmação'}
                         </p>
                       ) : null}
-                      {decision ? <p className="mt-2 text-sm font-semibold text-ink-700">Decisão: {decision.decision}</p> : null}
+                      {decision ? <p className="mt-2 text-sm font-semibold text-ink-700">Decisão: {formatOperationalValue(decision.decision)}</p> : null}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button variant="secondary" disabled={finalized} onClick={() => setSelectedFinalist(finalist.id)}>
@@ -129,7 +130,7 @@ export function ClientPortal() {
           <div className="mt-4 grid gap-2">{data.finalists.map((finalist) => {
             const application = data.applications.find((item) => item.id === finalist.application_id);
             const decision = decisionsByFinalist.get(finalist.id);
-            return <div key={finalist.id} className="flex justify-between rounded-lg bg-surface-50 p-3 text-sm"><span>{application?.candidate_name ?? 'Candidato'}</span><strong>{decision?.decision ?? 'pendente'}</strong></div>;
+            return <div key={finalist.id} className="flex justify-between rounded-lg bg-surface-50 p-3 text-sm"><span>{application?.candidate_name ?? 'Candidato'}</span><strong>{formatOperationalValue(decision?.decision, 'Pendente')}</strong></div>;
           })}</div>
           <Button className="mt-4 w-full" disabled={!canFinalize || finalized} onClick={() => setConfirmFinalize(true)}>
             <CheckCircle2 size={18}/>{finalized ? 'Decisão conjunta finalizada' : 'Finalizar decisão dos candidatos'}
@@ -180,7 +181,7 @@ export function ClientPortal() {
           <ScheduleForm
             portalToken={token!}
             finalist={selected}
-            onSubmit={(fn) => action(fn, 'Entrevista agendada. O candidato já pode confirmar presença pelo link gerado.')}
+            onSubmit={(fn) => action(fn, 'Entrevista agendada. O candidato já pode confirmar presença pelo endereço gerado.')}
           />
         ) : null}
         {decisionSelected ? (
@@ -193,7 +194,7 @@ export function ClientPortal() {
         <Modal open={confirmFinalize} onClose={() => setConfirmFinalize(false)} title="Finalizar decisão dos candidatos" description="Esta ação encerra a etapa de decisão do cliente.">
           <div className="grid gap-3">{data.decisions.map((decision) => {
             const application = data.applications.find((item) => item.id === decision.application_id);
-            return <div key={decision.id} className="rounded-lg border p-3"><p className="font-bold">{application?.candidate_name} · {decision.decision}</p>{decision.decision === 'approved' ? <p className="text-sm text-ink-500">Início: {decision.start_date} · Responsável: {decision.internal_responsible_name}</p> : null}</div>;
+            return <div key={decision.id} className="rounded-lg border p-3"><p className="font-bold">{application?.candidate_name} · {formatOperationalValue(decision.decision)}</p>{decision.decision === 'approved' ? <p className="text-sm text-ink-500">Início: {decision.start_date} · Responsável: {decision.internal_responsible_name}</p> : null}</div>;
           })}<Button onClick={() => { setConfirmFinalize(false); void action(() => finalizeHiringDecisions(token!), 'Decisões finalizadas em conjunto.'); }}>Confirmar finalização</Button></div>
         </Modal>
       </div>
@@ -242,13 +243,13 @@ function ScheduleForm({
             name="format"
             label="Formato"
             options={[
-              { label: 'Online', value: 'online' },
+              { label: 'Virtual', value: 'online' },
               { label: 'Presencial', value: 'presencial' },
               { label: 'Telefone', value: 'telefone' },
             ]}
           />
         </div>
-        <Input name="location" label="Local ou link da reunião" required />
+        <Input name="location" label="Local ou endereço da reunião" required />
         <Textarea name="notes" label="Observações" rows={3} />
         <Button type="submit">
           <CalendarPlus size={18} />

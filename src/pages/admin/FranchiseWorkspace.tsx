@@ -84,7 +84,8 @@ import {
   type SalesStage,
 } from '../../lib/franchiseOps';
 import { getPersistedApplicationRanking } from '../../lib/ranking';
-import { getJobUrl } from '../../lib/jobUrls';
+import { getJobPath } from '../../lib/jobUrls';
+import { applicationStatusLabels, formatOperationalValue, jobStatusLabels } from '../../lib/formatters';
 import { createFranchiseFileSignedUrl, uploadFranchiseFile } from '../../lib/storage';
 import { useAdminProfile } from '../../routes/ProtectedRoute';
 
@@ -106,14 +107,14 @@ type ModuleKey =
   | 'configuracoes';
 
 const moduleTitles: Record<ModuleKey, string> = {
-  dashboard: 'Dashboard',
-  crm: 'CRM de vendas',
+  dashboard: 'Painel',
+  crm: 'Gestão de vendas',
   clientes: 'Clientes',
   projetos: 'Projetos',
   vagas: 'Vagas',
   candidatos: 'Candidatos',
   agenda: 'Agenda',
-  chat: 'Chat',
+  chat: 'Conversas',
   contratos: 'Contratos',
   financeiro: 'Financeiro',
   'notas-fiscais': 'Notas fiscais',
@@ -258,7 +259,7 @@ function money(value: number | null | undefined) {
 }
 
 function publicUrl(path: string) {
-  return `${window.location.origin}${path}`;
+  return new URL(path, window.location.origin).toString();
 }
 
 function copyText(value: string) {
@@ -354,7 +355,7 @@ function LeadModal({
             {...field(form, 'payment_terms', setForm)}
           />
           <Select
-            label="Status do contrato"
+            label="Situação do contrato"
             options={[
               { label: 'Não gerado', value: 'not_generated' },
               { label: 'Gerado', value: 'generated' },
@@ -374,8 +375,8 @@ function LeadModal({
             ]}
             {...field(form, 'initial_payment_status', setForm)}
           />
-          <Input label="Link do contrato assinado" {...field(form, 'signed_contract_url', setForm)} />
-          <Input label="Link de pagamento" {...field(form, 'payment_link', setForm)} />
+          <Input label="Endereço do contrato assinado" {...field(form, 'signed_contract_url', setForm)} />
+          <Input label="Endereço de pagamento" {...field(form, 'payment_link', setForm)} />
           <Input label="Próximo follow-up" type="date" {...field(form, 'next_follow_up', setForm)} />
         </div>
         <Textarea label="Necessidade da empresa" rows={3} {...field(form, 'need', setForm)} />
@@ -461,7 +462,7 @@ function FormalizationModal({
             ]}
           />
           <Select
-            label="Status do contrato"
+            label="Situação do contrato"
             value={form.contract_status ?? 'not_generated'}
             onChange={(event) => update('contract_status', event.target.value)}
             options={[
@@ -473,7 +474,7 @@ function FormalizationModal({
             ]}
           />
           <Select
-            label="Status da entrada"
+            label="Situação da entrada"
             value={form.initial_payment_status ?? 'pending'}
             onChange={(event) => update('initial_payment_status', event.target.value)}
             options={[
@@ -484,7 +485,7 @@ function FormalizationModal({
             ]}
           />
           <Input label="Contrato assinado (link/anexo)" value={form.signed_contract_url ?? ''} onChange={(event) => update('signed_contract_url', event.target.value)} />
-          <Input label="Link de pagamento" value={form.payment_link ?? ''} onChange={(event) => update('payment_link', event.target.value)} />
+          <Input label="Endereço de pagamento" value={form.payment_link ?? ''} onChange={(event) => update('payment_link', event.target.value)} />
         </div>
         <Textarea label="Observações comerciais" rows={3} value={form.notes ?? ''} onChange={(event) => update('notes', event.target.value)} />
         {formalizationMissing.length ? (
@@ -520,7 +521,7 @@ function BriefingModal({
   const update = (key: keyof BriefingPayload, value: string) => setForm({ ...form, [key]: value });
 
   return (
-    <Modal open={open} title="Briefing da vaga" description="Dados nativos da plataforma, preenchidos pelo franqueado ou cliente." onClose={onClose}>
+    <Modal open={open} title="Levantamento da vaga" description="Dados nativos da plataforma, preenchidos pelo franqueado ou cliente." onClose={onClose}>
       <form
         className="grid gap-4"
         onSubmit={(event) => {
@@ -567,7 +568,7 @@ function BriefingModal({
               { label: 'PJ', value: 'pj' },
               { label: 'Estágio', value: 'estagio' },
               { label: 'Temporário', value: 'temporario' },
-              { label: 'Freelancer', value: 'freelancer' },
+              { label: 'Autônomo', value: 'freelancer' },
               { label: 'Outro', value: 'outro' },
             ]}
           />
@@ -817,7 +818,7 @@ export function FranchiseWorkspace() {
   const renderDashboard = () => (
     <div className="grid gap-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <AdminStatCard title="Leads em aberto" value={stats.openLeads} icon={UsersRound} />
+        <AdminStatCard title="Potenciais clientes em aberto" value={stats.openLeads} icon={UsersRound} />
         <AdminStatCard title="Oportunidades em negociação" value={stats.negotiation} icon={KanbanSquare} />
         <AdminStatCard title="Oportunidades ganhas no mês" value={stats.wonThisMonth} icon={CheckCircle2} />
         <AdminStatCard title="Projetos ativos" value={stats.activeProjects} icon={BriefcaseBusiness} />
@@ -848,7 +849,7 @@ export function FranchiseWorkspace() {
               >
                 <span className="text-sm font-semibold text-ink-700">{alert.title}</span>
                 <span className="flex items-center gap-2">
-                  <Badge>{alert.type}</Badge>
+                  <Badge>{formatOperationalValue(alert.type)}</Badge>
                   <ArrowRight size={15} className="text-redde-700" />
                 </span>
               </button>
@@ -887,7 +888,7 @@ export function FranchiseWorkspace() {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-surface-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-ink-500">Pipeline aberto</p>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-ink-500">Funil de vendas aberto</p>
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
                 <BadgeDollarSign size={18} />
               </span>
@@ -1108,19 +1109,19 @@ export function FranchiseWorkspace() {
                   </div>
                   <p className="mt-1 text-sm text-ink-500">{company?.name ?? 'Cliente'} · {project.next_step}</p>
                   <p className="mt-3 text-sm text-ink-500">
-                    Briefing: <strong>{briefing?.status ?? 'nao criado'}</strong> · Finalistas: <strong>{finalistCount}/3</strong>
+                    Levantamento da vaga: <strong>{formatOperationalValue(briefing?.status, 'não criado')}</strong> · Finalistas: <strong>{finalistCount}/3</strong>
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {briefing ? (
                     <Button variant="secondary" onClick={() => copyText(publicUrl(`/briefing/${briefing.secure_token}`))}>
                       <Copy size={16} />
-                      Link briefing
+                      Copiar endereço do levantamento
                     </Button>
                   ) : null}
                   <Button variant="secondary" onClick={() => setBriefingProjectId(project.id)}>
                     <FileCheck2 size={16} />
-                    Briefing
+                    Levantamento da vaga
                   </Button>
                   <Link to={`/admin/franqueado/projetos/${project.id}`}>
                     <Button variant="secondary">
@@ -1137,7 +1138,7 @@ export function FranchiseWorkspace() {
                     </Button>
                   ) : null}
                   {job?.company?.slug ? (
-                    <Link to={getJobUrl(job.company.slug, job.slug)}>
+                    <Link to={getJobPath(job.company.slug, job.slug)}>
                       <Button variant="ghost">Ver vaga</Button>
                     </Link>
                   ) : null}
@@ -1179,7 +1180,7 @@ export function FranchiseWorkspace() {
                     <Badge variant={ranking.score >= 75 ? 'success' : ranking.score >= 55 ? 'warning' : 'neutral'}>
                       {ranking.score}% aderência
                     </Badge>
-                    <Badge>{application.status}</Badge>
+                    <Badge>{applicationStatusLabels[application.status]}</Badge>
                   </div>
                   <p className="mt-1 text-sm text-ink-500">{job?.title ?? 'Vaga'} · {application.candidate_email} · {application.candidate_phone}</p>
                   <p className="mt-3 text-sm text-ink-700">{ranking.summary}</p>
@@ -1235,11 +1236,11 @@ export function FranchiseWorkspace() {
               <p className="mt-1 text-sm text-ink-500">{job.company?.name} · {job.city ?? 'Remoto/sem cidade'} · {money(job.billing_amount)}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Badge variant={job.status === 'open' ? 'success' : 'neutral'}>{job.status}</Badge>
+              <Badge variant={job.status === 'open' ? 'success' : 'neutral'}>{jobStatusLabels[job.status]}</Badge>
               {job.company?.slug ? (
-                <Button variant="secondary" onClick={() => copyText(publicUrl(getJobUrl(job.company!.slug, job.slug)))}>
+                <Button variant="secondary" onClick={() => copyText(publicUrl(getJobPath(job.company!.slug, job.slug)))}>
                   <Copy size={16} />
-                  Link público
+                  Copiar endereço público
                 </Button>
               ) : null}
             </div>
@@ -1271,12 +1272,12 @@ export function FranchiseWorkspace() {
                 <div key={item.id} className="grid gap-2 rounded-lg border border-surface-200 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <strong>{item.description}</strong>
-                    <Badge variant={statusBadge(item.status)}>{item.status}</Badge>
+                    <Badge variant={statusBadge(item.status)}>{formatOperationalValue(item.status)}</Badge>
                   </div>
                   <p className="text-sm text-ink-500">{money(item.total_amount)} · entrada e saldo controlados separadamente</p>
                   <div className="grid gap-2">{data.receivableInstallments.filter((installment) => installment.receivable_id === item.id).map((installment) => (
                     <div key={installment.id} className="rounded-lg bg-surface-50 p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold">{installment.description} · {money(installment.amount)}</p><p className="text-xs text-ink-500">{installment.status} · {installment.due_date ?? 'sem vencimento'} · {installment.release_trigger}</p></div>
+                      <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold">{installment.description} · {money(installment.amount)}</p><p className="text-xs text-ink-500">{formatOperationalValue(installment.status)} · {installment.due_date ?? 'sem vencimento'} · {formatOperationalValue(installment.release_trigger)}</p></div>
                         <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={installment.status === 'locked'} onClick={() => safeAction(() => updateReceivableInstallment(installment.id, { status: 'received' }))}>Recebida</Button><Button size="sm" variant="ghost" disabled={installment.status === 'locked'} onClick={() => safeAction(() => updateReceivableInstallment(installment.id, { status: 'overdue' }))}>Vencida</Button><Button size="sm" variant="ghost" onClick={() => { const amount = window.prompt('Novo valor da parcela', String(installment.amount)); const dueDate = window.prompt('Novo vencimento (AAAA-MM-DD)', installment.due_date ?? ''); if (amount !== null) void safeAction(() => updateReceivableInstallment(installment.id, { amount: Number(amount), due_date: dueDate || null })); }}>Editar</Button>
                           <label className="cursor-pointer rounded-lg border bg-white px-3 py-2 text-xs font-bold">Comprovante<input type="file" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void safeAction(async () => updateReceivableInstallment(installment.id, { receipt_url: await uploadFranchiseFile(file, profile.franchise_id!, 'receipts') })); }}/></label></div></div>
                     </div>
@@ -1321,7 +1322,7 @@ export function FranchiseWorkspace() {
             <div className="mt-4 grid gap-2">
               {data.accountsPayable.map((item) => (
                 <p key={item.id} className="rounded-lg bg-surface-50 p-3 text-sm">
-                  <strong>{item.description}</strong> · {money(item.amount)} · {item.status}
+                  <strong>{item.description}</strong> · {money(item.amount)} · {formatOperationalValue(item.status)}
                 </p>
               ))}
             </div>
@@ -1344,7 +1345,7 @@ export function FranchiseWorkspace() {
         })),
         ...data.schedules.map((item) => ({
           id: item.id,
-          title: `Entrevista com cliente (${item.format})`,
+          title: `Entrevista com cliente (${formatOperationalValue(item.format)})`,
           date: `${item.date} ${item.time}`,
           action: () => navigate('/admin/franqueado/projetos'),
           actionLabel: 'Ver projeto',
@@ -1435,12 +1436,12 @@ export function FranchiseWorkspace() {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-bold">{conversation.title}</p>
                   <Badge>{conversation.channel === 'whatsapp_ready' ? 'WhatsApp não configurado' : 'Interno'}</Badge>
-                  <Badge variant={conversation.status === 'closed' ? 'neutral' : 'warning'}>{conversation.status}</Badge>
+                  <Badge variant={conversation.status === 'closed' ? 'neutral' : 'warning'}>{formatOperationalValue(conversation.status)}</Badge>
                 </div>
                 {conversation.contact_phone ? <p className="mt-1 text-xs font-semibold text-ink-500">{conversation.contact_phone}</p> : null}
                 {data.messages
                   .filter((message) => message.conversation_id === conversation.id)
-                  .map((message) => <p key={message.id} className="mt-2 text-sm text-ink-500">{message.body} · {message.provider === 'manual_external' ? 'manual externo, entrega não confirmada' : message.delivery_status}</p>)}
+                  .map((message) => <p key={message.id} className="mt-2 text-sm text-ink-500">{message.body} · {message.provider === 'manual_external' ? 'manual externo, entrega não confirmada' : formatOperationalValue(message.delivery_status)}</p>)}
                 {conversation.contact_phone ? (
                   <Button
                     className="mt-3"
@@ -1477,7 +1478,7 @@ export function FranchiseWorkspace() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={statusBadge(contract.status)}>{contract.status}</Badge>
+                  <Badge variant={statusBadge(contract.status)}>{formatOperationalValue(contract.status)}</Badge>
                   {contract.signing_url ? <a href={contract.signing_url} target="_blank" rel="noreferrer"><Button size="sm" variant="secondary">Abrir assinatura</Button></a> : null}
                   {contract.contract_file_url ? <Button size="sm" variant="secondary" onClick={() => void openStoredFile(contract.contract_file_url!)}>Ver contrato</Button> : null}
                   {contract.signed_file_url ? <Button size="sm" variant="secondary" onClick={() => void openStoredFile(contract.signed_file_url!)}>Ver assinado</Button> : null}
@@ -1517,10 +1518,10 @@ export function FranchiseWorkspace() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <Input name="provider" label="Provedor" defaultValue={contract.provider ?? ''} placeholder="Clicksign, DocuSign, Autentique..." />
                     <Input name="provider_document_id" label="ID no provedor" defaultValue={contract.provider_document_id ?? ''} />
-                    <Input name="signing_url" label="Link para assinatura" defaultValue={contract.signing_url ?? ''} />
+                    <Input name="signing_url" label="Endereço para assinatura" defaultValue={contract.signing_url ?? ''} />
                     <Select
                       name="status"
-                      label="Status"
+                      label="Situação"
                       defaultValue={contract.status}
                       options={[
                         { label: 'Não gerado', value: 'not_generated' },
@@ -1597,7 +1598,7 @@ export function FranchiseWorkspace() {
                     <Input name="number" label="Número da NFS-e" defaultValue={invoice.number} />
                     <Select
                       name="status"
-                      label="Status"
+                      label="Situação"
                       defaultValue={invoice.status}
                       options={Object.entries(invoiceStatusLabels).map(([value, label]) => ({ value, label }))}
                     />
@@ -1648,7 +1649,7 @@ export function FranchiseWorkspace() {
           >
             <div className="grid gap-3 md:grid-cols-2">
               <Input label="Nome" value={documentName} onChange={(event) => setDocumentName(event.target.value)} required />
-              <Input label="Link externo (opcional)" value={documentUrl} onChange={(event) => setDocumentUrl(event.target.value)} placeholder="https://..." />
+              <Input label="Endereço externo (opcional)" value={documentUrl} onChange={(event) => setDocumentUrl(event.target.value)} placeholder="https://..." />
             </div>
             <label className="rounded-xl border border-dashed border-surface-200 bg-surface-50 p-4 text-sm font-semibold text-ink-700">
               <span className="flex items-center gap-2"><UploadCloud size={18} className="text-redde-700" />Selecionar arquivo de até 20MB</span>
@@ -1690,7 +1691,7 @@ export function FranchiseWorkspace() {
               <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
                 <div>
                   <p className="font-bold text-ink-900">{task.title}</p>
-                  <p className="text-sm text-ink-500">Vencimento {task.due_date} · risco {task.replacement_risk}</p>
+                  <p className="text-sm text-ink-500">Vencimento {task.due_date} · risco {formatOperationalValue(task.replacement_risk)}</p>
                 </div>
               </div>
               <details className="mt-3 rounded-lg border border-surface-200 bg-surface-50 p-3"><summary className="cursor-pointer text-sm font-bold text-redde-700">Registrar contato completo</summary>
@@ -1703,14 +1704,14 @@ export function FranchiseWorkspace() {
                   <div className="grid gap-3 md:grid-cols-2"><Input name="contact_date" label="Data do contato" type="datetime-local" required/><Input name="contacted_person" label="Pessoa contatada" required/>
                     <Select name="candidate_status" label="Situação do candidato" options={['','ativo','em_adaptacao','com_dificuldades','desligado','pediu_desligamento','nao_iniciou','sem_retorno'].map((value)=>({label:value||'Selecione',value}))} required/>
                     <Select name="client_satisfaction" label="Satisfação do cliente" options={['','muito_satisfeito','satisfeito','neutro','insatisfeito','muito_insatisfeito'].map((value)=>({label:value||'Selecione',value}))} required/>
-                    <Select name="replacement_risk" label="Risco de reposição" options={['baixo','medio','alto','reposicao_necessaria'].map((value)=>({label:value,value}))}/><Select name="status" label="Status da tarefa" options={[{label:'Concluída',value:'done'},{label:'Aberta',value:'open'},{label:'Adiada',value:'snoozed'}]}/></div>
+                    <Select name="replacement_risk" label="Risco de reposição" options={['baixo','medio','alto','reposicao_necessaria'].map((value)=>({label:formatOperationalValue(value),value}))}/><Select name="status" label="Situação da tarefa" options={[{label:'Concluída',value:'done'},{label:'Aberta',value:'open'},{label:'Adiada',value:'snoozed'}]}/></div>
                   <div className="flex flex-wrap gap-5 text-sm font-semibold"><label><input name="new_position_identified" type="checkbox"/> Nova vaga identificada</label><label><input name="referral_received" type="checkbox"/> Indicação recebida</label></div>
                   <div className="grid gap-3 md:grid-cols-2"><Input name="referral_name" label="Nome da indicação"/><Input name="referral_contact" label="Contato da indicação"/></div><Textarea name="notes" label="Observações" required/><div className="grid gap-3 md:grid-cols-2"><Input name="next_action" label="Próxima ação"/><Input name="next_action_date" label="Data da próxima ação" type="date"/></div><Button type="submit" size="sm">Salvar contato</Button>
                 </form>
               </details>
               {(task.new_position_identified || task.referral_received) ? <div className="mt-3 flex flex-wrap gap-2">
                 {task.new_position_identified ? <Button size="sm" onClick={() => { const project = data.projects.find((item) => item.id === task.project_id); const company = data.companies.find((item) => item.id === task.client_id); const opportunity = data.opportunities.find((item) => item.id === project?.opportunity_id); if (!company) return; void safeAction(() => createSalesOpportunity(profile.franchise_id!, { client_id: company.id, company_name: company.name, contact_name: opportunity?.contact_name ?? 'Contato do cliente', contact_phone: opportunity?.contact_phone ?? '', contact_email: opportunity?.contact_email ?? '', service_name: 'Nova vaga identificada no pós-venda', source: 'Pós-venda', stage: 'new_lead' })); }}>Criar oportunidade vinculada</Button> : null}
-                {task.referral_received ? <Button size="sm" variant="secondary" onClick={() => void safeAction(() => createSalesOpportunity(profile.franchise_id!, { company_name: task.referral_name || 'Indicação recebida', contact_name: task.referral_name || 'Contato indicado', contact_phone: task.referral_contact || '', contact_email: '', service_name: 'Contato indicado no pós-venda', source: 'Indicação', stage: 'new_lead' }))}>Criar lead da indicação</Button> : null}
+                {task.referral_received ? <Button size="sm" variant="secondary" onClick={() => void safeAction(() => createSalesOpportunity(profile.franchise_id!, { company_name: task.referral_name || 'Indicação recebida', contact_name: task.referral_name || 'Contato indicado', contact_phone: task.referral_contact || '', contact_email: '', service_name: 'Contato indicado no pós-venda', source: 'Indicação', stage: 'new_lead' }))}>Criar potencial cliente da indicação</Button> : null}
               </div> : null}
             </Card>
           ))}
@@ -1905,7 +1906,7 @@ export function FranchiseWorkspace() {
           </h1>
           <p className="mt-2 text-ink-500">
             {moduleKey === 'crm'
-              ? 'Visualize seu pipeline, priorize os próximos contatos e transforme oportunidades em projetos.'
+              ? 'Visualize seu funil de vendas, priorize os próximos contatos e transforme oportunidades em projetos.'
               : 'Operação comercial, recrutamento, cliente e financeiro em um só fluxo.'}
           </p>
         </div>
@@ -1961,7 +1962,7 @@ export function FranchiseWorkspace() {
         onClose={() => setBriefingProjectId(null)}
         onSave={(payload, approve) =>
           safeAction(() => {
-            if (!selectedBriefing) throw new Error('Briefing nao encontrado.');
+            if (!selectedBriefing) throw new Error('Levantamento da vaga não encontrado.');
             saveBriefing(selectedBriefing.id, payload, approve ? 'approved' : 'in_progress', 'franchise');
             setBriefingProjectId(null);
           })

@@ -189,7 +189,7 @@ export function CompanyForm({
         <Input label="Nome" {...register('name')} error={errors.name?.message} />
         <Input
           label="Endereço da página"
-          helperText="Esse texto será usado no link público. Exemplo: empresa-parceira"
+          helperText="Esse texto será usado no endereço público. Exemplo: empresa-parceira"
           {...register('slug')}
           error={errors.slug?.message}
         />
@@ -203,17 +203,17 @@ export function CompanyForm({
         <Input label="Instagram" {...register('instagram_url')} />
         <Input label="LinkedIn" {...register('linkedin_url')} />
         <Select
-          label="Status comercial"
+          label="Situação comercial"
           {...register('commercial_status')}
           options={[
-            { label: 'Lead', value: 'lead' },
+            { label: 'Potencial cliente', value: 'lead' },
             { label: 'Em negociação', value: 'negotiation' },
             { label: 'Cliente ativo', value: 'active_client' },
             { label: 'Cliente inativo', value: 'inactive_client' },
           ]}
         />
         <Select
-          label="Status da página"
+          label="Situação da página"
           {...register('page_status')}
           options={[
             { label: 'Rascunho', value: 'draft' },

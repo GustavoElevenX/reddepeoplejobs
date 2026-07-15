@@ -5,6 +5,7 @@ import { EmptyState } from '../../components/public/EmptyState';
 import { LoadingState } from '../../components/public/LoadingState';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { formatOperationalValue } from '../../lib/formatters';
 import { confirmCandidatePresence, getCandidateConfirmation } from '../../lib/franchiseOps';
 
 type ConfirmationData = Awaited<ReturnType<typeof getCandidateConfirmation>>;
@@ -58,8 +59,8 @@ export function CandidateConfirmation() {
             <strong>{data.schedule.date}</strong> às <strong>{data.schedule.time}</strong>.
           </p>
           <div className="mt-5 rounded-lg border border-surface-200 bg-surface-50 p-4 text-sm text-ink-700">
-            <p><strong>Formato:</strong> {data.schedule.format}</p>
-            <p className="mt-2"><strong>Local/link:</strong> {data.schedule.location_or_link}</p>
+            <p><strong>Formato:</strong> {formatOperationalValue(data.schedule.format)}</p>
+            <p className="mt-2"><strong>Local ou endereço:</strong> {data.schedule.location_or_link}</p>
             {data.schedule.notes ? <p className="mt-2"><strong>Observações:</strong> {data.schedule.notes}</p> : null}
           </div>
           {error ? <div className="mt-5 rounded-lg bg-redde-50 px-4 py-3 text-sm font-semibold text-redde-700">{error}</div> : null}

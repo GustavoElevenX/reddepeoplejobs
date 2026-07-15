@@ -19,7 +19,7 @@ export function ApplicationTracking() {
     getPublicApplicationTracking(token)
       .then((data) => {
         if (!active) return;
-        if (!data) setError('Link de acompanhamento inválido ou não encontrado.');
+        if (!data) setError('Endereço de acompanhamento inválido ou não encontrado.');
         else setTracking(data);
       })
       .catch(() => active && setError('Não foi possível consultar a candidatura agora.'))

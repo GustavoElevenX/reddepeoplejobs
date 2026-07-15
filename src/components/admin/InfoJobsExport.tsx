@@ -43,7 +43,7 @@ export function buildInfoJobsText(job: Job) {
     'Requisitos:',
     job.requirements || 'Não informados',
     '',
-    `Link de candidatura: ${applicationUrl}`,
+    `Endereço de candidatura: ${applicationUrl}`,
   ].join('\n');
 }
 
