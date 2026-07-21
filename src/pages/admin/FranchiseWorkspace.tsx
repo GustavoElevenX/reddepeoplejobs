@@ -54,6 +54,7 @@ import { getCurrentFranchise } from '../../lib/auth';
 import {
   addChatMessage,
   addDocument,
+  approveBriefingAndPublishJob,
   approveJobDescriptionAndPublish,
   convertOpportunityToProject,
   completePostSaleContact,
@@ -61,14 +62,12 @@ import {
   createReceivableInstallment,
   createSalesOpportunity,
   deleteDocument,
-  generateJobDescription,
   getConversionMissingFields,
   getDefaultBriefingPayload,
   getWorkspaceAlerts,
   listFranchiseWorkspace,
   markTaskDone,
   projectStageLabels,
-  releaseFinalistsToClient,
   salesStageLabels,
   saveBriefing,
   selectFinalist,
@@ -317,7 +316,7 @@ function LeadModal({
   }, [open]);
 
   return (
-    <Modal open={open} title="Nova oportunidade" description="Cadastre o lead comercial e acompanhe ate virar projeto." onClose={onClose}>
+    <Modal open={open} title="Nova oportunidade" description="Cadastre o contato comercial e acompanhe até virar projeto." onClose={onClose}>
       <form
         className="grid gap-4"
         onSubmit={(event) => {
@@ -423,7 +422,7 @@ function FormalizationModal({
     <Modal
       open={open}
       title="Marcar ganho e iniciar projeto"
-      description="Formalize contrato e entrada antes de criar projeto, OS, financeiro, contrato e briefing."
+      description="Formalize contrato e entrada antes de criar projeto, ordem de serviço, financeiro, contrato e levantamento da vaga."
       onClose={onClose}
     >
       <form
@@ -611,7 +610,7 @@ function BriefingModal({
           </Button>
           <Button type="submit">
             <CheckCircle2 size={18} />
-            Aprovar briefing
+            Aprovar levantamento
           </Button>
         </div>
       </form>
@@ -686,6 +685,7 @@ export function FranchiseWorkspace() {
   const [convertingOpportunity, setConvertingOpportunity] = useState(false);
   const [briefingProjectId, setBriefingProjectId] = useState<string | null>(null);
   const [descriptionId, setDescriptionId] = useState<string | null>(null);
+  const [publishingBriefingId, setPublishingBriefingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [quickMessage, setQuickMessage] = useState('');
   const [chatPhone, setChatPhone] = useState('');
@@ -772,6 +772,16 @@ export function FranchiseWorkspace() {
     }
   }
 
+  async function publishBriefing(briefingId: string, payload?: BriefingPayload) {
+    if (publishingBriefingId) return;
+    setPublishingBriefingId(briefingId);
+    try {
+      await safeAction(() => approveBriefingAndPublishJob(briefingId, payload));
+    } finally {
+      setPublishingBriefingId(null);
+    }
+  }
+
   async function openStoredFile(pathOrUrl: string) {
     const target = window.open('about:blank', '_blank');
     if (target) target.opener = null;
@@ -833,7 +843,7 @@ export function FranchiseWorkspace() {
         <AdminStatCard title="Candidatos aprovados" value={stats.approved} icon={CheckCircle2} />
         <AdminStatCard title="Receita prevista" value={money(stats.revenueForecast)} icon={BadgeDollarSign} />
         <AdminStatCard title="Valores a receber" value={money(stats.receivable)} icon={ReceiptText} />
-        <AdminStatCard title="NPS médio" value={stats.nps || '-'} icon={Sparkles} />
+        <AdminStatCard title="Satisfação média" value={stats.nps || '-'} icon={Sparkles} />
         <AdminStatCard title="Alertas pendentes" value={stats.alerts} icon={Bell} />
       </div>
       <Card className="p-5">
@@ -1090,78 +1100,155 @@ export function FranchiseWorkspace() {
     );
   };
 
-  const renderProjects = () => (
-    <div className="grid gap-4">
-      {data.projects.length ? (
-        data.projects.map((project) => {
-          const company = data.companies.find((item) => item.id === project.client_id);
-          const briefing = data.briefings.find((item) => item.project_id === project.id);
-          const draft = data.jobDescriptions.find((item) => item.project_id === project.id);
-          const job = data.jobs.find((item) => item.id === project.job_id);
-          const finalistCount = data.finalists.filter((item) => item.project_id === project.id).length;
-          return (
-            <Card key={project.id} className="p-5">
-              <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-xl font-black text-ink-900">{project.title}</h2>
-                    <Badge>{projectStageLabels[project.stage]}</Badge>
+  const renderProjects = () => {
+    const pendingProjects = data.projects.filter((project) => {
+      const briefing = data.briefings.find((item) => item.project_id === project.id);
+      return !project.job_id && briefing?.status !== 'filled' && briefing?.status !== 'approved';
+    });
+    const approvedProjects = data.projects.filter((project) => {
+      const briefing = data.briefings.find((item) => item.project_id === project.id);
+      return !project.job_id && (briefing?.status === 'filled' || briefing?.status === 'approved');
+    });
+    const columns = [
+      {
+        id: 'request',
+        title: 'Solicitar levantamento',
+        description: 'Clientes com levantamento pendente',
+        count: pendingProjects.length,
+        icon: ClipboardCheck,
+        accent: 'border-t-amber-400',
+        iconStyle: 'bg-amber-100 text-amber-700',
+        badgeStyle: 'bg-amber-100 text-amber-700',
+      },
+      {
+        id: 'approved',
+        title: 'Levantamento aprovado',
+        description: 'Preenchidos e prontos para publicar',
+        count: approvedProjects.length,
+        icon: CheckCircle2,
+        accent: 'border-t-emerald-500',
+        iconStyle: 'bg-emerald-100 text-emerald-700',
+        badgeStyle: 'bg-emerald-100 text-emerald-700',
+      },
+      {
+        id: 'published',
+        title: 'Vaga publicada',
+        description: 'Todas as vagas da plataforma',
+        count: data.jobs.length,
+        icon: BriefcaseBusiness,
+        accent: 'border-t-redde-500',
+        iconStyle: 'bg-redde-50 text-redde-700',
+        badgeStyle: 'bg-redde-50 text-redde-700',
+      },
+    ] as const;
+
+    const projectCard = (project: (typeof data.projects)[number], readyToPublish: boolean) => {
+      const company = data.companies.find((item) => item.id === project.client_id);
+      const briefing = data.briefings.find((item) => item.project_id === project.id);
+      const isPublishing = publishingBriefingId === briefing?.id;
+      return (
+        <article key={project.id} className="rounded-2xl border border-surface-200 bg-white p-4 shadow-sm transition hover:border-redde-200 hover:shadow-card">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="truncate font-black text-ink-900" title={company?.name}>{company?.name ?? 'Cliente'}</h3>
+              <p className="mt-1 truncate text-sm font-semibold text-ink-500" title={project.title}>{project.title}</p>
+            </div>
+            {readyToPublish ? (
+              <button
+                type="button"
+                disabled={!briefing || Boolean(publishingBriefingId)}
+                onClick={() => briefing && void publishBriefing(briefing.id)}
+                aria-label={`Publicar vaga de ${project.title}`}
+                title="Publicar vaga"
+                className="focus-ring flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isPublishing ? <RefreshCw className="animate-spin" size={17} /> : <CheckCircle2 size={18} />}
+              </button>
+            ) : null}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Badge variant={readyToPublish ? 'success' : 'warning'}>{formatOperationalValue(briefing?.status, 'não criado')}</Badge>
+            <span className="text-xs font-semibold text-ink-500">{readyToPublish ? 'Pronto para publicar' : projectStageLabels[project.stage]}</span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-surface-100 pt-3">
+            <Button size="sm" variant="secondary" disabled={!briefing} onClick={() => briefing && copyText(publicUrl(`/briefing/${briefing.secure_token}`))}>
+              <Copy size={15} />
+              Copiar link
+            </Button>
+            <Button size="sm" variant="ghost" disabled={!briefing} onClick={() => setBriefingProjectId(project.id)}>
+              <FileCheck2 size={15} />
+              Abrir levantamento
+            </Button>
+          </div>
+          <Link to={`/admin/franqueado/projetos/${project.id}`} className="mt-2 block text-center text-xs font-bold text-redde-700 hover:text-redde-900">
+            Ver detalhes do projeto
+          </Link>
+        </article>
+      );
+    };
+
+    return (
+      <section className="overflow-hidden rounded-3xl border border-surface-200 bg-white shadow-card">
+        <div className="border-b border-surface-200 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <KanbanSquare size={19} className="text-redde-700" />
+            <h2 className="text-lg font-black text-ink-900">Fluxo de recrutamento e seleção</h2>
+          </div>
+          <p className="mt-1 text-sm text-ink-500">O levantamento enviado avança para a segunda coluna. Publique a vaga pelo check em Levantamento aprovado.</p>
+        </div>
+        <div className="kanban-scroll overflow-x-auto bg-surface-50/70 p-4 sm:p-5">
+          <div className="grid min-w-[930px] grid-cols-3 gap-4">
+            {columns.map((column) => {
+              const Icon = column.icon;
+              return (
+                <div key={column.id} className={`flex min-h-[480px] flex-col overflow-hidden rounded-2xl border border-surface-200 border-t-4 bg-white ${column.accent}`}>
+                  <div className="border-b border-surface-200 px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${column.iconStyle}`}><Icon size={18} /></span>
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-black text-ink-900">{column.title}</h3>
+                          <p className="mt-0.5 text-xs text-ink-500">{column.description}</p>
+                        </div>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-black ${column.badgeStyle}`}>{column.count}</span>
+                    </div>
                   </div>
-                  <p className="mt-1 text-sm text-ink-500">{company?.name ?? 'Cliente'} · {project.next_step}</p>
-                  <p className="mt-3 text-sm text-ink-500">
-                    Levantamento da vaga: <strong>{formatOperationalValue(briefing?.status, 'não criado')}</strong> · Finalistas: <strong>{finalistCount}/3</strong>
-                  </p>
+                  <div className="kanban-column-scroll flex-1 space-y-3 overflow-y-auto bg-surface-50/50 p-3">
+                    {column.id === 'request' ? pendingProjects.map((project) => projectCard(project, false)) : null}
+                    {column.id === 'approved' ? approvedProjects.map((project) => projectCard(project, true)) : null}
+                    {column.id === 'published' ? data.jobs.map((job) => {
+                      const company = job.company ?? data.companies.find((item) => item.id === job.company_id);
+                      return (
+                        <article key={job.id} className="rounded-2xl border border-surface-200 bg-white p-4 shadow-sm transition hover:border-redde-200 hover:shadow-card">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h3 className="font-black leading-snug text-ink-900">{job.title}</h3>
+                              <p className="mt-1 text-sm font-semibold text-ink-500">{company?.name ?? 'Cliente não informado'}</p>
+                            </div>
+                            <Badge variant={job.status === 'open' ? 'success' : 'neutral'}>{jobStatusLabels[job.status]}</Badge>
+                          </div>
+                          <div className="mt-4 flex items-center justify-between gap-2 border-t border-surface-100 pt-3">
+                            <span className="text-xs text-ink-500">{job.open_positions} {job.open_positions === 1 ? 'vaga' : 'vagas'}</span>
+                            {company?.slug ? <Link to={getJobPath(company.slug, job.slug)} className="text-xs font-bold text-redde-700 hover:text-redde-900">Ver vaga</Link> : null}
+                          </div>
+                        </article>
+                      );
+                    }) : null}
+                    {column.count === 0 ? (
+                      <div className="flex min-h-28 items-center justify-center rounded-2xl border border-dashed border-surface-200 bg-white/70 px-5 text-center">
+                        <p className="text-xs font-semibold leading-relaxed text-ink-500">Nenhum item nesta etapa.</p>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {briefing ? (
-                    <Button variant="secondary" onClick={() => copyText(publicUrl(`/briefing/${briefing.secure_token}`))}>
-                      <Copy size={16} />
-                      Copiar endereço do levantamento
-                    </Button>
-                  ) : null}
-                  <Button variant="secondary" onClick={() => setBriefingProjectId(project.id)}>
-                    <FileCheck2 size={16} />
-                    Levantamento da vaga
-                  </Button>
-                  <Link to={`/admin/franqueado/projetos/${project.id}`}>
-                    <Button variant="secondary">
-                      Detalhe
-                    </Button>
-                  </Link>
-                  <Button onClick={() => safeAction(() => generateJobDescription(project.id))}>
-                    <Sparkles size={16} />
-                    Gerar descrição
-                  </Button>
-                  {draft ? (
-                    <Button variant="secondary" onClick={() => setDescriptionId(draft.id)}>
-                      Revisar descrição
-                    </Button>
-                  ) : null}
-                  {job?.company?.slug ? (
-                    <Link to={getJobPath(job.company.slug, job.slug)}>
-                      <Button variant="ghost">Ver vaga</Button>
-                    </Link>
-                  ) : null}
-                  {finalistCount ? (
-                    <Button variant="secondary" onClick={() => safeAction(() => releaseFinalistsToClient(project.id))}>
-                      <Send size={16} />
-                      Liberar portal
-                    </Button>
-                  ) : null}
-                  <Button variant="ghost" onClick={() => copyText(publicUrl(`/portal-cliente/${project.client_access_token}`))}>
-                    <Copy size={16} />
-                    Portal cliente
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          );
-        })
-      ) : (
-        <EmptyState title="Nenhum projeto criado. Converta uma oportunidade ganha no CRM." />
-      )}
-    </div>
-  );
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    );
+  };
 
   const renderCandidates = () => (
     <div className="grid gap-4">
@@ -1218,7 +1305,7 @@ export function FranchiseWorkspace() {
             <div className="mt-4 grid gap-2 text-sm text-ink-600">
               <span>Projetos: <strong>{projects.length}</strong></span>
               <span>Financeiro: <strong>{money(receivables.reduce((sum, item) => sum + item.total_amount, 0))}</strong></span>
-              <span>NPS médio: <strong>{nps.length ? Math.round(nps.reduce((sum, item) => sum + item.score, 0) / nps.length) : '-'}</strong></span>
+              <span>Satisfação média: <strong>{nps.length ? Math.round(nps.reduce((sum, item) => sum + item.score, 0) / nps.length) : '-'}</strong></span>
             </div>
           </Card>
         );
@@ -1960,13 +2047,17 @@ export function FranchiseWorkspace() {
         open={Boolean(briefingProjectId)}
         payload={selectedBriefing?.payload ?? (selectedOpportunity ? getDefaultBriefingPayload(selectedOpportunity, selectedProject?.title) : null)}
         onClose={() => setBriefingProjectId(null)}
-        onSave={(payload, approve) =>
-          safeAction(() => {
+        onSave={(payload, approve) => {
+          if (approve && selectedBriefing) {
+            void publishBriefing(selectedBriefing.id, payload).then(() => setBriefingProjectId(null));
+            return;
+          }
+          void safeAction(async () => {
             if (!selectedBriefing) throw new Error('Levantamento da vaga não encontrado.');
-            saveBriefing(selectedBriefing.id, payload, approve ? 'approved' : 'in_progress', 'franchise');
+            await saveBriefing(selectedBriefing.id, payload, 'in_progress', 'franchise');
             setBriefingProjectId(null);
-          })
-        }
+          });
+        }}
       />
 
       <DescriptionModal

@@ -139,7 +139,7 @@ export function ClientPortal() {
         </Card>
 
         <Card className="p-5">
-          <h2 className="text-xl font-black text-ink-900">NPS do processo</h2>
+          <h2 className="text-xl font-black text-ink-900">Pesquisa de satisfação do processo</h2>
           {data.nps ? <div className="mt-4 rounded-lg bg-surface-50 p-4"><p className="font-black">Nota registrada: {data.nps.score}/10</p><p className="mt-1 text-sm text-ink-500">{data.nps.comment || 'Sem comentário'}</p></div> : data.can_submit_nps ? <form
             className="mt-4 grid gap-4"
             onSubmit={(event) => {
@@ -155,7 +155,7 @@ export function ClientPortal() {
                     referral_possible: form.get('referral_possible') === 'on',
                     referral_contacts: String(form.get('referral_contacts') || ''),
                   }),
-                'NPS registrado. Obrigado pelo retorno.',
+                'Pesquisa de satisfação registrada. Obrigado pelo retorno.',
               );
             }}
           >
@@ -172,9 +172,9 @@ export function ClientPortal() {
             </label>
             <Button type="submit">
               <Send size={18} />
-              Enviar NPS
+              Enviar avaliação
             </Button>
-          </form> : <p className="mt-3 text-sm text-ink-500">O NPS será liberado somente depois que todas as decisões forem finalizadas em conjunto e houver ao menos um candidato aprovado.</p>}
+          </form> : <p className="mt-3 text-sm text-ink-500">A pesquisa de satisfação será liberada somente depois que todas as decisões forem finalizadas em conjunto e houver ao menos um candidato aprovado.</p>}
         </Card>
 
         {selected ? (

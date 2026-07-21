@@ -54,6 +54,37 @@ const tabLabels: Record<Tab, string> = {
   Timeline: 'Linha do tempo',
 };
 
+const rankingCriterionLabels: Record<string, string> = {
+  mandatory_requirements_score: 'Requisitos obrigatórios',
+  experience_score: 'Experiência',
+  technical_skills_score: 'Conhecimentos técnicos',
+  education_score: 'Formação',
+  location_score: 'Localização',
+  availability_score: 'Disponibilidade',
+  salary_score: 'Pretensão salarial',
+  behavioral_indicators_score: 'Indicadores comportamentais',
+};
+
+const interviewScoreLabels: Record<string, string> = {
+  technical_score: 'Nota técnica',
+  behavioral_score: 'Nota comportamental',
+  communication_score: 'Comunicação',
+  culture_score: 'Aderência cultural',
+};
+
+const compatibilityLabels: Record<string, string> = {
+  salary_compatible: 'Pretensão salarial',
+  availability_compatible: 'Disponibilidade',
+  location_compatible: 'Localização',
+};
+
+function formatProjectNextStep(value: string) {
+  return value
+    .replaceAll('Briefing', 'Levantamento da vaga')
+    .replaceAll('briefing', 'levantamento da vaga')
+    .replaceAll('NPS', 'pesquisa de satisfação');
+}
+
 function money(value: number | null | undefined) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value ?? 0);
 }
@@ -165,12 +196,12 @@ export function FranchiseProjectDetail() {
   const report = reportId ? model.finalists.find((item) => item.id === reportId) ?? null : null;
   const summaryCards: Array<[string, LucideIcon, string]> = [
     ['Projeto', BriefcaseBusiness, projectStageLabels[model.project.stage]], ['Recebido', BadgeDollarSign, money(received)],
-    ['Briefing', ClipboardCheck, model.briefing?.status ?? '-'], ['Candidatos', UsersRound, String(model.applications.length)],
-    ['Agenda', CalendarDays, String(model.schedules.length)], ['NFS-e', ReceiptText, model.invoices[0]?.status ?? '-'],
+    ['Levantamento da vaga', ClipboardCheck, formatOperationalValue(model.briefing?.status)], ['Candidatos', UsersRound, String(model.applications.length)],
+    ['Agenda', CalendarDays, String(model.schedules.length)], ['NFS-e', ReceiptText, formatOperationalValue(model.invoices[0]?.status)],
   ];
 
   const simpleText: Partial<Record<Tab, string>> = {
-    Resumo: `${model.company?.name ?? 'Cliente'} · ${projectStageLabels[model.project.stage]} · ${model.project.next_step}`,
+    Resumo: `${model.company?.name ?? 'Cliente'} · ${projectStageLabels[model.project.stage]} · ${formatProjectNextStep(model.project.next_step)}`,
     Cliente: `${model.company?.name ?? '-'} · ${model.company?.legal_name ?? '-'} · ${model.company?.city ?? '-'}`,
     Briefing: `Situação: ${formatOperationalValue(model.briefing?.status)} · Vaga: ${model.briefing?.payload.title ?? '-'}`,
     'Descrição da vaga': `Situação: ${formatOperationalValue(model.description?.status)} · Provedor: ${model.description?.ai_provider ?? '-'}`,
@@ -217,7 +248,7 @@ export function FranchiseProjectDetail() {
             <div><p className="text-sm font-bold">Requisitos atendidos</p><p className="text-sm text-ink-600">{ranking.metRequirements.join(' · ') || 'Nenhuma evidência registrada'}</p></div>
             <div><p className="text-sm font-bold">Requisitos ausentes</p><p className="text-sm text-ink-600">{ranking.missingRequirements.join(' · ') || 'Nenhum'}</p></div>
             <div className="md:col-span-2"><p className="text-sm font-bold">Evidências</p><p className="text-sm text-ink-600">{ranking.evidence.join(' · ') || ranking.summary}</p></div>
-            {Object.entries(ranking.criteria).map(([key, value]) => <div key={key} className="flex justify-between rounded bg-surface-50 p-2 text-sm"><span>{key.replaceAll('_', ' ')}</span><strong>{value}%</strong></div>)}
+            {Object.entries(ranking.criteria).map(([key, value]) => <div key={key} className="flex justify-between rounded bg-surface-50 p-2 text-sm"><span>{rankingCriterionLabels[key] ?? 'Critério'}</span><strong>{value}%</strong></div>)}
           </div> : null}
         </div>;
       })}</div> : null}
@@ -265,14 +296,14 @@ export function FranchiseProjectDetail() {
 
     <Modal open={Boolean(screening)} onClose={() => setScreening(null)} title="Triagem manual obrigatória">{screening ? <div className="grid gap-4">
       <div className="grid gap-3 sm:grid-cols-2"><Select label="Requisitos obrigatórios" value={screening.mandatory_requirements_confirmed ? 'yes' : 'no'} options={[{label:'Não confirmado',value:'no'},{label:'Confirmado',value:'yes'}]} onChange={(e) => setScreening({...screening,mandatory_requirements_confirmed:e.target.value==='yes'})}/>
-        {(['salary_compatible','availability_compatible','location_compatible'] as const).map((key) => <Select key={key} label={key.replaceAll('_',' ')} value={screening[key] === null ? '' : screening[key] ? 'yes':'no'} options={[{label:'Selecione',value:''},{label:'Compatível',value:'yes'},{label:'Incompatível',value:'no'}]} onChange={(e) => setScreening({...screening,[key]:e.target.value ? e.target.value==='yes':null})}/>)}</div>
+        {(['salary_compatible','availability_compatible','location_compatible'] as const).map((key) => <Select key={key} label={compatibilityLabels[key]} value={screening[key] === null ? '' : screening[key] ? 'yes':'no'} options={[{label:'Selecione',value:''},{label:'Compatível',value:'yes'},{label:'Incompatível',value:'no'}]} onChange={(e) => setScreening({...screening,[key]:e.target.value ? e.target.value==='yes':null})}/>)}</div>
       <div className="grid gap-3 sm:grid-cols-2"><Input label="Nota técnica (0-10)" type="number" min="0" max="10" value={screening.technical_score ?? ''} onChange={(e)=>setScreening({...screening,technical_score:e.target.value===''?null:Number(e.target.value)})}/><Input label="Nota comportamental (0-10)" type="number" min="0" max="10" value={screening.behavioral_score ?? ''} onChange={(e)=>setScreening({...screening,behavioral_score:e.target.value===''?null:Number(e.target.value)})}/></div>
       <Textarea label="Perguntas e respostas (pergunta | resposta)" value={screeningAnswers} onChange={(e)=>setScreeningAnswers(e.target.value)}/><Textarea label="Observações do recrutador" value={screening.recruiter_notes} onChange={(e)=>setScreening({...screening,recruiter_notes:e.target.value})}/><Input label="Motivo da reprovação" value={screening.rejection_reason ?? ''} onChange={(e)=>setScreening({...screening,rejection_reason:e.target.value})}/>
       <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void action(() => saveCandidateScreening(screening.id,{...screening,answers:textToAnswers(screeningAnswers)}),'Rascunho salvo.')}>Salvar rascunho</Button><Button onClick={() => void action(() => completeCandidateScreening(screening.id,{...screening,answers:textToAnswers(screeningAnswers)}),'Triagem concluída.')}>Concluir triagem</Button><Button variant="danger" onClick={() => void action(() => rejectCandidateInScreening(screening.id,screening.rejection_reason ?? ''),'Candidato reprovado.')}>Reprovar</Button></div>
     </div> : null}</Modal>
 
     <Modal open={Boolean(interview)} onClose={() => setInterview(null)} title="Entrevista interna obrigatória">{interview ? <div className="grid gap-4"><div className="grid gap-3 sm:grid-cols-2"><Input label="Agendada para" type="datetime-local" value={interview.scheduled_at?.slice(0,16) ?? ''} onChange={(e)=>setInterview({...interview,scheduled_at:e.target.value})}/><Input label="Realizada em" type="datetime-local" value={interview.interviewed_at?.slice(0,16) ?? ''} onChange={(e)=>setInterview({...interview,interviewed_at:e.target.value})}/><Select label="Entrevistador" value={interview.interviewer_id ?? ''} options={[{label:'Selecione',value:''},{label:profile.full_name,value:profile.id}]} onChange={(e)=>setInterview({...interview,interviewer_id:e.target.value||null})}/><Select label="Recomendação" value={interview.recommendation ?? ''} options={[{label:'Selecione',value:''},{label:'Fortemente recomendado',value:'strong_yes'},{label:'Recomendado',value:'yes'},{label:'Com ressalvas',value:'with_reservations'},{label:'Não recomendado',value:'no'}]} onChange={(e)=>setInterview({...interview,recommendation:(e.target.value||null) as InternalInterview['recommendation']})}/></div>
-      <Textarea label="Roteiro e respostas (pergunta | resposta)" value={interviewAnswers} onChange={(e)=>setInterviewAnswers(e.target.value)}/><div className="grid gap-3 sm:grid-cols-2"><Textarea label="Pontos fortes" value={interview.strengths} onChange={(e)=>setInterview({...interview,strengths:e.target.value})}/><Textarea label="Riscos" value={interview.risks} onChange={(e)=>setInterview({...interview,risks:e.target.value})}/></div><div className="grid gap-3 sm:grid-cols-4">{(['technical_score','behavioral_score','communication_score','culture_score'] as const).map((key)=><Input key={key} label={key.replaceAll('_',' ')} type="number" min="0" max="10" value={interview[key] ?? ''} onChange={(e)=>setInterview({...interview,[key]:e.target.value===''?null:Number(e.target.value)})}/>)}</div><Textarea label="Conclusão final" value={interview.conclusion} onChange={(e)=>setInterview({...interview,conclusion:e.target.value})}/><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void action(() => saveInternalInterview(interview.id,{...interview,questions_answers:textToQa(interviewAnswers)}),'Entrevista salva.')}>Salvar</Button><Button variant="secondary" onClick={() => void action(() => scheduleInternalInterview(interview.id,interview.scheduled_at ?? ''),'Entrevista agendada.')}>Agendar</Button><Button onClick={() => void action(() => completeInternalInterview(interview.id,{...interview,questions_answers:textToQa(interviewAnswers)}),'Entrevista concluída.')}>Concluir</Button></div></div> : null}</Modal>
+      <Textarea label="Roteiro e respostas (pergunta | resposta)" value={interviewAnswers} onChange={(e)=>setInterviewAnswers(e.target.value)}/><div className="grid gap-3 sm:grid-cols-2"><Textarea label="Pontos fortes" value={interview.strengths} onChange={(e)=>setInterview({...interview,strengths:e.target.value})}/><Textarea label="Riscos" value={interview.risks} onChange={(e)=>setInterview({...interview,risks:e.target.value})}/></div><div className="grid gap-3 sm:grid-cols-4">{(['technical_score','behavioral_score','communication_score','culture_score'] as const).map((key)=><Input key={key} label={interviewScoreLabels[key]} type="number" min="0" max="10" value={interview[key] ?? ''} onChange={(e)=>setInterview({...interview,[key]:e.target.value===''?null:Number(e.target.value)})}/>)}</div><Textarea label="Conclusão final" value={interview.conclusion} onChange={(e)=>setInterview({...interview,conclusion:e.target.value})}/><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void action(() => saveInternalInterview(interview.id,{...interview,questions_answers:textToQa(interviewAnswers)}),'Entrevista salva.')}>Salvar</Button><Button variant="secondary" onClick={() => void action(() => scheduleInternalInterview(interview.id,interview.scheduled_at ?? ''),'Entrevista agendada.')}>Agendar</Button><Button onClick={() => void action(() => completeInternalInterview(interview.id,{...interview,questions_answers:textToQa(interviewAnswers)}),'Entrevista concluída.')}>Concluir</Button></div></div> : null}</Modal>
 
     <Modal open={Boolean(report)} onClose={() => setReportId(null)} title="Revisar parecer ao cliente">{report ? <div className="grid gap-4"><Textarea rows={14} label="Parecer aprovado para o cliente" value={reportText} onChange={(e)=>setReportText(e.target.value)}/><Button onClick={() => void action(() => saveFinalistReport(report.id,reportText,{...(report.ai_report_payload as FinalistAiReport),client_facing_report:reportText}),'Parecer revisado.')}>Salvar revisão</Button></div> : null}</Modal>
 

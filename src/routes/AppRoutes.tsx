@@ -91,10 +91,11 @@ export function AppRoutes() {
         <Route path="/empresa/:companySlug/vagas/:jobSlug" element={<JobDetail />} />
         <Route path="/candidatura/sucesso" element={<ApplicationSuccess />} />
         <Route path="/acompanhar/:token" element={<ApplicationTracking />} />
-        <Route path="/briefing/:token" element={<PublicBriefing />} />
         <Route path="/portal-cliente/:token" element={<ClientPortal />} />
         <Route path="/confirmar-presenca/:token" element={<CandidateConfirmation />} />
       </Route>
+
+      <Route path="/briefing/:token" element={<PublicBriefing />} />
 
       <Route path="/admin/login" element={<Login />} />
 

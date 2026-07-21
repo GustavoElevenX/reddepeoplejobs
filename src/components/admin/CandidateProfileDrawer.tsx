@@ -142,7 +142,7 @@ function CandidateTestEditor({ assignment, canManage, onSaved }: {
   return <div className="grid gap-3 rounded-xl bg-surface-50 p-4">
     <div className="flex items-start justify-between gap-3">
       <div><p className="font-bold text-ink-900">{assignment.job_test?.name ?? 'Teste'}</p><p className="text-xs text-ink-500">{assignment.job_test?.description ?? 'Sem descriÃ§Ã£o.'}</p></div>
-      <Badge variant={status === 'approved' ? 'success' : status === 'failed' ? 'danger' : 'warning'}>{status}</Badge>
+      <Badge variant={status === 'approved' ? 'success' : status === 'failed' ? 'danger' : 'warning'}>{formatOperationalValue(status)}</Badge>
     </div>
     {canManage ? <>
       <Select label="Resultado" value={status} onChange={(event) => setStatus(event.target.value as ApplicationTestAssignment['status'])} options={[

@@ -110,6 +110,42 @@ export type BriefingPayload = {
     interviewAvailability: string;
     requiredDocuments: string;
     additionalNotes: string;
+    respondentName?: string;
+    companyNameDisclosure?: string;
+    finalistEmail?: string;
+    urgency?: string;
+    educationArea?: string;
+    experienceRequirement?: string;
+    driversLicense?: string;
+    ownVehicle?: string;
+    travelAvailability?: string;
+    candidateRegion?: string;
+    languages?: string;
+    systems?: string;
+    certifications?: string;
+    managesPeople?: string;
+    teamSize?: string;
+    previousRoleIssues?: string;
+    companyDescription?: string;
+    companyValues?: string;
+    leadershipRelationship?: string;
+    cultureMismatch?: string;
+    companyStyle?: string;
+    formalValues?: string;
+    workDays?: string;
+    workHours?: string;
+    weeklyHours?: string;
+    salaryMin?: string;
+    salaryMax?: string;
+    variablePayType?: string;
+    variablePayDetails?: string;
+    healthPlan?: string;
+    dentalPlan?: string;
+    lifeInsurance?: string;
+    benefitDetails?: string;
+    benefitSelections?: string;
+    nonNegotiables?: string;
+    interviewPresentation?: string;
 };
 export type JobBriefing = {
     id: string;
@@ -520,7 +556,7 @@ export type ClientLastHiringActivity = {
     activity_reference_at: string;
 };
 export const salesStageLabels: Record<SalesStage, string> = {
-    new_lead: 'Novo lead',
+    new_lead: 'Novo contato',
     first_contact: 'Primeiro contato',
     qualification: 'Qualificacao',
     proposal_sent: 'Proposta enviada',
@@ -530,8 +566,8 @@ export const salesStageLabels: Record<SalesStage, string> = {
 };
 export const projectStageLabels: Record<ProjectStage, string> = {
     commercial_formalized: 'Comercial formalizado',
-    briefing_pending: 'Briefing pendente',
-    briefing_received: 'Briefing recebido',
+    briefing_pending: 'Levantamento da vaga pendente',
+    briefing_received: 'Levantamento da vaga recebido',
     description_review: 'Descricao em aprovacao',
     job_published: 'Vaga publicada',
     applications_received: 'Candidaturas recebidas',
@@ -542,7 +578,7 @@ export const projectStageLabels: Record<ProjectStage, string> = {
     client_interviews: 'Entrevistas com cliente',
     candidate_approved: 'Candidato aprovado',
     start_informed: 'Inicio informado',
-    nps: 'NPS',
+    nps: 'Pesquisa de satisfação',
     post_sale: 'Pos-venda',
     completed: 'Concluido',
 };
@@ -992,7 +1028,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
         title: opportunity.service_name || `Processo ${opportunity.company_name}`,
         stage: 'briefing_pending',
         priority: 'medium',
-        next_step: 'Enviar ou preencher briefing da vaga',
+        next_step: 'Enviar ou preencher levantamento da vaga',
         client_access_token: makeId(),
         client_decision_status: 'not_started',
         client_decision_finalized_at: null,
@@ -1070,7 +1106,7 @@ export async function convertOpportunityToProject(opportunityId: string) {
         franchise_id: opportunity.franchise_id,
         project_id: project.id,
         opportunity_id: opportunity.id,
-        title: `Briefing pendente para ${opportunity.company_name}`,
+        title: `Levantamento da vaga pendente para ${opportunity.company_name}`,
         type: 'briefing_pending',
         due_at: dateOnly(addDays(new Date(), 1)),
         status: 'open',
@@ -1134,7 +1170,7 @@ export function saveBriefing(briefingIdOrToken: string, payload: BriefingPayload
             next_step: status === 'approved'
                 ? 'Gerar descricao da vaga'
                 : status === 'filled'
-                    ? 'Franqueado revisar briefing'
+                    ? 'Franqueado revisar levantamento da vaga'
                     : undefined,
         });
         return normalizeBriefing(updated);
@@ -1152,9 +1188,9 @@ export async function generateJobDescription(projectId: string) {
     const project = projectData as FranchiseProject;
     const briefing = normalizeBriefing(briefingData as JobBriefing);
     if (!project || !briefing)
-        throw new Error('Projeto ou briefing nao encontrado.');
+        throw new Error('Projeto ou levantamento da vaga não encontrado.');
     if (briefing.status !== 'approved') {
-        throw new Error('A descrição da vaga só pode ser gerada depois que o briefing for aprovado pelo franqueado.');
+        throw new Error('A descrição da vaga só pode ser gerada depois que o levantamento for aprovado pelo franqueado.');
     }
     const { data: generatedData, error } = await supabase.functions.invoke('generate-job-description', {
         body: { briefing: briefing.payload, project },
@@ -1229,7 +1265,7 @@ export async function approveJobDescriptionAndPublish(descriptionId: string, con
     const project = projectData as FranchiseProject;
     const briefing = normalizeBriefing(briefingData as JobBriefing);
     if (!project || !briefing)
-        throw new Error('Projeto ou briefing nao encontrado.');
+        throw new Error('Projeto ou levantamento da vaga não encontrado.');
     const company = await getCompanyForProject(project);
     if (!company)
         throw new Error('Cliente nao encontrado.');
@@ -1237,7 +1273,7 @@ export async function approveJobDescriptionAndPublish(descriptionId: string, con
         await upsertCompany({ ...company, page_status: 'published', name: company.name, slug: company.slug });
     }
     const job = await upsertJob({
-        id: draft.job_id ?? undefined,
+        id: draft.job_id ?? project.job_id ?? undefined,
         franchise_id: project.franchise_id,
         company_id: project.client_id,
         title: content.title,
@@ -1280,6 +1316,71 @@ export async function approveJobDescriptionAndPublish(descriptionId: string, con
         next_step: 'Acompanhar candidaturas e ranking',
     });
     return job;
+}
+function briefingToJobDescription(project: FranchiseProject, payload: BriefingPayload): GeneratedJobDescription {
+    const title = payload.title.trim() || project.title.trim() || 'Nova vaga';
+    const summary = payload.hiringReason.trim()
+        || payload.profileNotes.trim()
+        || `Oportunidade de ${title}.`;
+    return {
+        title,
+        summary,
+        responsibilities: payload.responsibilities.trim() || payload.routine.trim() || summary,
+        mandatoryRequirements: payload.mandatoryRequirements.trim() || payload.technicalSkills.trim(),
+        desirableRequirements: payload.desirableRequirements.trim() || payload.behavioralSkills.trim(),
+        benefits: payload.benefits.trim(),
+        schedule: payload.schedule.trim(),
+        modality: payload.modality,
+        location: payload.cityNeighborhood.trim() || payload.workLocation.trim(),
+        applicationInstructions: 'Candidate-se pela plataforma.',
+        suggestedQuestions: [],
+        rankingCriteria: [],
+    };
+}
+export async function approveBriefingAndPublishJob(briefingId: string, nextPayload?: BriefingPayload) {
+    const { data, error } = await supabase!.from('job_briefings').select('*').eq('id', briefingId).single();
+    if (error)
+        throw error;
+    const briefing = normalizeBriefing(data as JobBriefing);
+    const payload = nextPayload ?? briefing.payload;
+    await saveBriefing(briefing.id, payload, 'approved', 'franchise');
+    const { data: projectData, error: projectError } = await supabase!
+        .from('projects')
+        .select('*')
+        .eq('id', briefing.project_id)
+        .single();
+    if (projectError)
+        throw projectError;
+    const project = projectData as FranchiseProject;
+    const { data: descriptionData, error: descriptionError } = await supabase!
+        .from('job_descriptions')
+        .select('*')
+        .eq('project_id', project.id)
+        .maybeSingle();
+    if (descriptionError)
+        throw descriptionError;
+    const existingDescription = descriptionData ? normalizeDescription(descriptionData as JobDescriptionDraft) : null;
+    const content = existingDescription?.content ?? briefingToJobDescription(project, payload);
+    const timestamp = todayIso();
+    const description = existingDescription
+        ? await updateRemote<JobDescriptionDraft>('job_descriptions', existingDescription.id, {
+            content,
+            status: 'generated',
+            job_id: existingDescription.job_id ?? project.job_id,
+        })
+        : await insertRemote<JobDescriptionDraft>('job_descriptions', {
+            id: makeId(),
+            franchise_id: project.franchise_id,
+            project_id: project.id,
+            briefing_id: briefing.id,
+            status: 'generated',
+            content,
+            job_id: project.job_id,
+            ai_provider: 'local',
+            created_at: timestamp,
+            updated_at: timestamp,
+        });
+    return approveJobDescriptionAndPublish(description.id, content);
 }
 async function getCompanyForProject(project: FranchiseProject) {
     const companies = await listCompanies({ franchiseId: project.franchise_id });
@@ -1676,7 +1777,7 @@ export async function saveHiringDecision(finalistId: string, input: Omit<HiringD
     if (input.decision === 'approved') {
         await updateRemote<FranchiseProject>('projects', finalist.project_id, {
             stage: 'candidate_approved',
-            next_step: 'Enviar NPS e iniciar pos-venda',
+            next_step: 'Enviar pesquisa de satisfação e iniciar pós-venda',
         });
         const { data: serviceOrder } = await supabase!
             .from('service_orders')
@@ -1935,7 +2036,7 @@ export function getWorkspaceAlerts(data: FranchiseWorkspaceData) {
             .map((item) => ({ id: item.id, title: `Lead sem follow-up: ${item.company_name}`, type: 'lead_followup' })),
         ...data.briefings
             .filter((item) => ['sent', 'in_progress', 'needs_adjustment'].includes(item.status))
-            .map((item) => ({ id: item.id, title: 'Briefing pendente de preenchimento/aprovacao', type: 'briefing' })),
+            .map((item) => ({ id: item.id, title: 'Levantamento da vaga pendente de preenchimento ou aprovação', type: 'briefing' })),
         ...data.jobDescriptions
             .filter((item) => ['generated', 'edited'].includes(item.status))
             .map((item) => ({ id: item.id, title: `Descricao aguardando aprovacao: ${item.content.title}`, type: 'description' })),
